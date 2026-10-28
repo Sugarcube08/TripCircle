@@ -11,8 +11,8 @@ import {
   Platform,
   ScrollView,
   Image,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
@@ -53,7 +53,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

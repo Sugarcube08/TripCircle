@@ -11,10 +11,11 @@ const Tab = createBottomTabNavigator();
 
 interface MainTabProps {
   user: any;
+  setUser?: (u: any) => void;
   onLogout: () => void;
 }
 
-export const MainTabNavigator: React.FC<MainTabProps> = ({ user, onLogout }) => {
+export const MainTabNavigator: React.FC<MainTabProps> = ({ user, setUser, onLogout }) => {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -82,7 +83,14 @@ export const MainTabNavigator: React.FC<MainTabProps> = ({ user, onLogout }) => 
           ),
         }}
       >
-        {(props) => <UserProfileScreen {...props} user={user} onLogout={onLogout} />}
+        {(props) => (
+          <UserProfileScreen
+            {...props}
+            user={user}
+            onUpdateUser={setUser}
+            onLogout={onLogout}
+          />
+        )}
       </Tab.Screen>
     </Tab.Navigator>
   );

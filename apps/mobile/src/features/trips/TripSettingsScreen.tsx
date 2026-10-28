@@ -7,8 +7,8 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -128,7 +128,7 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

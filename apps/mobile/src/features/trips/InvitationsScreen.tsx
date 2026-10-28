@@ -7,9 +7,9 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -68,7 +68,7 @@ export const InvitationsScreen: React.FC<InvitationsScreenProps> = ({ navigation
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

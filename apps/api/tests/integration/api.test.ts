@@ -33,6 +33,7 @@ describe('TripCircle End-to-End Financial & Lifecycle Integration Test', () => {
       name: 'User A',
       email: 'test.a@tripcircle.app',
       password: 'Password@123',
+      paymentQrUrl: 'https://storage.tripcircle.app/qrs/user_a.png',
     });
     userA = await prisma.user.update({
       where: { email: 'test.a@tripcircle.app' },
@@ -43,6 +44,7 @@ describe('TripCircle End-to-End Financial & Lifecycle Integration Test', () => {
       name: 'User B',
       email: 'test.b@tripcircle.app',
       password: 'Password@123',
+      paymentQrUrl: 'https://storage.tripcircle.app/qrs/user_b.png',
     });
     userB = await prisma.user.update({
       where: { email: 'test.b@tripcircle.app' },
@@ -53,6 +55,7 @@ describe('TripCircle End-to-End Financial & Lifecycle Integration Test', () => {
       name: 'User C',
       email: 'test.c@tripcircle.app',
       password: 'Password@123',
+      paymentQrUrl: 'https://storage.tripcircle.app/qrs/user_c.png',
     });
     userC = await prisma.user.update({
       where: { email: 'test.c@tripcircle.app' },
@@ -63,6 +66,7 @@ describe('TripCircle End-to-End Financial & Lifecycle Integration Test', () => {
       name: 'User D',
       email: 'test.d@tripcircle.app',
       password: 'Password@123',
+      paymentQrUrl: 'https://storage.tripcircle.app/qrs/user_d.png',
     });
     userD = await prisma.user.update({
       where: { email: 'test.d@tripcircle.app' },

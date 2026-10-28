@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
+  Modal,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LocalDatabase } from '../../storage/db';
@@ -26,6 +28,8 @@ interface TripDashboardScreenProps {
   user: any;
 }
 
+type LedgerFilter = 'LEDGER' | 'EXPENSES' | 'PAYMENTS';
+
 export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   route,
   navigation,
@@ -34,18 +38,26 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   const { tripId } = route.params;
   const [trip, setTrip] = useState<any>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [settlement, setSettlement] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'EXPENSES'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<LedgerFilter>('LEDGER');
+  const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
   const loadTripData = useCallback(async () => {
     try {
-      const [tripData, expensesData] = await Promise.all([
+      const [tripData, expensesData, paymentsData, settlementData] = await Promise.all([
         apiRequest(`/trips/${tripId}`),
-        apiRequest(`/trips/${tripId}/expenses`),
+        apiRequest(`/trips/${tripId}/expenses`).catch(() => []),
+        apiRequest(`/trips/${tripId}/payments`).catch(() => []),
+        apiRequest(`/trips/${tripId}/settlement`).catch(() => null),
       ]);
+
       setTrip(tripData);
       setExpenses(expensesData || []);
+      setPayments(paymentsData || []);
+      setSettlement(settlementData);
 
       LocalDatabase.saveTripDetail(tripId, tripData);
       LocalDatabase.saveExpenses(tripId, expensesData || []);
@@ -71,25 +83,100 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
     loadTripData();
   };
 
+  // Unified chronological ledger entries
+  const unifiedLedger = useMemo(() => {
+    type LedgerItem = {
+      id: string;
+      itemType: 'EXPENSE' | 'PAYMENT';
+      date: string;
+      title: string;
+      subtitle: string;
+      amountPaise: number;
+      payerName: string;
+      payerAvatar?: string | null;
+      beneficiarySummary?: string;
+      paymentStatus?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
+      receiptUrl?: string | null;
+      raw: any;
+    };
+
+    const items: LedgerItem[] = [];
+
+    for (const exp of expenses) {
+      const splitCount = exp.splits?.length || 0;
+      const payerName = exp.payerMember?.user?.name || 'Someone';
+      items.push({
+        id: `exp-${exp.id}`,
+        itemType: 'EXPENSE',
+        date: exp.date || exp.createdAt,
+        title: exp.description,
+        subtitle: `${exp.category?.name || 'General'} • Paid by ${payerName}`,
+        amountPaise: exp.amountPaise,
+        payerName,
+        payerAvatar: exp.payerMember?.user?.avatarUrl,
+        beneficiarySummary: `Split across ${splitCount} member${splitCount === 1 ? '' : 's'}`,
+        receiptUrl: exp.receiptUrl,
+        raw: exp,
+      });
+    }
+
+    for (const p of payments) {
+      const payerName = p.payerMember?.user?.name || 'Someone';
+      const receiverName = p.receiverMember?.user?.name || 'Someone';
+      items.push({
+        id: `pmt-${p.id}`,
+        itemType: 'PAYMENT',
+        date: p.createdAt,
+        title: `Payment: ${payerName} → ${receiverName}`,
+        subtitle: `${p.paymentMethod || 'UPI'} • ${p.status}`,
+        amountPaise: p.amountPaise,
+        payerName,
+        payerAvatar: p.payerMember?.user?.avatarUrl,
+        beneficiarySummary: `To: ${receiverName}`,
+        paymentStatus: p.status,
+        receiptUrl: p.receiptUrl,
+        raw: p,
+      });
+    }
+
+    // Sort descending by date
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [expenses, payments]);
+
   if (loading && !refreshing) {
-    return <LoadingIndicator message="Loading trip..." />;
+    return <LoadingIndicator message="Loading trip ledger..." />;
   }
 
   if (!trip) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <EmptyState title="Trip Not Found" message="Could not load trip details." />
       </SafeAreaView>
     );
   }
 
-  const userBalance = trip.userNetBalancePaise || 0;
-  const youAreOwed = userBalance > 0 ? userBalance : 0;
-  const youOwe = userBalance < 0 ? Math.abs(userBalance) : 0;
+  // Exact paise balance calculations directly from backend
+  const userNetBalancePaise = trip.userNetBalancePaise ?? 0;
+  const isNetOwed = userNetBalancePaise > 0;
+  const isNetOwing = userNetBalancePaise < 0;
+  const isSettled = userNetBalancePaise === 0;
+
+  // Bilateral totals
+  const obligations = settlement?.bilateralObligations || [];
+  let totalYouAreOwed = 0;
+  let totalYouOwe = 0;
+  for (const ob of obligations) {
+    if (ob.amountPaise > 0) {
+      totalYouAreOwed += ob.amountPaise;
+    } else if (ob.amountPaise < 0) {
+      totalYouOwe += Math.abs(ob.amountPaise);
+    }
+  }
+
   const isTripClosed = trip.status === 'CLOSED';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
       {/* Top Navigation Bar */}
@@ -106,13 +193,24 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           {trip.name}
         </Text>
 
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={() => navigation.navigate('TripSettings', { tripId })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="ellipsis-horizontal" size={22} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
+        <View style={styles.navRightActions}>
+          <TouchableOpacity
+            style={styles.navBtn}
+            onPress={() => navigation.navigate('ExportReport', { tripId })}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Export Report"
+          >
+            <Ionicons name="download-outline" size={22} color={THEME.colors.primary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navBtn}
+            onPress={() => navigation.navigate('TripSettings', { tripId })}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={THEME.colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -131,7 +229,12 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
                 <Ionicons name="lock-closed" size={12} color="#64748B" style={{ marginRight: 3 }} />
                 <Text style={styles.closedPillText}>Closed</Text>
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.activePill}>
+                <View style={styles.activeDot} />
+                <Text style={styles.activePillText}>Active</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.metaInfoRow}>
@@ -152,42 +255,77 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           </View>
         </View>
 
-        {/* Balance Cards: You Are Owed / You Owe */}
-        <View style={styles.balanceCardsRow}>
-          <View style={[styles.balanceCard, youAreOwed > 0 && styles.activeCreditCard]}>
-            <View style={styles.balanceCardHeader}>
-              <Text style={styles.balanceCardLabel}>YOU ARE OWED</Text>
+        {/* YOUR TRIP BALANCE HERO SECTION */}
+        <View style={styles.balanceHeroCard}>
+          <View style={styles.balanceHeroTop}>
+            <Text style={styles.balanceHeroLabel}>YOUR TRIP BALANCE</Text>
+            <View
+              style={[
+                styles.balanceStatusBadge,
+                isNetOwed && styles.balanceBadgeCredit,
+                isNetOwing && styles.balanceBadgeDebt,
+                isSettled && styles.balanceBadgeSettled,
+              ]}
+            >
               <Ionicons
-                name="arrow-down-circle"
-                size={16}
-                color={youAreOwed > 0 ? THEME.colors.credit : THEME.colors.textMuted}
+                name={isNetOwed ? 'arrow-down' : isNetOwing ? 'arrow-up' : 'checkmark'}
+                size={12}
+                color={isNetOwed ? '#00F5A0' : isNetOwing ? '#EF4444' : '#94A3B8'}
+                style={{ marginRight: 3 }}
               />
+              <Text
+                style={[
+                  styles.balanceBadgeText,
+                  isNetOwed && { color: '#00F5A0' },
+                  isNetOwing && { color: '#EF4444' },
+                ]}
+              >
+                {isNetOwed ? 'Net Creditor' : isNetOwing ? 'Net Debtor' : 'All Settled'}
+              </Text>
             </View>
-            <AmountText
-              paise={youAreOwed}
-              size="large"
-              colorType={youAreOwed > 0 ? 'credit' : 'neutral'}
-            />
           </View>
 
-          <View style={[styles.balanceCard, youOwe > 0 && styles.activeDebtCard]}>
-            <View style={styles.balanceCardHeader}>
-              <Text style={styles.balanceCardLabel}>YOU OWE</Text>
-              <Ionicons
-                name="arrow-up-circle"
-                size={16}
-                color={youOwe > 0 ? THEME.colors.debt : THEME.colors.textMuted}
-              />
-            </View>
+          <View style={styles.balanceHeroAmountRow}>
             <AmountText
-              paise={-youOwe}
+              paise={userNetBalancePaise}
               size="large"
-              colorType={youOwe > 0 ? 'debt' : 'neutral'}
+              colorType={isNetOwed ? 'credit' : isNetOwing ? 'debt' : 'neutral'}
             />
+            <Text style={styles.balanceHeroSub}>
+              {isNetOwed
+                ? 'You are owed in total for this trip'
+                : isNetOwing
+                ? 'You owe in total for this trip'
+                : 'Your balance is exactly settled'}
+            </Text>
+          </View>
+
+          {/* Bilateral Breakdown Row */}
+          <View style={styles.breakdownRow}>
+            <View style={styles.breakdownCol}>
+              <Text style={styles.breakdownLabel}>YOU ARE OWED</Text>
+              <Text style={[styles.breakdownValue, { color: '#00F5A0' }]}>
+                ₹{(totalYouAreOwed / 100).toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownCol}>
+              <Text style={styles.breakdownLabel}>YOU OWE</Text>
+              <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>
+                ₹{(totalYouOwe / 100).toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownCol}>
+              <Text style={styles.breakdownLabel}>TOTAL SPENT</Text>
+              <Text style={styles.breakdownValue}>
+                ₹{((trip.totalSpentPaise || 0) / 100).toFixed(2)}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Action Buttons: Add Expense / Add Payment */}
+        {/* Primary Action Buttons: Add Expense / Record Payment */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.expenseBtn]}
@@ -210,30 +348,43 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Settlement Hub Banner */}
-        <TouchableOpacity
-          style={styles.settlementBanner}
-          onPress={() => navigation.navigate('SettlementDashboard', { tripId })}
-          activeOpacity={0.85}
-        >
-          <View style={styles.settlementBannerLeft}>
-            <View style={styles.settlementIconBox}>
-              <Ionicons name="git-network-outline" size={20} color="#FFFFFF" />
+        {/* Shortcuts Bar: Settlement Plan & Export Report */}
+        <View style={styles.secondaryActionsRow}>
+          <TouchableOpacity
+            style={styles.shortcutCard}
+            onPress={() => navigation.navigate('SettlementDashboard', { tripId })}
+            activeOpacity={0.85}
+          >
+            <View style={styles.shortcutIconBox}>
+              <Ionicons name="git-network-outline" size={18} color="#FFFFFF" />
             </View>
-            <View>
-              <Text style={styles.settlementTitle}>Settlement Plan</Text>
-              <Text style={styles.settlementSub}>Smart greedy debt simplification</Text>
+            <View style={styles.shortcutTextCol}>
+              <Text style={styles.shortcutTitle}>Settlement Plan</Text>
+              <Text style={styles.shortcutSubtitle}>Simplified greedy transactions</Text>
             </View>
-          </View>
-          <View style={styles.settlementArrow}>
-            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
+            <Ionicons name="chevron-forward" size={16} color={THEME.colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.shortcutCard}
+            onPress={() => navigation.navigate('ExportReport', { tripId })}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.shortcutIconBox, { backgroundColor: '#3B82F6' }]}>
+              <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
+            </View>
+            <View style={styles.shortcutTextCol}>
+              <Text style={styles.shortcutTitle}>Export Report</Text>
+              <Text style={styles.shortcutSubtitle}>Official PDF / XLSX audit sheet</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={THEME.colors.textMuted} />
+          </TouchableOpacity>
+        </View>
 
         {/* Members Strip */}
         <View style={styles.membersStrip}>
           <View style={styles.membersHeader}>
-            <Text style={styles.sectionHeaderTitle}>MEMBERS ({trip.members?.length || 0})</Text>
+            <Text style={styles.sectionHeaderTitle}>TRIP MEMBERS ({trip.members?.length || 0})</Text>
             <TouchableOpacity onPress={() => navigation.navigate('TripMembers', { tripId })}>
               <Text style={styles.viewAllText}>Manage</Text>
             </TouchableOpacity>
@@ -244,7 +395,6 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.avatarRow}
           >
-            {/* Quick Invite Button */}
             <TouchableOpacity
               style={styles.inviteMemberBtn}
               onPress={() => navigation.navigate('TripMembers', { tripId })}
@@ -270,75 +420,255 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           </ScrollView>
         </View>
 
-        {/* Segmented Tab Control */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'OVERVIEW' && styles.activeTabItem]}
-            onPress={() => setActiveTab('OVERVIEW')}
-          >
-            <Text style={[styles.tabText, activeTab === 'OVERVIEW' && styles.activeTabText]}>
-              Overview
+        {/* COMPLETE CONSOLIDATED LEDGER SECTION */}
+        <View style={styles.ledgerSection}>
+          <View style={styles.ledgerHeader}>
+            <Text style={styles.sectionHeaderTitle}>COMPLETE FINANCIAL LEDGER</Text>
+            <Text style={styles.ledgerCountText}>
+              {unifiedLedger.length} transaction{unifiedLedger.length === 1 ? '' : 's'}
             </Text>
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={[styles.tabItem, activeTab === 'EXPENSES' && styles.activeTabItem]}
-            onPress={() => setActiveTab('EXPENSES')}
-          >
-            <Text style={[styles.tabText, activeTab === 'EXPENSES' && styles.activeTabText]}>
-              All Expenses ({expenses.length})
-            </Text>
-          </TouchableOpacity>
+          {/* Segmented Filter Control */}
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'LEDGER' && styles.activeTabItem]}
+              onPress={() => setActiveTab('LEDGER')}
+            >
+              <Text style={[styles.tabText, activeTab === 'LEDGER' && styles.activeTabText]}>
+                All Ledger ({unifiedLedger.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'EXPENSES' && styles.activeTabItem]}
+              onPress={() => setActiveTab('EXPENSES')}
+            >
+              <Text style={[styles.tabText, activeTab === 'EXPENSES' && styles.activeTabText]}>
+                Expenses ({expenses.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'PAYMENTS' && styles.activeTabItem]}
+              onPress={() => setActiveTab('PAYMENTS')}
+            >
+              <Text style={[styles.tabText, activeTab === 'PAYMENTS' && styles.activeTabText]}>
+                Payments ({payments.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Ledger Content List */}
+          {activeTab === 'LEDGER' && (
+            <View style={styles.entriesList}>
+              {unifiedLedger.length === 0 ? (
+                <EmptyState
+                  title="No Transactions Recorded"
+                  message="Use the buttons above to add the first expense or record a settlement payment."
+                />
+              ) : (
+                unifiedLedger.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.ledgerCard}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (item.itemType === 'EXPENSE') {
+                        navigation.navigate('ExpenseDetail', { tripId, expenseId: item.raw.id });
+                      } else {
+                        navigation.navigate('PaymentDetail', { tripId, paymentId: item.raw.id });
+                      }
+                    }}
+                  >
+                    <View style={styles.ledgerCardLeft}>
+                      <View
+                        style={[
+                          styles.ledgerIconCircle,
+                          item.itemType === 'EXPENSE'
+                            ? styles.expenseIconBg
+                            : styles.paymentIconBg,
+                        ]}
+                      >
+                        <Ionicons
+                          name={item.itemType === 'EXPENSE' ? 'receipt-outline' : 'paper-plane-outline'}
+                          size={18}
+                          color={item.itemType === 'EXPENSE' ? THEME.colors.primary : '#8B5CF6'}
+                        />
+                      </View>
+
+                      <View style={styles.ledgerInfo}>
+                        <Text style={styles.ledgerTitle} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        <Text style={styles.ledgerSubtitle} numberOfLines={1}>
+                          {item.subtitle}
+                        </Text>
+                        <View style={styles.beneficiaryRow}>
+                          <Ionicons name="people" size={11} color={THEME.colors.textMuted} />
+                          <Text style={styles.beneficiaryText}>{item.beneficiarySummary}</Text>
+                          <Text style={styles.dateSeparator}>•</Text>
+                          <Text style={styles.dateText}>{formatDate(item.date)}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.ledgerCardRight}>
+                      <AmountText
+                        paise={item.amountPaise}
+                        size="medium"
+                        colorType={item.itemType === 'EXPENSE' ? 'neutral' : 'credit'}
+                      />
+
+                      <View style={styles.badgeRow}>
+                        {item.paymentStatus ? (
+                          <View
+                            style={[
+                              styles.statusBadgeSmall,
+                              item.paymentStatus === 'CONFIRMED' && styles.statusBadgeConfirmed,
+                              item.paymentStatus === 'PENDING' && styles.statusBadgePending,
+                              item.paymentStatus === 'DISPUTED' && styles.statusBadgeDisputed,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeSmallText,
+                                item.paymentStatus === 'CONFIRMED' && { color: '#059669' },
+                                item.paymentStatus === 'PENDING' && { color: '#D97706' },
+                                item.paymentStatus === 'DISPUTED' && { color: '#DC2626' },
+                              ]}
+                            >
+                              {item.paymentStatus}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {item.receiptUrl ? (
+                          <TouchableOpacity
+                            onPress={() => setPreviewReceiptUrl(item.receiptUrl!)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="image-outline" size={16} color={THEME.colors.primary} />
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
+
+          {activeTab === 'EXPENSES' && (
+            <View style={styles.entriesList}>
+              {expenses.length === 0 ? (
+                <EmptyState
+                  title="No Expenses Recorded"
+                  message="Tap '+ Add Expense' to record shared purchases."
+                />
+              ) : (
+                expenses.map((exp) => (
+                  <ExpenseRow
+                    key={exp.id}
+                    expense={exp}
+                    currentUserId={user?.id}
+                    onPress={() => navigation.navigate('ExpenseDetail', { tripId, expenseId: exp.id })}
+                  />
+                ))
+              )}
+            </View>
+          )}
+
+          {activeTab === 'PAYMENTS' && (
+            <View style={styles.entriesList}>
+              {payments.length === 0 ? (
+                <EmptyState
+                  title="No Payments Recorded"
+                  message="Tap 'Record Payment' when a debt settlement transaction occurs."
+                />
+              ) : (
+                payments.map((p) => {
+                  const payerName = p.payerMember?.user?.name || 'Someone';
+                  const receiverName = p.receiverMember?.user?.name || 'Someone';
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.ledgerCard}
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('PaymentDetail', { tripId, paymentId: p.id })}
+                    >
+                      <View style={styles.ledgerCardLeft}>
+                        <View style={[styles.ledgerIconCircle, styles.paymentIconBg]}>
+                          <Ionicons name="paper-plane-outline" size={18} color="#8B5CF6" />
+                        </View>
+                        <View style={styles.ledgerInfo}>
+                          <Text style={styles.ledgerTitle}>
+                            {payerName} → {receiverName}
+                          </Text>
+                          <Text style={styles.ledgerSubtitle}>
+                            Method: {p.paymentMethod || 'UPI'}
+                          </Text>
+                          <Text style={styles.dateText}>{formatDate(p.createdAt)}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.ledgerCardRight}>
+                        <AmountText paise={p.amountPaise} size="medium" colorType="neutral" />
+                        <View
+                          style={[
+                            styles.statusBadgeSmall,
+                            p.status === 'CONFIRMED' && styles.statusBadgeConfirmed,
+                            p.status === 'PENDING' && styles.statusBadgePending,
+                            p.status === 'DISPUTED' && styles.statusBadgeDisputed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusBadgeSmallText,
+                              p.status === 'CONFIRMED' && { color: '#059669' },
+                              p.status === 'PENDING' && { color: '#D97706' },
+                              p.status === 'DISPUTED' && { color: '#DC2626' },
+                            ]}
+                          >
+                            {p.status}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+          )}
         </View>
+      </ScrollView>
 
-        {/* Tab Content */}
-        {activeTab === 'OVERVIEW' ? (
-          <View style={styles.overviewSection}>
-            <View style={styles.recentActivityHeader}>
-              <Text style={styles.sectionHeaderTitle}>RECENT EXPENSES</Text>
-              {expenses.length > 5 ? (
-                <TouchableOpacity onPress={() => setActiveTab('EXPENSES')}>
-                  <Text style={styles.viewAllText}>See all ({expenses.length})</Text>
-                </TouchableOpacity>
-              ) : null}
+      {/* Fullscreen Receipt Preview Modal */}
+      <Modal
+        visible={!!previewReceiptUrl}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewReceiptUrl(null)}
+      >
+        <View style={styles.receiptModalOverlay}>
+          <View style={styles.receiptModalCard}>
+            <View style={styles.receiptModalHeader}>
+              <Text style={styles.receiptModalTitle}>Receipt Attachment</Text>
+              <TouchableOpacity onPress={() => setPreviewReceiptUrl(null)}>
+                <Ionicons name="close-circle" size={26} color={THEME.colors.textMuted} />
+              </TouchableOpacity>
             </View>
 
-            {expenses.length === 0 ? (
-              <EmptyState
-                title="No Expenses Yet"
-                message="Tap '+ Add Expense' above to record the first transaction for this trip."
+            {previewReceiptUrl ? (
+              <Image
+                source={{ uri: previewReceiptUrl }}
+                style={styles.receiptImage}
+                resizeMode="contain"
               />
-            ) : (
-              expenses.slice(0, 5).map((exp) => (
-                <ExpenseRow
-                  key={exp.id}
-                  expense={exp}
-                  currentUserId={user?.id}
-                  onPress={() => navigation.navigate('ExpenseDetail', { tripId, expenseId: exp.id })}
-                />
-              ))
-            )}
+            ) : null}
           </View>
-        ) : (
-          <View style={styles.expensesListSection}>
-            {expenses.length === 0 ? (
-              <EmptyState
-                title="No Expenses Yet"
-                message="Tap '+ Add Expense' to record shared purchases."
-              />
-            ) : (
-              expenses.map((exp) => (
-                <ExpenseRow
-                  key={exp.id}
-                  expense={exp}
-                  currentUserId={user?.id}
-                  onPress={() => navigation.navigate('ExpenseDetail', { tripId, expenseId: exp.id })}
-                />
-              ))
-            )}
-          </View>
-        )}
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -368,15 +698,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  navRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   navTitle: {
     ...THEME.typography.h3,
     fontSize: 17,
-    maxWidth: '65%',
+    maxWidth: '55%',
   },
   titleSection: {
     paddingHorizontal: THEME.spacing.md,
     paddingTop: THEME.spacing.md,
-    paddingBottom: THEME.spacing.sm,
+    paddingBottom: THEME.spacing.xs,
   },
   titleRow: {
     flexDirection: 'row',
@@ -385,7 +720,7 @@ const styles = StyleSheet.create({
   },
   tripTitle: {
     ...THEME.typography.h1,
-    fontSize: 24,
+    fontSize: 22,
     color: THEME.colors.textPrimary,
   },
   closedPill: {
@@ -400,6 +735,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: THEME.borderRadius.full,
+    gap: 4,
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  activePillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
   },
   metaInfoRow: {
     flexDirection: 'row',
@@ -416,46 +771,91 @@ const styles = StyleSheet.create({
     ...THEME.typography.bodySmall,
     fontSize: 13,
   },
-  balanceCardsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: THEME.spacing.md,
-    gap: 12,
+  balanceHeroCard: {
+    backgroundColor: THEME.colors.darkCanvas,
+    borderRadius: THEME.borderRadius.xl,
+    marginHorizontal: THEME.spacing.md,
     marginVertical: THEME.spacing.sm,
+    padding: THEME.spacing.lg,
+    ...THEME.shadows.md,
   },
-  balanceCard: {
-    flex: 1,
-    backgroundColor: THEME.colors.card,
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    ...THEME.shadows.sm,
-  },
-  activeCreditCard: {
-    borderColor: THEME.colors.creditBorder,
-    backgroundColor: THEME.colors.creditBg,
-  },
-  activeDebtCard: {
-    borderColor: THEME.colors.debtBorder,
-    backgroundColor: THEME.colors.debtBg,
-  },
-  balanceCardHeader: {
+  balanceHeroTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  balanceCardLabel: {
-    fontSize: 10,
+  balanceHeroLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+  },
+  balanceStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: THEME.borderRadius.full,
+  },
+  balanceBadgeCredit: {
+    backgroundColor: 'rgba(0, 245, 160, 0.15)',
+  },
+  balanceBadgeDebt: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  balanceBadgeSettled: {
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+  },
+  balanceBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
+    color: '#FFFFFF',
+  },
+  balanceHeroAmountRow: {
+    marginBottom: 16,
+  },
+  balanceHeroSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 12,
+  },
+  breakdownCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  breakdownLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748B',
     letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  breakdownDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   actionsRow: {
     flexDirection: 'row',
     paddingHorizontal: THEME.spacing.md,
     gap: 12,
-    marginVertical: THEME.spacing.sm,
+    marginTop: THEME.spacing.xs,
+    marginBottom: THEME.spacing.xs,
   },
   actionBtn: {
     flex: 1,
@@ -479,63 +879,57 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  settlementBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: THEME.colors.darkCanvas,
-    marginHorizontal: THEME.spacing.md,
-    marginTop: THEME.spacing.xs,
-    marginBottom: THEME.spacing.md,
+  secondaryActionsRow: {
     paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
+    gap: 8,
+    marginVertical: THEME.spacing.xs,
+  },
+  shortcutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.card,
+    padding: 12,
     borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
     ...THEME.shadows.sm,
   },
-  settlementBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  settlementIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 245, 160, 0.15)',
+  shortcutIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: THEME.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  settlementTitle: {
+  shortcutTextCol: {
+    flex: 1,
+  },
+  shortcutTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: THEME.colors.textPrimary,
   },
-  settlementSub: {
+  shortcutSubtitle: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: THEME.colors.textSecondary,
     marginTop: 1,
   },
-  settlementArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   membersStrip: {
-    paddingHorizontal: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
+    marginTop: THEME.spacing.sm,
+    marginBottom: THEME.spacing.sm,
   },
   membersHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: THEME.spacing.md,
     marginBottom: THEME.spacing.sm,
   },
   sectionHeaderTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: THEME.colors.textSecondary,
     letterSpacing: 0.6,
   },
@@ -545,21 +939,8 @@ const styles = StyleSheet.create({
     color: THEME.colors.primary,
   },
   avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 2,
-  },
-  avatarItem: {
-    alignItems: 'center',
-    width: 52,
-  },
-  avatarName: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: THEME.colors.textSecondary,
-    marginTop: 4,
-    textAlign: 'center',
+    paddingHorizontal: THEME.spacing.md,
+    gap: 12,
   },
   inviteMemberBtn: {
     alignItems: 'center',
@@ -574,11 +955,37 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.colors.primaryLight,
+    marginBottom: 4,
+  },
+  avatarItem: {
+    alignItems: 'center',
+    width: 52,
+  },
+  avatarName: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  ledgerSection: {
+    marginTop: THEME.spacing.xs,
+  },
+  ledgerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.xs,
+  },
+  ledgerCountText: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    fontWeight: '600',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: '#E2E8F0',
     marginHorizontal: THEME.spacing.md,
     borderRadius: THEME.borderRadius.md,
     padding: 3,
@@ -586,7 +993,7 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
     borderRadius: THEME.borderRadius.sm,
   },
@@ -595,25 +1002,138 @@ const styles = StyleSheet.create({
     ...THEME.shadows.sm,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: THEME.colors.textSecondary,
   },
   activeTabText: {
-    color: THEME.colors.textPrimary,
+    color: THEME.colors.primary,
     fontWeight: '700',
   },
-  overviewSection: {
-    paddingTop: THEME.spacing.xs,
+  entriesList: {
+    paddingHorizontal: THEME.spacing.md,
   },
-  recentActivityHeader: {
+  ledgerCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: THEME.spacing.md,
-    marginBottom: THEME.spacing.xs,
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.lg,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
   },
-  expensesListSection: {
-    paddingTop: THEME.spacing.xs,
+  ledgerCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  ledgerIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expenseIconBg: {
+    backgroundColor: '#F0FDFA',
+  },
+  paymentIconBg: {
+    backgroundColor: '#F5F3FF',
+  },
+  ledgerInfo: {
+    flex: 1,
+  },
+  ledgerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  ledgerSubtitle: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    marginTop: 1,
+  },
+  beneficiaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  beneficiaryText: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+  },
+  dateSeparator: {
+    fontSize: 10,
+    color: THEME.colors.textMuted,
+  },
+  dateText: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+  },
+  ledgerCardRight: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  statusBadgeSmall: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: THEME.borderRadius.full,
+    backgroundColor: '#F1F5F9',
+  },
+  statusBadgeConfirmed: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusBadgePending: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusBadgeDisputed: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusBadgeSmallText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  receiptModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: THEME.spacing.lg,
+  },
+  receiptModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.md,
+    width: '100%',
+    maxHeight: '80%',
+    alignItems: 'center',
+  },
+  receiptModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 12,
+  },
+  receiptModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  receiptImage: {
+    width: '100%',
+    height: 400,
+    borderRadius: THEME.borderRadius.md,
   },
 });

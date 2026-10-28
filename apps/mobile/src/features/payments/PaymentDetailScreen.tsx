@@ -8,8 +8,8 @@ import {
   Alert,
   TextInput,
   Modal,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { AmountText } from '../../components/AmountText';
@@ -60,7 +60,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   if (!payment) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Payment not found.</Text>
           <TouchableOpacity style={styles.backBtnSimple} onPress={() => navigation.goBack()}>
@@ -150,7 +150,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

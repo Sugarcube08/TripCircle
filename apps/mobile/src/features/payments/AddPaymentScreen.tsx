@@ -8,10 +8,10 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { PAYMENT_METHODS } from '@tripcircle/contracts';
 import { apiRequest, getOnlineStatus } from '../../services/api';
@@ -126,7 +126,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
   const otherMembers = members.filter((m) => m.id !== payerMemberId);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Branded Header */}
       <View style={styles.header}>
         <TouchableOpacity

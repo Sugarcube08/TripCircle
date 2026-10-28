@@ -5,6 +5,7 @@ import { getAccessToken, clearTokens } from './src/storage/secureStore';
 import { apiRequest } from './src/services/api';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { LoadingIndicator } from './src/components/LoadingIndicator';
+import { UpdatePromptModal } from './src/components/UpdatePromptModal';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -36,6 +37,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <RootNavigator user={user} setUser={setUser} />
+      <UpdatePromptModal />
     </SafeAreaProvider>
   );
 }

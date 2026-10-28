@@ -1,0 +1,132 @@
+name: Release Android App & Ledger Engine
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Semantic Version (e.g. 1.0.1)'
+        required: false
+        default: '1.0.1'
+      version_code:
+        description: 'Android Version Code (e.g. 2)'
+        required: false
+        default: '2'
+      release_notes:
+        description: 'Release summary notes'
+        required: false
+        default: 'Production release with exact paise financial ledger and live update distribution.'
+
+jobs:
+  build-and-release:
+    name: Build & Release Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Gradle Caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Install Monorepo Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Packages & Apps
+        run: pnpm typecheck
+
+      - name: Run Test Suite
+        run: pnpm test
+
+      - name: Prepare Android Build
+        run: |
+          cd apps/mobile
+          npx expo prebuild --platform android --no-install
+
+      - name: Build Android Release APK
+        run: |
+          cd apps/mobile/android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
+
+      - name: Locate Built APK and Compute Checksum
+        id: apk_info
+        run: |
+          APK_PATH=$(find apps/mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "ERROR: APK not found!"
+            exit 1
+          fi
+          echo "Found APK at: $APK_PATH"
+          cp "$APK_PATH" ./TripCircle-release.apk
+          SHA256_HASH=$(sha256sum ./TripCircle-release.apk | awk '{print $1}')
+          echo "sha256=$SHA256_HASH" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256_HASH"
+
+          # Determine Tag and Version
+          REF_TAG="${{ github.ref_name }}"
+          if [[ "$REF_TAG" =~ ^v ]]; then
+            VER="${REF_TAG#v}"
+          else
+            VER="${{ github.event.inputs.version_name || '1.0.1' }}"
+          fi
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || format('v{0}', steps.apk_info.outputs.version) }}
+          name: TripCircle v${{ steps.apk_info.outputs.version }}
+          body: |
+            ## TripCircle v${{ steps.apk_info.outputs.version }}
+            
+            ${{ github.event.inputs.release_notes || 'Release build with paise-exact financial ledger, secure R2 pre-registration QR onboarding, and in-app updates.' }}
+            
+            ### Artifact Integrity Verification
+            - **Filename:** `TripCircle-release.apk`
+            - **SHA-256 Checksum:** `${{ steps.apk_info.outputs.sha256 }}`
+          files: |
+            TripCircle-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

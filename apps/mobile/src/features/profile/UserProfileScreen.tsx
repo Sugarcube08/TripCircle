@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  SafeAreaView,
   StatusBar,
   Image,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { clearTokens } from '../../storage/secureStore';
+import { checkForAppUpdate } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { THEME } from '../../theme';
@@ -20,31 +23,57 @@ import { THEME } from '../../theme';
 interface UserProfileScreenProps {
   navigation: any;
   user: any;
+  onUpdateUser?: (updated: any) => void;
   onLogout: () => void;
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   navigation,
   user,
+  onUpdateUser,
   onLogout,
 }) => {
   const [profile, setProfile] = useState<any>(user);
   const [loading, setLoading] = useState(false);
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  // Sync with prop when parent updates
+  useEffect(() => {
+    if (user) {
+      setProfile((prev: any) => ({ ...prev, ...user }));
+    }
+  }, [user]);
+
+  const fetchMe = useCallback(async () => {
+    try {
+      const data = await apiRequest('/users/me');
+      setProfile(data);
+      onUpdateUser?.(data);
+    } catch {
+      // Keep local state
+    }
+  }, [onUpdateUser]);
 
   useEffect(() => {
-    async function fetchMe() {
-      try {
-        setLoading(true);
-        const data = await apiRequest('/users/me');
-        setProfile(data);
-      } catch {
-        // Fallback to initial user prop
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchMe();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', fetchMe);
+    return unsubscribe;
+  }, [navigation, fetchMe]);
+
+  const handleManualUpdateCheck = async () => {
+    setCheckingUpdate(true);
+    try {
+      const update = await checkForAppUpdate();
+      if (!update) {
+        Alert.alert('TripCircle is Up to Date', 'You are running the latest version with the latest security and financial engine updates.');
+      }
+    } catch (err) {
+      Alert.alert('Check Failed', (err as Error).message);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out of TripCircle?', [
@@ -65,7 +94,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -76,10 +105,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         {/* Profile Identity Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarWrapper}>
-            <MemberAvatar name={profile?.name || 'User'} avatarUrl={profile?.avatarUrl} size={80} />
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color={THEME.colors.primary} />
-            </View>
+            <MemberAvatar name={profile?.name || 'User'} avatarUrl={profile?.avatarUrl} size={84} />
+            <TouchableOpacity
+              style={styles.editAvatarBadge}
+              onPress={() => navigation.navigate('EditProfile')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="camera" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.name}>{profile?.name}</Text>
@@ -90,6 +123,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <Text style={styles.phone}>{profile?.phone}</Text>
             </View>
           ) : null}
+
+          {/* Edit Profile Action Button */}
+          <TouchableOpacity
+            style={styles.editProfileBtn}
+            onPress={() => navigation.navigate('EditProfile')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="create-outline" size={16} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.editProfileBtnText}>Edit Profile & Payment QR</Text>
+          </TouchableOpacity>
 
           {/* Stats Bar */}
           <View style={styles.statBox}>
@@ -123,16 +166,56 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => Alert.alert('Payment QR', 'Your payment QR code can be uploaded in trip payment workflows to receive direct settlements via UPI.')}
+            onPress={() => {
+              if (profile?.paymentQrUrl) {
+                setQrModalVisible(true);
+              } else {
+                Alert.alert(
+                  'No Payment QR Code',
+                  'You have not configured a payment QR code yet. Would you like to set it up now?',
+                  [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'Set Up Now', onPress: () => navigation.navigate('EditProfile') },
+                  ]
+                );
+              }
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
               <View style={[styles.optionIconBox, { backgroundColor: '#F5F3FF' }]}>
                 <Ionicons name="qr-code-outline" size={20} color="#8B5CF6" />
               </View>
-              <Text style={styles.optionText}>Payment QR Code</Text>
+              <View>
+                <Text style={styles.optionText}>Payment QR Code</Text>
+                <Text style={styles.optionSubtext}>
+                  {profile?.paymentQrUrl ? 'Configured & Active' : 'Not configured'}
+                </Text>
+              </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={THEME.colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.optionRow}
+            onPress={handleManualUpdateCheck}
+            disabled={checkingUpdate}
+            activeOpacity={0.7}
+          >
+            <View style={styles.optionLeft}>
+              <View style={[styles.optionIconBox, { backgroundColor: '#ECFDF5' }]}>
+                <Ionicons name="cloud-download-outline" size={20} color="#059669" />
+              </View>
+              <View>
+                <Text style={styles.optionText}>Check for Updates</Text>
+                <Text style={styles.optionSubtext}>TripCircle Release Channel</Text>
+              </View>
+            </View>
+            {checkingUpdate ? (
+              <ActivityIndicator size="small" color={THEME.colors.primary} />
+            ) : (
+              <Ionicons name="chevron-forward" size={18} color={THEME.colors.textMuted} />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -140,7 +223,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             onPress={() =>
               Alert.alert(
                 'About TripCircle',
-                'TripCircle v1.0.0\nExact Paise Integer Accounting\nImmutable Audit Ledger & Settlement Engine'
+                'TripCircle v1.0.0\n\nExact Paise Integer Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture'
               )
             }
             activeOpacity={0.7}
@@ -161,6 +244,53 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Payment QR Modal */}
+      <Modal
+        visible={qrModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.qrModalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.qrTitle}>Your Payment QR Code</Text>
+              <TouchableOpacity onPress={() => setQrModalVisible(false)}>
+                <Ionicons name="close-circle" size={26} color={THEME.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.qrSubtitle}>
+              Trip members scan this code to pay you back directly.
+            </Text>
+
+            {profile?.paymentQrUrl ? (
+              <View style={styles.qrImageContainer}>
+                <Image
+                  source={{ uri: profile.paymentQrUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : null}
+
+            <View style={styles.modalActionButtons}>
+              <TouchableOpacity
+                style={styles.changeQrButton}
+                onPress={() => {
+                  setQrModalVisible(false);
+                  navigation.navigate('EditProfile');
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="refresh-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.changeQrButtonText}>Change QR Code</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -192,12 +322,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: THEME.spacing.sm,
   },
-  verifiedBadge: {
+  editAvatarBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    bottom: 0,
+    right: 0,
+    backgroundColor: THEME.colors.primary,
+    borderRadius: 14,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   name: {
     ...THEME.typography.h2,
@@ -217,6 +353,22 @@ const styles = StyleSheet.create({
   phone: {
     ...THEME.typography.bodySmall,
     color: THEME.colors.textSecondary,
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: THEME.borderRadius.full,
+    marginTop: 12,
+  },
+  editProfileBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.primary,
   },
   statBox: {
     flexDirection: 'row',
@@ -276,9 +428,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   optionIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -286,6 +438,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: THEME.colors.textPrimary,
+  },
+  optionSubtext: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+    marginTop: 1,
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -301,5 +458,72 @@ const styles = StyleSheet.create({
     color: THEME.colors.debt,
     fontWeight: '700',
     fontSize: 15,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: THEME.spacing.lg,
+  },
+  qrModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.lg,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    ...THEME.shadows.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 6,
+  },
+  qrTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  qrSubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  qrImageContainer: {
+    width: 240,
+    height: 240,
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  qrImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalActionButtons: {
+    width: '100%',
+  },
+  changeQrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primary,
+    borderRadius: THEME.borderRadius.md,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  changeQrButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

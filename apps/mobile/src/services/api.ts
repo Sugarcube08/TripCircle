@@ -1,7 +1,5 @@
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../storage/secureStore';
 
-declare const process: { env: Record<string, string | undefined> };
-
 /**
  * Resolves the API base URL strictly from environment variables.
  * The API endpoint is NEVER hardcoded and is always fetched from .env.
@@ -114,6 +112,41 @@ export async function apiRequest<T = any>(
 }
 
 /**
+ * Pre-registration payment QR upload (unauthenticated server-mediated endpoint).
+ * Returns temporary HMAC-signed token, storage key, and preview URL.
+ */
+export async function uploadRegistrationQr(
+  imageUri: string,
+  mimeType = 'image/png'
+): Promise<{ token: string; storageKey: string; publicUrl: string }> {
+  const baseUrl = getApiBaseUrl();
+  const formData = new FormData();
+
+  const fileName = imageUri.split('/').pop() || 'payment-qr.png';
+  formData.append('file', {
+    uri: imageUri,
+    name: fileName,
+    type: mimeType,
+  } as any);
+
+  const response = await fetch(`${baseUrl}/auth/register-qr`, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const errorMsg = data.error?.message || data.error || 'Failed to upload QR code';
+    throw new Error(errorMsg);
+  }
+
+  return data.data || data;
+}
+
+/**
  * Upload binary file to Cloudflare R2 using presigned URL workflow
  */
 export async function uploadFileToR2(params: {
@@ -169,6 +202,29 @@ export async function uploadFileToR2(params: {
   });
 
   return metadata;
+}
+
+/**
+ * Upload image from local file URI (for Avatar, Payment QR, Receipt)
+ */
+export async function uploadImageFromUri(
+  imageUri: string,
+  category: 'AVATAR' | 'PAYMENT_QR' | 'EXPENSE_RECEIPT' | 'PAYMENT_RECEIPT' | 'TRIP_COVER',
+  options: { tripId?: string; mimeType?: string } = {}
+) {
+  const mimeType = options.mimeType || 'image/jpeg';
+  const fileName = imageUri.split('/').pop() || `${category.toLowerCase()}.jpg`;
+
+  const response = await fetch(imageUri);
+  const blob = await response.blob();
+
+  return uploadFileToR2({
+    blob,
+    fileName,
+    mimeType,
+    category,
+    tripId: options.tripId,
+  });
 }
 
 /**

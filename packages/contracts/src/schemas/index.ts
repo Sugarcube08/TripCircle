@@ -13,8 +13,9 @@ export const RegisterSchema = z.object({
   email: z.string().email('Invalid email address').toLowerCase().trim(),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   phone: z.string().optional().nullable(),
-  avatarUrl: z.string().url().optional().nullable(),
-  paymentQrUrl: z.string().url().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
+  paymentQrUrl: z.string().min(1, 'Payment QR code image is required'),
+  paymentQrToken: z.string().optional().nullable(),
 });
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 

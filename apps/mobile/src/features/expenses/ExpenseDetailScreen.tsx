@@ -8,8 +8,8 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { AmountText } from '../../components/AmountText';
@@ -80,7 +80,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
 
   if (!expense) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Expense not found.</Text>
           <TouchableOpacity style={styles.backBtnSimple} onPress={() => navigation.goBack()}>
@@ -95,7 +95,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
   const catConfig = getCategoryIcon(expense.category?.name || '');
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity

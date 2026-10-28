@@ -8,10 +8,10 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
@@ -93,7 +93,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

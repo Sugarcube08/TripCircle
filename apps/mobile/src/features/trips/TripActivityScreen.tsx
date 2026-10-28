@@ -5,9 +5,9 @@ import {
   FlatList,
   StyleSheet,
   RefreshControl,
-  SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -79,7 +79,7 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={canGoBack ? ['top', 'bottom', 'left', 'right'] : ['top']}>
       {/* Header */}
       <View style={styles.header}>
         {canGoBack ? (

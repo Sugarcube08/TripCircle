@@ -17,6 +17,7 @@ import {
   VerifyOtpInput,
   ResetPasswordInput,
 } from '@tripcircle/contracts';
+import { verifyRegistrationQrToken } from '../../lib/registration-token';
 
 export class AuthService {
   static async register(input: RegisterInput) {
@@ -28,6 +29,19 @@ export class AuthService {
       throw new Error('Email is already registered. Please log in.');
     }
 
+    if (!input.paymentQrUrl && !input.paymentQrToken) {
+      throw new Error('Payment QR code image is required to register.');
+    }
+
+    let finalQrUrl = input.paymentQrUrl;
+    let qrMetadata: { storageKey: string; originalName: string; mimeType: string; sizeBytes: number } | null = null;
+
+    if (input.paymentQrToken) {
+      const verified = verifyRegistrationQrToken(input.paymentQrToken);
+      finalQrUrl = `/api/v1/files/${encodeURIComponent(verified.storageKey)}`;
+      qrMetadata = verified;
+    }
+
     const passwordHash = await bcrypt.hash(input.password, 10);
 
     const user = await prisma.user.create({
@@ -36,11 +50,25 @@ export class AuthService {
         name: input.name,
         phone: input.phone,
         avatarUrl: input.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(input.name)}`,
-        paymentQrUrl: input.paymentQrUrl,
+        paymentQrUrl: finalQrUrl,
         passwordHash,
         isEmailVerified: false,
       },
     });
+
+    if (qrMetadata) {
+      await prisma.fileMetadata.create({
+        data: {
+          userId: user.id,
+          fileName: qrMetadata.storageKey.split('/').pop() || qrMetadata.originalName,
+          originalName: qrMetadata.originalName,
+          mimeType: qrMetadata.mimeType,
+          sizeBytes: qrMetadata.sizeBytes,
+          storageKey: qrMetadata.storageKey,
+          publicUrl: finalQrUrl,
+        },
+      });
+    }
 
     // Generate and send OTP for verification
     const otp = generateSecureOtp();

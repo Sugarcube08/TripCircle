@@ -8,9 +8,12 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
@@ -31,6 +34,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
   const [plan, setPlan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -55,14 +59,42 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
   }
 
   const member = trip?.members.find((m: any) => m.id === memberId);
-  const memberBalance = plan?.memberBalances.find((b: any) => b.memberId === memberId);
+  const memberBalance = plan?.memberBalances?.find((b: any) => b.memberId === memberId);
 
   // Find bilateral obligations involving this member
-  const bilateral = plan?.bilateralObligations.find((o: any) => o.otherMemberId === memberId);
+  const bilateral = plan?.bilateralObligations?.find((o: any) => o.otherMemberId === memberId);
   const directObligation = bilateral ? bilateral.amountPaise : 0;
 
+  const handleSaveOrShareQr = async () => {
+    if (!member?.user?.paymentQrUrl) return;
+    try {
+      setDownloadingQr(true);
+      const filename = `tripcircle_qr_${member.user.id || memberId}.png`;
+      const localUri = `${FileSystem.cacheDirectory}${filename}`;
+
+      const result = await FileSystem.downloadAsync(member.user.paymentQrUrl, localUri);
+      if (result.status === 200) {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(result.uri, {
+            mimeType: 'image/png',
+            dialogTitle: `Save or Share ${member.user.name}'s QR Code`,
+          });
+        } else {
+          Alert.alert('QR Saved', `Payment QR code saved to temporary cache: ${result.uri}`);
+        }
+      } else {
+        throw new Error(`Failed to download QR code (status ${result.status})`);
+      }
+    } catch (err) {
+      Alert.alert('Error Saving QR', (err as Error).message);
+    } finally {
+      setDownloadingQr(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -170,7 +202,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         </View>
 
         {/* Payment QR Button */}
-        {member?.user.paymentQrUrl && (
+        {member?.user.paymentQrUrl ? (
           <TouchableOpacity
             style={styles.qrBtn}
             onPress={() => setQrModalVisible(true)}
@@ -179,6 +211,13 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
             <Text style={styles.qrBtnText}>View {member?.user.name.split(' ')[0]}'s Payment QR</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={styles.noQrNotice}>
+            <Ionicons name="information-circle-outline" size={18} color={THEME.colors.textMuted} />
+            <Text style={styles.noQrText}>
+              {member?.user.name} has not uploaded a payment QR code yet.
+            </Text>
+          </View>
         )}
       </ScrollView>
 
@@ -192,16 +231,64 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.qrModalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.qrTitle}>{member?.user.name}'s QR</Text>
+              <View>
+                <Text style={styles.qrTitle}>{member?.user.name}'s Payment QR</Text>
+                <Text style={styles.qrSubtitle}>Authorized participant settlement code</Text>
+              </View>
               <TouchableOpacity onPress={() => setQrModalVisible(false)}>
-                <Ionicons name="close-circle" size={24} color={THEME.colors.textMuted} />
+                <Ionicons name="close-circle" size={26} color={THEME.colors.textMuted} />
               </TouchableOpacity>
             </View>
-            <Image
-              source={{ uri: member?.user.paymentQrUrl }}
-              style={styles.qrImage}
-              resizeMode="contain"
-            />
+
+            <View style={styles.qrContainer}>
+              <Image
+                source={{ uri: member?.user.paymentQrUrl }}
+                style={styles.qrImage}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Recipient Account Name Verification Callout */}
+            <View style={styles.verifyCallout}>
+              <Ionicons name="shield-checkmark" size={16} color={THEME.colors.primary} />
+              <Text style={styles.verifyCalloutText}>
+                Confirm recipient is <Text style={styles.boldText}>{member?.user.name}</Text> before approving payment in UPI app.
+              </Text>
+            </View>
+
+            {/* Action Buttons: Save / Share QR & Pay Now */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.saveQrButton}
+                onPress={handleSaveOrShareQr}
+                disabled={downloadingQr}
+                activeOpacity={0.85}
+              >
+                {downloadingQr ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="share-social-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.saveQrButtonText}>Save / Share QR</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.recordPayButton}
+                onPress={() => {
+                  setQrModalVisible(false);
+                  navigation.navigate('AddPayment', {
+                    tripId,
+                    defaultReceiverMemberId: memberId,
+                  });
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-done-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.recordPayButtonText}>Record Payment</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -242,8 +329,8 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.lg,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.xl,
     alignItems: 'center',
     marginBottom: THEME.spacing.md,
     borderWidth: 1,
@@ -252,13 +339,11 @@ const styles = StyleSheet.create({
   },
   name: {
     ...THEME.typography.h2,
-    fontSize: 20,
-    color: THEME.colors.textPrimary,
-    marginTop: 10,
+    marginTop: THEME.spacing.sm,
   },
   email: {
-    fontSize: 13,
-    color: THEME.colors.textMuted,
+    ...THEME.typography.bodySmall,
+    color: THEME.colors.textSecondary,
     marginTop: 2,
   },
   phoneRow: {
@@ -267,72 +352,65 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   phone: {
-    fontSize: 12,
-    color: THEME.colors.textSecondary,
-    fontWeight: '500',
+    ...THEME.typography.bodySmall,
+    color: THEME.colors.textMuted,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.lg,
+    marginBottom: THEME.spacing.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
     ...THEME.shadows.sm,
   },
   cardHeaderTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: THEME.colors.textSecondary,
     letterSpacing: 0.8,
-    color: THEME.colors.textMuted,
-    marginBottom: 6,
+    marginBottom: THEME.spacing.sm,
   },
   amountText: {
-    fontSize: 32,
-    fontWeight: '800',
-    marginVertical: 4,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   balanceStatus: {
-    fontSize: 13,
+    ...THEME.typography.bodySmall,
     color: THEME.colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 4,
   },
   obligationCard: {
     backgroundColor: '#F0FDFA',
-    borderRadius: THEME.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
-    padding: THEME.spacing.md,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.lg,
     marginBottom: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   obligationHeader: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: THEME.colors.primary,
     letterSpacing: 0.8,
-    color: '#0F766E',
-    marginBottom: 8,
+    marginBottom: THEME.spacing.sm,
   },
   obligationContent: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   obligationText: {
-    fontSize: 14,
+    ...THEME.typography.bodyMedium,
     fontWeight: '600',
-    color: THEME.colors.textPrimary,
     flex: 1,
   },
   payBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME.colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: THEME.borderRadius.full,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   payBtnText: {
     color: '#FFFFFF',
@@ -348,38 +426,54 @@ const styles = StyleSheet.create({
     borderBottomColor: THEME.colors.borderLight,
   },
   metricLabel: {
-    fontSize: 13,
+    ...THEME.typography.bodyMedium,
     color: THEME.colors.textSecondary,
   },
   qrBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.colors.primaryDark,
+    backgroundColor: THEME.colors.primary,
     paddingVertical: 14,
-    borderRadius: THEME.borderRadius.md,
+    borderRadius: THEME.borderRadius.lg,
     marginTop: 4,
-    ...THEME.shadows.md,
+    ...THEME.shadows.sm,
   },
   qrBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
     fontWeight: '700',
+    fontSize: 15,
+  },
+  noQrNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: THEME.borderRadius.md,
+    padding: 12,
+    gap: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  noQrText: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: THEME.spacing.lg,
   },
   qrModalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
+    borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
-    alignItems: 'center',
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 360,
+    alignItems: 'center',
     ...THEME.shadows.lg,
   },
   modalHeader: {
@@ -387,16 +481,87 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   qrTitle: {
-    ...THEME.typography.h3,
+    fontSize: 17,
+    fontWeight: '700',
     color: THEME.colors.textPrimary,
   },
+  qrSubtitle: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
+  },
+  qrContainer: {
+    width: 240,
+    height: 240,
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
   qrImage: {
-    width: 220,
-    height: 220,
-    backgroundColor: '#F8FAFC',
-    borderRadius: THEME.borderRadius.sm,
+    width: '100%',
+    height: '100%',
+  },
+  verifyCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    padding: 10,
+    gap: 8,
+    marginBottom: 16,
+    width: '100%',
+  },
+  verifyCalloutText: {
+    fontSize: 12,
+    color: '#15803D',
+    flex: 1,
+    lineHeight: 16,
+  },
+  boldText: {
+    fontWeight: '700',
+  },
+  modalActions: {
+    width: '100%',
+    gap: 8,
+  },
+  saveQrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primary,
+    borderRadius: THEME.borderRadius.md,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  saveQrButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  recordPayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.primary,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  recordPayButtonText: {
+    color: THEME.colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

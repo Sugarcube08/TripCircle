@@ -7,9 +7,9 @@ import {
   StyleSheet,
   Alert,
   TextInput,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
@@ -78,7 +78,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
   const members = trip?.members || [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

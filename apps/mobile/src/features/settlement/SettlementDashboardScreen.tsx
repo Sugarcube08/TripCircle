@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  SafeAreaView,
   Modal,
   TextInput,
   Alert,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LocalDatabase } from '../../storage/db';
@@ -119,7 +119,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
   if (!plan) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.navBar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
@@ -138,7 +138,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
   const transfersToPay = plan.simplifiedTransfers.filter((t: any) => t.fromUserId === user?.id);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
       {/* Top Header */}

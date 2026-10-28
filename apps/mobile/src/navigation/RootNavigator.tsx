@@ -20,6 +20,7 @@ import { AddPaymentScreen } from '../features/payments/AddPaymentScreen';
 import { PaymentDetailScreen } from '../features/payments/PaymentDetailScreen';
 import { SettlementDashboardScreen } from '../features/settlement/SettlementDashboardScreen';
 import { ExportReportScreen } from '../features/reports/ExportReportScreen';
+import { EditProfileScreen } from '../features/profile/EditProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,7 +50,18 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ user, setUser }) =
           // Main App Flow
           <Stack.Group>
             <Stack.Screen name="Main">
-              {() => <MainTabNavigator user={user} onLogout={() => setUser(null)} />}
+              {() => (
+                <MainTabNavigator
+                  user={user}
+                  setUser={setUser}
+                  onLogout={() => setUser(null)}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="EditProfile">
+              {(props) => (
+                <EditProfileScreen {...props} user={user} onUpdateUser={setUser} />
+              )}
             </Stack.Screen>
             <Stack.Screen name="TripDashboard">
               {(props) => <TripDashboardScreen {...props} user={user} />}

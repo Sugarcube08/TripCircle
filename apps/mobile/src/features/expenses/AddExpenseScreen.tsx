@@ -10,8 +10,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { EXPENSE_CATEGORIES, calculateEqualSplit } from '@tripcircle/contracts';
 import { apiRequest, getOnlineStatus } from '../../services/api';
@@ -210,7 +210,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Branded Header */}
       <View style={styles.header}>
         <TouchableOpacity
