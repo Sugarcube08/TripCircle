@@ -10,9 +10,12 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { calculateEqualSplit, validateUnequalSplit } from '@tripcircle/contracts';
+import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { THEME } from '../../theme';
 
@@ -73,7 +76,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   const toggleBeneficiary = (memberId: string) => {
     if (selectedBeneficiaryIds.includes(memberId)) {
       if (selectedBeneficiaryIds.length === 1) {
-        Alert.alert('At least one beneficiary is required');
+        Alert.alert('Selection Required', 'At least one beneficiary must be included.');
         return;
       }
       setSelectedBeneficiaryIds(selectedBeneficiaryIds.filter((id) => id !== memberId));
@@ -84,11 +87,11 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
 
   const handleUpdate = async () => {
     if (!amountRupees || totalAmountPaise <= 0) {
-      Alert.alert('Required', 'Please enter a valid amount');
+      Alert.alert('Required', 'Please enter a valid amount.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Required', 'Please enter description');
+      Alert.alert('Required', 'Please enter description.');
       return;
     }
 
@@ -141,112 +144,180 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Edit Expense (v{expense?.version})</Text>
-        <Text style={styles.subtitle}>
-          Editing creates a new auditable revision while instantly updating balances.
-        </Text>
+    <SafeAreaView style={styles.container}>
+      {/* Branded Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Expense</Text>
+        <View style={styles.versionBadge}>
+          <Text style={styles.versionBadgeText}>v{expense?.version}</Text>
+        </View>
+      </View>
 
-        <View style={styles.formCard}>
-          <Text style={styles.label}>AMOUNT (₹)</Text>
-          <TextInput
-            style={styles.amountInput}
-            value={amountRupees}
-            onChangeText={setAmountRupees}
-            keyboardType="decimal-pad"
-          />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Audit Notice */}
+          <View style={styles.noticeBanner}>
+            <Ionicons name="information-circle-outline" size={18} color="#0369A1" style={{ marginRight: 8 }} />
+            <Text style={styles.noticeText}>
+              Editing will create version {expense?.version + 1} with an immutable audit log.
+            </Text>
+          </View>
 
-          <Text style={styles.label}>DESCRIPTION</Text>
-          <TextInput
-            style={styles.input}
-            value={description}
-            onChangeText={setDescription}
-          />
+          {/* Amount Box */}
+          <View style={styles.amountCard}>
+            <Text style={styles.sectionHeader}>AMOUNT</Text>
+            <View style={styles.amountInputRow}>
+              <Text style={styles.currencySymbol}>₹</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={amountRupees}
+                onChangeText={setAmountRupees}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
 
-          <Text style={styles.label}>REASON FOR EDIT (OPTIONAL)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Corrected amount, adjusted beneficiaries"
-            value={changeReason}
-            onChangeText={setChangeReason}
-          />
+          {/* Description */}
+          <Text style={styles.sectionHeader}>DESCRIPTION</Text>
+          <View style={styles.inputCard}>
+            <Ionicons name="receipt-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.inputField}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Description"
+            />
+          </View>
 
-          <Text style={[styles.label, { marginTop: 14 }]}>SPLIT METHOD</Text>
-          <View style={styles.methodToggle}>
+          {/* Reason for Edit */}
+          <Text style={styles.sectionHeader}>REASON FOR EDIT (AUDIT TRAIL)</Text>
+          <View style={styles.inputCard}>
+            <Ionicons name="create-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.inputField}
+              placeholder="e.g. Corrected dinner tip, adjusted beneficiaries"
+              placeholderTextColor={THEME.colors.textLight}
+              value={changeReason}
+              onChangeText={setChangeReason}
+            />
+          </View>
+
+          {/* Split Method Toggle */}
+          <Text style={styles.sectionHeader}>SPLIT METHOD</Text>
+          <View style={styles.methodToggleCard}>
             <TouchableOpacity
               style={[styles.toggleBtn, splitMethod === 'EQUAL' && styles.activeToggleBtn]}
               onPress={() => setSplitMethod('EQUAL')}
             >
+              <Ionicons
+                name="pie-chart-outline"
+                size={16}
+                color={splitMethod === 'EQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
               <Text style={[styles.toggleText, splitMethod === 'EQUAL' && styles.activeToggleText]}>
                 Equal Split
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.toggleBtn, splitMethod === 'UNEQUAL' && styles.activeToggleBtn]}
               onPress={() => setSplitMethod('UNEQUAL')}
             >
+              <Ionicons
+                name="options-outline"
+                size={16}
+                color={splitMethod === 'UNEQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
               <Text style={[styles.toggleText, splitMethod === 'UNEQUAL' && styles.activeToggleText]}>
                 Unequal Split
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Beneficiaries Selection */}
-          <Text style={[styles.label, { marginTop: 12 }]}>BENEFICIARIES</Text>
-          {members.map((m) => {
-            const isIncluded = selectedBeneficiaryIds.includes(m.id);
-            return (
-              <View key={m.id} style={styles.beneficiaryRow}>
-                <TouchableOpacity
-                  style={styles.checkRow}
-                  onPress={() => toggleBeneficiary(m.id)}
+          {/* Beneficiaries List */}
+          <Text style={styles.sectionHeader}>BENEFICIARIES</Text>
+          <View style={styles.beneficiariesCard}>
+            {members.map((m, index) => {
+              const isIncluded = selectedBeneficiaryIds.includes(m.id);
+              return (
+                <View
+                  key={m.id}
+                  style={[
+                    styles.beneficiaryRow,
+                    index === members.length - 1 && { borderBottomWidth: 0 },
+                  ]}
                 >
-                  <Text style={[styles.checkText, isIncluded && styles.checkActive]}>
-                    {isIncluded ? '✓' : '○'}
-                  </Text>
-                  <Text style={styles.memberName}>{m.user.name}</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.beneficiaryLeft}
+                    onPress={() => toggleBeneficiary(m.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, isIncluded && styles.checkboxActive]}>
+                      {isIncluded && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                    </View>
+                    <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={36} />
+                    <Text style={[styles.beneficiaryName, !isIncluded && styles.textDisabled]}>
+                      {m.user.name}
+                    </Text>
+                  </TouchableOpacity>
 
-                {splitMethod === 'UNEQUAL' ? (
-                  <View style={styles.unequalInputWrapper}>
-                    <Text style={{ marginRight: 2 }}>₹</Text>
-                    <TextInput
-                      style={styles.unequalInput}
-                      value={unequalShares[m.id] || ''}
-                      onChangeText={(val) => setUnequalShares({ ...unequalShares, [m.id]: val })}
-                      keyboardType="decimal-pad"
-                      editable={isIncluded}
-                    />
-                  </View>
-                ) : (
-                  <Text style={styles.shareText}>
-                    {isIncluded && selectedBeneficiaryIds.length > 0
-                      ? `₹${(totalAmountPaise / selectedBeneficiaryIds.length / 100).toFixed(2)}`
-                      : '₹0.00'}
-                  </Text>
-                )}
-              </View>
-            );
-          })}
+                  {splitMethod === 'UNEQUAL' ? (
+                    <View style={styles.unequalInputWrapper}>
+                      <Text style={styles.rupeeInputPrefix}>₹</Text>
+                      <TextInput
+                        style={styles.unequalInputField}
+                        value={unequalShares[m.id] || ''}
+                        onChangeText={(val) => setUnequalShares({ ...unequalShares, [m.id]: val })}
+                        keyboardType="decimal-pad"
+                        editable={isIncluded}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={[styles.shareValueText, !isIncluded && styles.textDisabled]}>
+                      {isIncluded && selectedBeneficiaryIds.length > 0
+                        ? `₹${(totalAmountPaise / selectedBeneficiaryIds.length / 100).toFixed(2)}`
+                        : '₹0.00'}
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
 
+          {/* Save Action */}
           <TouchableOpacity
-            style={styles.saveBtn}
+            style={[styles.saveBtn, saving && styles.btnDisabled]}
             onPress={handleUpdate}
             disabled={saving}
+            activeOpacity={0.85}
           >
             {saving ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveBtnText}>Save Revision</Text>
+              <>
+                <Ionicons name="save-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.saveBtnText}>Save Revision</Text>
+              </>
             )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -255,132 +326,234 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  versionBadge: {
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: THEME.borderRadius.full,
+  },
+  versionBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.primaryDark,
+  },
+  scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
-  title: {
-    ...THEME.typography.h2,
-    marginBottom: 4,
-  },
-  subtitle: {
-    ...THEME.typography.bodySmall,
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+    borderWidth: 1,
+    borderRadius: THEME.borderRadius.md,
+    padding: 12,
     marginBottom: THEME.spacing.md,
   },
-  formCard: {
+  noticeText: {
+    fontSize: 13,
+    color: '#0369A1',
+    flexShrink: 1,
+    lineHeight: 18,
+  },
+  amountCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
+    alignItems: 'center',
+    marginBottom: THEME.spacing.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
   },
-  label: {
-    fontSize: 12,
+  sectionHeader: {
+    fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    marginBottom: 6,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginBottom: 8,
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: THEME.spacing.xs,
+  },
+  currencySymbol: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: THEME.colors.primary,
+    marginRight: 4,
   },
   amountInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: THEME.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 24,
+    fontSize: 38,
     fontWeight: '800',
     color: THEME.colors.textPrimary,
-    marginBottom: 12,
+    minWidth: 120,
+    textAlign: 'center',
+    padding: 0,
+    fontVariant: ['tabular-nums'],
   },
-  input: {
-    backgroundColor: '#F8FAFC',
+  inputCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: THEME.spacing.md,
+    height: 52,
+    marginBottom: 8,
+    ...THEME.shadows.sm,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  inputField: {
+    flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
-    marginBottom: 12,
   },
-  methodToggle: {
+  methodToggleCard: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    borderRadius: 8,
-    padding: 3,
-    marginBottom: 12,
+    borderRadius: THEME.borderRadius.md,
+    padding: 4,
+    marginBottom: THEME.spacing.md,
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 6,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: THEME.borderRadius.sm,
   },
   activeToggleBtn: {
     backgroundColor: '#FFFFFF',
+    ...THEME.shadows.sm,
   },
   toggleText: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.textMuted,
   },
   activeToggleText: {
-    color: THEME.colors.textPrimary,
+    color: THEME.colors.primaryDark,
     fontWeight: '700',
+  },
+  beneficiariesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.lg,
+    ...THEME.shadows.sm,
   },
   beneficiaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    borderBottomColor: THEME.colors.borderLight,
   },
-  checkRow: {
+  beneficiaryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  checkText: {
-    fontSize: 18,
-    color: '#94A3B8',
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.borderDark,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 10,
   },
-  checkActive: {
-    color: THEME.colors.primary,
-    fontWeight: '800',
+  checkboxActive: {
+    backgroundColor: THEME.colors.primary,
+    borderColor: THEME.colors.primary,
   },
-  memberName: {
+  beneficiaryName: {
     fontSize: 14,
     fontWeight: '600',
     color: THEME.colors.textPrimary,
+    marginLeft: 10,
   },
-  shareText: {
+  textDisabled: {
+    color: THEME.colors.textLight,
+  },
+  shareValueText: {
     fontSize: 14,
     fontWeight: '700',
     color: THEME.colors.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   unequalInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    borderRadius: 6,
+    borderRadius: THEME.borderRadius.sm,
     paddingHorizontal: 8,
-    width: 90,
+    height: 36,
   },
-  unequalInput: {
+  rupeeInputPrefix: {
     fontSize: 14,
     fontWeight: '600',
-    paddingVertical: 4,
-    flex: 1,
+    color: THEME.colors.textMuted,
+    marginRight: 4,
+  },
+  unequalInputField: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+    minWidth: 64,
+    textAlign: 'right',
+    padding: 0,
+    fontVariant: ['tabular-nums'],
   },
   saveBtn: {
-    backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
-    borderRadius: THEME.borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: THEME.spacing.lg,
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primary,
+    borderRadius: THEME.borderRadius.md,
+    paddingVertical: 15,
+    ...THEME.shadows.md,
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   saveBtnText: {
     color: '#FFFFFF',

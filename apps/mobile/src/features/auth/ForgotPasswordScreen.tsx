@@ -7,7 +7,11 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { THEME } from '../../theme';
 
@@ -20,8 +24,8 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!email) {
-      Alert.alert('Required', 'Please enter your email address');
+    if (!email.trim()) {
+      Alert.alert('Required Field', 'Please enter your email address.');
       return;
     }
 
@@ -35,105 +39,165 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
       navigation.navigate('ResetPassword', { email: email.trim() });
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      Alert.alert('Recovery Request Failed', (err as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Password Recovery</Text>
-        <Text style={styles.subtitle}>
-          Enter your registered email and we'll send you an OTP to reset your password.
-        </Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="you@example.com"
-          placeholderTextColor="#94A3B8"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Send Recovery OTP</Text>
-          )}
-        </TouchableOpacity>
-
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.backBtnText}>Back to Login</Text>
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
         </TouchableOpacity>
-      </View>
-    </View>
+
+        <View style={styles.content}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="key-outline" size={30} color={THEME.colors.primary} />
+          </View>
+
+          <Text style={styles.title}>Forgot Password?</Text>
+          <Text style={styles.subtitle}>
+            Enter your registered email and we'll send you a 6-digit verification code to reset your password.
+          </Text>
+
+          <View style={styles.card}>
+            <Text style={styles.inputLabel}>Email Address</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="mail-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="name@example.com"
+                placeholderTextColor={THEME.colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryBtn, loading && styles.disabledBtn]}
+              onPress={handleSubmit}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryBtnText}>Send Reset Code</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
-    justifyContent: 'center',
-    padding: THEME.spacing.lg,
   },
-  card: {
-    backgroundColor: THEME.colors.card,
-    padding: THEME.spacing.xl,
-    borderRadius: THEME.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
+  container: {
+    flex: 1,
+    paddingHorizontal: THEME.spacing.lg,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: THEME.spacing.sm,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: THEME.spacing.xxl,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: THEME.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: THEME.spacing.md,
   },
   title: {
-    ...THEME.typography.h2,
-    marginBottom: 6,
+    ...THEME.typography.h1,
+    textAlign: 'center',
+    marginBottom: THEME.spacing.xs,
   },
   subtitle: {
     ...THEME.typography.bodySmall,
-    marginBottom: THEME.spacing.lg,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.xl,
+    lineHeight: 20,
   },
-  input: {
-    backgroundColor: '#F8FAFC',
+  card: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    ...THEME.shadows.md,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.inputBg,
     borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.inputBorder,
     paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
+    height: 48,
+    marginBottom: THEME.spacing.lg,
+  },
+  inputIcon: {
+    marginRight: THEME.spacing.sm,
+  },
+  input: {
+    flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
-    marginBottom: THEME.spacing.lg,
+    paddingVertical: 0,
   },
   primaryBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
+    height: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
-    marginBottom: THEME.spacing.md,
+    justifyContent: 'center',
+    ...THEME.shadows.sm,
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
   primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  backBtn: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  backBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: THEME.colors.textSecondary,
   },
 });

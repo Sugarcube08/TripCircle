@@ -8,7 +8,9 @@ import {
   Alert,
   RefreshControl,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
@@ -67,47 +69,101 @@ export const InvitationsScreen: React.FC<InvitationsScreenProps> = ({ navigation
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.headerTitle}>Trip Invitations</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Trip Invitations</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
       <FlatList
         data={invitations}
         keyExtractor={(item) => item.invitationId}
-        renderItem={({ item }) => (
-          <View style={styles.inviteCard}>
-            <Text style={styles.tripName}>{item.tripName}</Text>
-            <Text style={styles.subtext}>
-              Invited by {item.creatorName} · {item.destination || 'Trip'} · Starts {formatDate(item.startDate)}
-            </Text>
+        renderItem={({ item }) => {
+          const isActing = actionLoading === item.invitationId;
 
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={[styles.btn, styles.acceptBtn]}
-                onPress={() => handleRespond(item.invitationId, 'ACCEPT')}
-                disabled={actionLoading === item.invitationId}
-              >
-                <Text style={styles.acceptBtnText}>Accept Invitation</Text>
-              </TouchableOpacity>
+          return (
+            <View style={styles.inviteCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.emblemCircle}>
+                  <Text style={styles.emblemText}>
+                    {item.tripName ? item.tripName.substring(0, 2).toUpperCase() : 'TC'}
+                  </Text>
+                </View>
+                <View style={styles.headerText}>
+                  <Text style={styles.tripName} numberOfLines={1}>
+                    {item.tripName}
+                  </Text>
+                  <Text style={styles.inviterText}>
+                    Invited by <Text style={{ fontWeight: '700', color: THEME.colors.textPrimary }}>{item.creatorName}</Text>
+                  </Text>
+                </View>
+              </View>
 
-              <TouchableOpacity
-                style={[styles.btn, styles.declineBtn]}
-                onPress={() => handleRespond(item.invitationId, 'DECLINE')}
-                disabled={actionLoading === item.invitationId}
-              >
-                <Text style={styles.declineBtnText}>Decline</Text>
-              </TouchableOpacity>
+              <View style={styles.metaRow}>
+                {item.destination ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="location-outline" size={14} color={THEME.colors.textMuted} style={{ marginRight: 4 }} />
+                    <Text style={styles.metaText}>{item.destination}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.metaItem}>
+                  <Ionicons name="calendar-outline" size={14} color={THEME.colors.textMuted} style={{ marginRight: 4 }} />
+                  <Text style={styles.metaText}>Starts {formatDate(item.startDate)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.actionsRow}>
+                <TouchableOpacity
+                  style={[styles.btn, styles.acceptBtn, isActing && styles.btnDisabled]}
+                  onPress={() => handleRespond(item.invitationId, 'ACCEPT')}
+                  disabled={isActing}
+                  activeOpacity={0.85}
+                >
+                  {isActing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-sharp" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.acceptBtnText}>Accept</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.btn, styles.declineBtn, isActing && styles.btnDisabled]}
+                  onPress={() => handleRespond(item.invitationId, 'DECLINE')}
+                  disabled={isActing}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="close-sharp" size={16} color={THEME.colors.textSecondary} style={{ marginRight: 6 }} />
+                  <Text style={styles.declineBtnText}>Decline</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
           <EmptyState
             title="No Pending Invitations"
-            message="When friends invite you to their trip, invitations will show up here."
+            message="When friends invite you to join their trip circle, requests will arrive here."
+            icon="mail-unread-outline"
           />
         }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={loadInvitations} colors={[THEME.colors.primary]} />
         }
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
@@ -118,14 +174,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  headerTitle: {
-    ...THEME.typography.h1,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
-    paddingTop: THEME.spacing.md,
-    marginBottom: THEME.spacing.sm,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
   },
   list: {
     padding: THEME.spacing.md,
+    paddingBottom: THEME.spacing.xxl,
   },
   inviteCard: {
     backgroundColor: '#FFFFFF',
@@ -134,26 +207,73 @@ const styles = StyleSheet.create({
     marginBottom: THEME.spacing.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  emblemCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  emblemText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: THEME.colors.primaryDark,
+  },
+  headerText: {
+    flex: 1,
   },
   tripName: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...THEME.typography.h3,
+    fontSize: 16,
     color: THEME.colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  subtext: {
-    ...THEME.typography.bodySmall,
-    marginBottom: 14,
+  inviterText: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginVertical: 4,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: THEME.colors.borderLight,
+    marginVertical: 12,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   btn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: THEME.borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: THEME.borderRadius.md,
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   acceptBtn: {
     backgroundColor: THEME.colors.primary,

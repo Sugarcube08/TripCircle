@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EXPENSE_CATEGORIES, calculateEqualSplit } from '@tripcircle/contracts';
 import { apiRequest, getOnlineStatus } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
@@ -23,6 +25,29 @@ interface AddExpenseScreenProps {
   user: any;
 }
 
+function getCategoryConfig(key: string) {
+  const k = (key || '').toLowerCase();
+  if (k.includes('food') || k.includes('dinner') || k.includes('meal')) {
+    return { icon: 'restaurant-outline' as const, color: '#F97316', bg: '#FFF7ED' };
+  }
+  if (k.includes('stay') || k.includes('hotel') || k.includes('resort')) {
+    return { icon: 'bed-outline' as const, color: '#8B5CF6', bg: '#F5F3FF' };
+  }
+  if (k.includes('travel') || k.includes('transport') || k.includes('cab')) {
+    return { icon: 'car-outline' as const, color: '#3B82F6', bg: '#EFF6FF' };
+  }
+  if (k.includes('drink') || k.includes('beverage') || k.includes('bar')) {
+    return { icon: 'cafe-outline' as const, color: '#EC4899', bg: '#FDF2F8' };
+  }
+  if (k.includes('activity') || k.includes('entertainment')) {
+    return { icon: 'ticket-outline' as const, color: '#10B981', bg: '#ECFDF5' };
+  }
+  if (k.includes('shopping')) {
+    return { icon: 'bag-handle-outline' as const, color: '#F59E0B', bg: '#FFFBEB' };
+  }
+  return { icon: 'receipt-outline' as const, color: '#0D9488', bg: '#F0FDFA' };
+}
+
 export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   route,
   navigation,
@@ -31,7 +56,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const { tripId } = route.params;
   const [amountRupees, setAmountRupees] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>(EXPENSE_CATEGORIES[0].key);
+  const [selectedCategory, setSelectedCategory] = useState<string>(EXPENSE_CATEGORIES[0]?.key || 'FOOD');
   const [payerMemberId, setPayerMemberId] = useState<string>('');
   const [splitMethod, setSplitMethod] = useState<'EQUAL' | 'UNEQUAL'>('EQUAL');
   const [members, setMembers] = useState<any[]>([]);
@@ -79,7 +104,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const toggleBeneficiary = (memberId: string) => {
     if (selectedBeneficiaryIds.includes(memberId)) {
       if (selectedBeneficiaryIds.length === 1) {
-        Alert.alert('At least one beneficiary is required');
+        Alert.alert('Selection Required', 'At least one beneficiary must be included.');
         return;
       }
       setSelectedBeneficiaryIds(selectedBeneficiaryIds.filter((id) => id !== memberId));
@@ -102,26 +127,31 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   const unallocatedPaise = totalAmountPaise - totalAllocatedPaise;
 
+  const addQuickAmount = (increment: number) => {
+    const current = parseFloat(amountRupees) || 0;
+    setAmountRupees((current + increment).toString());
+  };
+
   const handleSave = async () => {
     if (!getOnlineStatus()) {
-      Alert.alert('Offline', 'Transaction submission requires internet connectivity.');
+      Alert.alert('Offline Mode', 'Transaction submission requires active network connectivity.');
       return;
     }
 
     if (!amountRupees || totalAmountPaise <= 0) {
-      Alert.alert('Required', 'Please enter a valid expense amount');
+      Alert.alert('Amount Required', 'Please enter a valid expense amount in rupees.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Required', 'Please enter what the expense was for');
+      Alert.alert('Description Required', 'Please enter a description for this expense.');
       return;
     }
     if (!payerMemberId) {
-      Alert.alert('Required', 'Please select who paid for this expense');
+      Alert.alert('Payer Required', 'Please select who paid for this expense.');
       return;
     }
     if (selectedBeneficiaryIds.length === 0) {
-      Alert.alert('Required', 'Please select at least one beneficiary');
+      Alert.alert('Beneficiaries Required', 'Please select at least one person sharing this expense.');
       return;
     }
 
@@ -149,8 +179,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       }));
     }
 
-    // Find category ID
-    const cat = categories.find((c) => c.key === selectedCategory) || categories[0];
+    const cat = categories.find((c) => c.key === selectedCategory) || categories[0] || EXPENSE_CATEGORIES[0];
 
     try {
       setLoading(true);
@@ -181,202 +210,321 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Amount Input */}
-        <View style={styles.amountBox}>
-          <Text style={styles.amountLabel}>AMOUNT</Text>
-          <View style={styles.amountInputRow}>
-            <Text style={styles.currencySymbol}>₹</Text>
-            <TextInput
-              style={styles.amountInput}
-              placeholder="0.00"
-              placeholderTextColor="#94A3B8"
-              value={amountRupees}
-              onChangeText={setAmountRupees}
-              keyboardType="decimal-pad"
-              autoFocus
-            />
-          </View>
-        </View>
+    <SafeAreaView style={styles.container}>
+      {/* Branded Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add Expense</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-        {/* Category Pills */}
-        <Text style={styles.fieldLabel}>WHAT WAS IT FOR?</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-          {EXPENSE_CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat.key}
-              style={[
-                styles.categoryPill,
-                selectedCategory === cat.key && styles.selectedCategoryPill,
-              ]}
-              onPress={() => setSelectedCategory(cat.key)}
-            >
-              <Text
-                style={[
-                  styles.categoryPillText,
-                  selectedCategory === cat.key && styles.selectedCategoryText,
-                ]}
-              >
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Description */}
-        <Text style={styles.fieldLabel}>DESCRIPTION</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Dinner at Fisherman's Wharf, Taxi to airport"
-          placeholderTextColor="#94A3B8"
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        {/* Who Paid */}
-        <Text style={styles.fieldLabel}>WHO PAID?</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.membersRow}>
-          {members.map((m) => {
-            const isSelected = payerMemberId === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.memberSelectCard, isSelected && styles.selectedMemberCard]}
-                onPress={() => setPayerMemberId(m.id)}
-              >
-                <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={36} />
-                <Text style={[styles.memberSelectName, isSelected && styles.selectedMemberText]} numberOfLines={1}>
-                  {m.userId === user?.id ? 'You' : m.user.name.split(' ')[0]}
-                </Text>
-                {isSelected ? <Text style={styles.checkMark}>✓</Text> : null}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Split Section */}
-        <View style={styles.splitHeader}>
-          <Text style={styles.fieldLabel}>SPLIT WITH</Text>
-          <TouchableOpacity onPress={selectAllBeneficiaries}>
-            <Text style={styles.selectAllText}>Select Everyone</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Split Method Toggle: Equal vs Unequal */}
-        <View style={styles.methodToggle}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, splitMethod === 'EQUAL' && styles.activeToggleBtn]}
-            onPress={() => setSplitMethod('EQUAL')}
-          >
-            <Text style={[styles.toggleText, splitMethod === 'EQUAL' && styles.activeToggleText]}>
-              Equal Split
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, splitMethod === 'UNEQUAL' && styles.activeToggleBtn]}
-            onPress={() => setSplitMethod('UNEQUAL')}
-          >
-            <Text style={[styles.toggleText, splitMethod === 'UNEQUAL' && styles.activeToggleText]}>
-              Unequal Split
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Unequal split remaining counter */}
-        {splitMethod === 'UNEQUAL' && totalAmountPaise > 0 ? (
-          <View style={[styles.unallocatedBanner, unallocatedPaise !== 0 && styles.unallocatedError]}>
-            <Text style={styles.unallocatedText}>
-              {unallocatedPaise === 0
-                ? '✓ Exactly allocated'
-                : unallocatedPaise > 0
-                ? `Remaining unallocated: ₹${(unallocatedPaise / 100).toFixed(2)}`
-                : `Over-allocated by: ₹${(Math.abs(unallocatedPaise) / 100).toFixed(2)}`}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Beneficiaries List */}
-        <View style={styles.beneficiariesCard}>
-          {members.map((m) => {
-            const isIncluded = selectedBeneficiaryIds.includes(m.id);
-            const equalShare = totalAmountPaise > 0 && selectedBeneficiaryIds.length > 0
-              ? (totalAmountPaise / selectedBeneficiaryIds.length / 100).toFixed(2)
-              : '0.00';
-
-            return (
-              <View key={m.id} style={styles.beneficiaryRow}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero Amount Card */}
+          <View style={styles.amountCard}>
+            <Text style={styles.amountLabel}>EXPENSE AMOUNT</Text>
+            <View style={styles.amountInputRow}>
+              <Text style={styles.currencySymbol}>₹</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0.00"
+                placeholderTextColor={THEME.colors.textLight}
+                value={amountRupees}
+                onChangeText={setAmountRupees}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+            </View>
+            {/* Quick Increment Chips */}
+            <View style={styles.quickChipsRow}>
+              {[100, 250, 500, 1000].map((inc) => (
                 <TouchableOpacity
-                  style={styles.beneficiaryCheck}
-                  onPress={() => toggleBeneficiary(m.id)}
+                  key={inc}
+                  style={styles.quickChip}
+                  onPress={() => addQuickAmount(inc)}
                 >
-                  <View style={[styles.checkbox, isIncluded && styles.checkboxActive]}>
-                    {isIncluded ? <Text style={styles.checkboxCheck}>✓</Text> : null}
-                  </View>
-                  <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={32} />
-                  <Text style={styles.beneficiaryName}>
-                    {m.userId === user?.id ? 'You' : m.user.name}
-                  </Text>
+                  <Text style={styles.quickChipText}>+{inc}</Text>
                 </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
-                {splitMethod === 'EQUAL' ? (
-                  <Text style={[styles.shareValue, !isIncluded && styles.shareDisabled]}>
-                    {isIncluded ? `₹${equalShare}` : '₹0.00'}
-                  </Text>
-                ) : (
-                  <View style={styles.unequalInputWrapper}>
-                    <Text style={styles.rupeePrefix}>₹</Text>
-                    <TextInput
-                      style={styles.unequalInput}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                      value={unequalShares[m.id] || ''}
-                      onChangeText={(val) => setUnequalShares({ ...unequalShares, [m.id]: val })}
-                      editable={isIncluded}
+          {/* Category Strip */}
+          <Text style={styles.sectionHeader}>CATEGORY</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+          >
+            {EXPENSE_CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.key;
+              const cfg = getCategoryConfig(cat.key);
+              return (
+                <TouchableOpacity
+                  key={cat.key}
+                  style={[
+                    styles.categoryPill,
+                    isSelected && { backgroundColor: cfg.bg, borderColor: cfg.color, borderWidth: 1.5 },
+                  ]}
+                  onPress={() => setSelectedCategory(cat.key)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.categoryIconCircle, { backgroundColor: isSelected ? cfg.color : '#F1F5F9' }]}>
+                    <Ionicons
+                      name={cfg.icon}
+                      size={16}
+                      color={isSelected ? '#FFFFFF' : THEME.colors.textSecondary}
                     />
                   </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
+                  <Text
+                    style={[
+                      styles.categoryPillText,
+                      isSelected && { color: cfg.color, fontWeight: '700' },
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        {/* Location & Note */}
-        <Text style={styles.fieldLabel}>LOCATION (OPTIONAL)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Restaurant / shop / location"
-          placeholderTextColor="#94A3B8"
-          value={location}
-          onChangeText={setLocation}
-        />
+          {/* Description Input */}
+          <Text style={styles.sectionHeader}>DESCRIPTION</Text>
+          <View style={styles.inputCard}>
+            <Ionicons name="receipt-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.inputField}
+              placeholder="e.g. Seafood Dinner, Taxi to airport, Groceries"
+              placeholderTextColor={THEME.colors.textLight}
+              value={description}
+              onChangeText={setDescription}
+            />
+          </View>
 
-        <Text style={styles.fieldLabel}>NOTE (OPTIONAL)</Text>
-        <TextInput
-          style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-          placeholder="Add any extra details..."
-          placeholderTextColor="#94A3B8"
-          value={note}
-          onChangeText={setNote}
-          multiline
-        />
+          {/* Payer Selector */}
+          <Text style={styles.sectionHeader}>PAID BY</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.membersRow}
+          >
+            {members.map((m) => {
+              const isSelected = payerMemberId === m.id;
+              const isYou = m.userId === user?.id;
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.payerCard, isSelected && styles.selectedPayerCard]}
+                  onPress={() => setPayerMemberId(m.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.avatarWrapper}>
+                    <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={44} />
+                    {isSelected && (
+                      <View style={styles.selectedBadge}>
+                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={[styles.payerName, isSelected && styles.selectedPayerName]}
+                    numberOfLines={1}
+                  >
+                    {isYou ? 'You' : m.user.name.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={handleSave}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.saveBtnText}>Save Expense</Text>
+          {/* Split Section */}
+          <View style={styles.splitHeaderRow}>
+            <Text style={styles.sectionHeader}>SPLIT WITH</Text>
+            <TouchableOpacity onPress={selectAllBeneficiaries} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.selectAllLink}>Select Everyone</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Split Method Toggle */}
+          <View style={styles.methodToggleCard}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, splitMethod === 'EQUAL' && styles.activeToggleBtn]}
+              onPress={() => setSplitMethod('EQUAL')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="pie-chart-outline"
+                size={16}
+                color={splitMethod === 'EQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.toggleText, splitMethod === 'EQUAL' && styles.activeToggleText]}>
+                Equal Split
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.toggleBtn, splitMethod === 'UNEQUAL' && styles.activeToggleBtn]}
+              onPress={() => setSplitMethod('UNEQUAL')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="options-outline"
+                size={16}
+                color={splitMethod === 'UNEQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.toggleText, splitMethod === 'UNEQUAL' && styles.activeToggleText]}>
+                Unequal Split
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Unequal allocation validation indicator */}
+          {splitMethod === 'UNEQUAL' && totalAmountPaise > 0 && (
+            <View
+              style={[
+                styles.allocationBanner,
+                unallocatedPaise === 0 ? styles.allocationBannerSuccess : styles.allocationBannerAlert,
+              ]}
+            >
+              <Ionicons
+                name={unallocatedPaise === 0 ? 'checkmark-circle' : 'alert-circle'}
+                size={18}
+                color={unallocatedPaise === 0 ? THEME.colors.credit : THEME.colors.debt}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                style={[
+                  styles.allocationBannerText,
+                  { color: unallocatedPaise === 0 ? THEME.colors.credit : THEME.colors.debt },
+                ]}
+              >
+                {unallocatedPaise === 0
+                  ? 'Total matches exact expense amount'
+                  : unallocatedPaise > 0
+                  ? `Remaining to allocate: ₹${(unallocatedPaise / 100).toFixed(2)}`
+                  : `Over-allocated by: ₹${(Math.abs(unallocatedPaise) / 100).toFixed(2)}`}
+              </Text>
+            </View>
           )}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {/* Beneficiaries List */}
+          <View style={styles.beneficiariesCard}>
+            {members.map((m, index) => {
+              const isIncluded = selectedBeneficiaryIds.includes(m.id);
+              const isYou = m.userId === user?.id;
+              const equalShare =
+                totalAmountPaise > 0 && selectedBeneficiaryIds.length > 0
+                  ? (totalAmountPaise / selectedBeneficiaryIds.length / 100).toFixed(2)
+                  : '0.00';
+
+              return (
+                <View
+                  key={m.id}
+                  style={[
+                    styles.beneficiaryRow,
+                    index === members.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.beneficiaryLeft}
+                    onPress={() => toggleBeneficiary(m.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, isIncluded && styles.checkboxActive]}>
+                      {isIncluded && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                    </View>
+                    <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={36} />
+                    <View style={styles.beneficiaryInfo}>
+                      <Text style={[styles.beneficiaryName, !isIncluded && styles.textDisabled]}>
+                        {m.user.name} {isYou ? '(You)' : ''}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {splitMethod === 'EQUAL' ? (
+                    <Text style={[styles.shareValueText, !isIncluded && styles.textDisabled]}>
+                      {isIncluded ? `₹${equalShare}` : '₹0.00'}
+                    </Text>
+                  ) : (
+                    <View style={styles.unequalInputWrapper}>
+                      <Text style={styles.rupeeInputPrefix}>₹</Text>
+                      <TextInput
+                        style={styles.unequalInputField}
+                        placeholder="0.00"
+                        placeholderTextColor={THEME.colors.textLight}
+                        keyboardType="decimal-pad"
+                        value={unequalShares[m.id] || ''}
+                        onChangeText={(val) => setUnequalShares({ ...unequalShares, [m.id]: val })}
+                        editable={isIncluded}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Optional Details Card */}
+          <Text style={styles.sectionHeader}>EXTRA DETAILS (OPTIONAL)</Text>
+          <View style={styles.optionalCard}>
+            <View style={styles.optionalRow}>
+              <Ionicons name="location-outline" size={18} color={THEME.colors.textMuted} style={styles.optIcon} />
+              <TextInput
+                style={styles.optInput}
+                placeholder="Location (e.g. Candolim Beach)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={location}
+                onChangeText={setLocation}
+              />
+            </View>
+            <View style={styles.cardDivider} />
+            <View style={styles.optionalRow}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={THEME.colors.textMuted} style={styles.optIcon} />
+              <TextInput
+                style={[styles.optInput, { minHeight: 48 }]}
+                placeholder="Notes or details..."
+                placeholderTextColor={THEME.colors.textLight}
+                value={note}
+                onChangeText={setNote}
+                multiline
+              />
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={[styles.saveBtn, loading && styles.btnDisabled]}
+            onPress={handleSave}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-sharp" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.saveBtnText}>Save Expense</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -385,11 +533,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
-    padding: THEME.spacing.md,
-    paddingBottom: THEME.spacing.xxl,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
   },
-  amountBox: {
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  scrollContent: {
+    padding: THEME.spacing.md,
+    paddingBottom: THEME.spacing.xxl + 20,
+  },
+  amountCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
@@ -397,181 +567,235 @@ const styles = StyleSheet.create({
     marginBottom: THEME.spacing.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
   },
   amountLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginBottom: THEME.spacing.xs,
   },
   amountInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    marginVertical: THEME.spacing.xs,
   },
   currencySymbol: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: THEME.colors.textPrimary,
-    marginRight: 6,
+    fontSize: 34,
+    fontWeight: '700',
+    color: THEME.colors.primary,
+    marginRight: 4,
   },
   amountInput: {
-    fontSize: 36,
+    fontSize: 38,
     fontWeight: '800',
     color: THEME.colors.textPrimary,
-    minWidth: 140,
+    minWidth: 120,
     textAlign: 'center',
+    padding: 0,
+    fontVariant: ['tabular-nums'],
   },
-  fieldLabel: {
+  quickChipsRow: {
+    flexDirection: 'row',
+    marginTop: THEME.spacing.md,
+    gap: 8,
+  },
+  quickChip: {
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.full,
+  },
+  quickChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    letterSpacing: 0.5,
+    color: THEME.colors.primaryDark,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
     marginBottom: 8,
     marginTop: 12,
+    marginLeft: 4,
   },
   categoryRow: {
-    flexDirection: 'row',
+    paddingRight: THEME.spacing.md,
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: THEME.borderRadius.full,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    borderRadius: THEME.borderRadius.full,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
-  selectedCategoryPill: {
-    backgroundColor: THEME.colors.primary,
-    borderColor: THEME.colors.primary,
+  categoryIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   categoryPillText: {
     fontSize: 13,
-    fontWeight: '600',
     color: THEME.colors.textPrimary,
+    fontWeight: '600',
   },
-  selectedCategoryText: {
-    color: '#FFFFFF',
-  },
-  input: {
+  inputCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
+    height: 52,
+    marginBottom: 4,
+    ...THEME.shadows.sm,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  inputField: {
+    flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
-    marginBottom: 6,
   },
   membersRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 8,
+    paddingRight: THEME.spacing.md,
+    gap: 12,
+    marginBottom: 4,
   },
-  memberSelectCard: {
+  payerCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.md,
+    padding: 10,
+    alignItems: 'center',
+    width: 78,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    borderRadius: THEME.borderRadius.md,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    width: 80,
   },
-  selectedMemberCard: {
+  selectedPayerCard: {
     borderColor: THEME.colors.primary,
     backgroundColor: THEME.colors.primaryLight,
+    borderWidth: 1.5,
   },
-  memberSelectName: {
-    fontSize: 11,
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 6,
+  },
+  selectedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: THEME.colors.primary,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  payerName: {
+    fontSize: 12,
     fontWeight: '600',
-    color: THEME.colors.textPrimary,
-    marginTop: 4,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
   },
-  selectedMemberText: {
+  selectedPayerName: {
     color: THEME.colors.primaryDark,
     fontWeight: '700',
   },
-  checkMark: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    fontSize: 10,
-    color: THEME.colors.primaryDark,
-    fontWeight: '800',
-  },
-  splitHeader: {
+  splitHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
-  selectAllText: {
+  selectAllLink: {
     fontSize: 12,
     fontWeight: '700',
     color: THEME.colors.primary,
   },
-  methodToggle: {
+  methodToggleCard: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
     borderRadius: THEME.borderRadius.md,
-    padding: 3,
-    marginVertical: 10,
+    padding: 4,
+    marginBottom: THEME.spacing.md,
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
     borderRadius: THEME.borderRadius.sm,
   },
   activeToggleBtn: {
     backgroundColor: '#FFFFFF',
+    ...THEME.shadows.sm,
   },
   toggleText: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.textMuted,
   },
   activeToggleText: {
-    color: THEME.colors.textPrimary,
+    color: THEME.colors.primaryDark,
     fontWeight: '700',
   },
-  unallocatedBanner: {
-    backgroundColor: '#F0FDF4',
-    padding: 10,
+  allocationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
     borderRadius: THEME.borderRadius.md,
-    marginBottom: 10,
+    marginBottom: THEME.spacing.md,
+    borderWidth: 1,
   },
-  unallocatedError: {
-    backgroundColor: '#FEF2F2',
+  allocationBannerSuccess: {
+    backgroundColor: THEME.colors.creditBg,
+    borderColor: THEME.colors.creditBorder || '#A7F3D0',
   },
-  unallocatedText: {
+  allocationBannerAlert: {
+    backgroundColor: THEME.colors.debtBg,
+    borderColor: THEME.colors.debtBorder || '#FECACA',
+  },
+  allocationBannerText: {
     fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: THEME.colors.textPrimary,
+    fontWeight: '600',
+    flexShrink: 1,
   },
   beneficiariesCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.md,
+    borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     paddingHorizontal: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
+    ...THEME.shadows.sm,
   },
   beneficiaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    borderBottomColor: THEME.colors.borderLight,
   },
-  beneficiaryCheck: {
+  beneficiaryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
@@ -581,61 +805,95 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: '#94A3B8',
-    marginRight: 10,
+    borderColor: THEME.colors.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
   checkboxActive: {
     backgroundColor: THEME.colors.primary,
     borderColor: THEME.colors.primary,
   },
-  checkboxCheck: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
+  beneficiaryInfo: {
+    marginLeft: 10,
+    flex: 1,
   },
   beneficiaryName: {
     fontSize: 14,
     fontWeight: '600',
     color: THEME.colors.textPrimary,
-    marginLeft: 10,
   },
-  shareValue: {
+  textDisabled: {
+    color: THEME.colors.textLight,
+  },
+  shareValueText: {
     fontSize: 14,
     fontWeight: '700',
     color: THEME.colors.textPrimary,
-  },
-  shareDisabled: {
-    color: THEME.colors.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   unequalInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    borderRadius: 6,
+    borderRadius: THEME.borderRadius.sm,
     paddingHorizontal: 8,
-    width: 90,
+    height: 36,
   },
-  rupeePrefix: {
-    fontSize: 13,
-    color: THEME.colors.textSecondary,
-    marginRight: 2,
-  },
-  unequalInput: {
+  rupeeInputPrefix: {
     fontSize: 14,
     fontWeight: '600',
-    paddingVertical: 4,
+    color: THEME.colors.textMuted,
+    marginRight: 4,
+  },
+  unequalInputField: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+    minWidth: 64,
+    textAlign: 'right',
+    padding: 0,
+    fontVariant: ['tabular-nums'],
+  },
+  optionalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.lg,
+    ...THEME.shadows.sm,
+  },
+  optionalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  optIcon: {
+    marginRight: 10,
+  },
+  optInput: {
     flex: 1,
+    fontSize: 14,
     color: THEME.colors.textPrimary,
   },
+  cardDivider: {
+    height: 1,
+    backgroundColor: THEME.colors.borderLight,
+  },
   saveBtn: {
-    backgroundColor: THEME.colors.primary,
-    paddingVertical: 16,
-    borderRadius: THEME.borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: THEME.spacing.xl,
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primary,
+    borderRadius: THEME.borderRadius.md,
+    paddingVertical: 15,
+    ...THEME.shadows.md,
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   saveBtnText: {
     color: '#FFFFFF',

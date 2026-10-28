@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { HomeScreen } from '../features/trips/HomeScreen';
 import { TripActivityScreen } from '../features/trips/TripActivityScreen';
 import { UserProfileScreen } from '../features/profile/UserProfileScreen';
@@ -23,13 +24,17 @@ export const MainTabNavigator: React.FC<MainTabProps> = ({ user, onLogout }) => 
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: THEME.colors.border,
-          height: 60,
-          paddingBottom: 8,
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
           paddingTop: 8,
+          ...THEME.shadows.sm,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
+          letterSpacing: 0.2,
+          marginTop: -2,
         },
       }}
     >
@@ -37,7 +42,13 @@ export const MainTabNavigator: React.FC<MainTabProps> = ({ user, onLogout }) => 
         name="HomeTab"
         options={{
           tabBarLabel: 'Trips',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>✈️</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'compass' : 'compass-outline'}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       >
         {(props) => <HomeScreen {...props} user={user} />}
@@ -48,15 +59,27 @@ export const MainTabNavigator: React.FC<MainTabProps> = ({ user, onLogout }) => 
         component={TripActivityScreen}
         options={{
           tabBarLabel: 'Activity',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🔔</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'notifications' : 'notifications-outline'}
+              size={23}
+              color={color}
+            />
+          ),
         }}
       />
 
       <Tab.Screen
         name="ProfileTab"
         options={{
-          tabBarLabel: 'Me',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={23}
+              color={color}
+            />
+          ),
         }}
       >
         {(props) => <UserProfileScreen {...props} user={user} onLogout={onLogout} />}

@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
 import { THEME } from '../../theme';
@@ -38,8 +40,8 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
   }, []);
 
   const handleVerify = async () => {
-    if (otp.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter all 6 digits of the verification code');
+    if (otp.trim().length !== 6) {
+      Alert.alert('Incomplete Code', 'Please enter all 6 digits of the verification code.');
       return;
     }
 
@@ -49,7 +51,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
         method: 'POST',
         body: JSON.stringify({
           email,
-          otp,
+          otp: otp.trim(),
           purpose,
         }),
         requiresAuth: false,
@@ -61,7 +63,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
           onLoginSuccess(data.user);
         }
       } else if (purpose === 'PASSWORD_RESET') {
-        navigation.navigate('ResetPassword', { email });
+        navigation.navigate('ResetPassword', { email, otp: otp.trim() });
       }
     } catch (err) {
       Alert.alert('Verification Failed', (err as Error).message);
@@ -74,130 +76,187 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
     if (cooldown > 0) return;
 
     try {
+      setLoading(true);
       await apiRequest('/auth/resend-otp', {
         method: 'POST',
         body: JSON.stringify({ email, purpose }),
         requiresAuth: false,
       });
       setCooldown(60);
-      Alert.alert('OTP Resent', 'A new verification code has been dispatched.');
+      Alert.alert('Code Sent', `A new verification code was delivered to ${email}.`);
     } catch (err) {
-      Alert.alert('Resend Failed', (err as Error).message);
+      Alert.alert('Error', (err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Verify Email</Text>
-        <Text style={styles.subtitle}>
-          Enter the 6-digit code sent to{'\n'}
-          <Text style={styles.emailHighlight}>{email}</Text>
-        </Text>
-
-        <TextInput
-          style={styles.otpInput}
-          value={otp}
-          onChangeText={(val) => setOtp(val.replace(/[^0-9]/g, '').slice(0, 6))}
-          placeholder="000000"
-          placeholderTextColor="#CBD5E1"
-          keyboardType="number-pad"
-          maxLength={6}
-          textAlign="center"
-        />
-
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleVerify}
-          disabled={loading}
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Verify & Continue</Text>
-          )}
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.resendBtn}
-          onPress={handleResend}
-          disabled={cooldown > 0}
-        >
-          <Text style={[styles.resendText, cooldown > 0 && styles.disabledText]}>
-            {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend Code'}
+        <View style={styles.content}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="shield-checkmark" size={32} color={THEME.colors.primary} />
+          </View>
+
+          <Text style={styles.title}>Enter Verification Code</Text>
+          <Text style={styles.subtitle}>
+            We've sent a 6-digit confirmation code to:
           </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          <Text style={styles.emailText}>{email}</Text>
+
+          <View style={styles.otpCard}>
+            <TextInput
+              style={styles.otpInput}
+              placeholder="000000"
+              placeholderTextColor={THEME.colors.textMuted}
+              value={otp}
+              onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+            />
+
+            <TouchableOpacity
+              style={[styles.verifyBtn, loading && styles.disabledBtn]}
+              onPress={handleVerify}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.verifyBtnText}>Verify & Proceed</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.resendRow}>
+              <Text style={styles.resendPrompt}>Didn't receive code? </Text>
+              <TouchableOpacity onPress={handleResend} disabled={cooldown > 0}>
+                <Text style={[styles.resendLink, cooldown > 0 && styles.disabledLink]}>
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: THEME.spacing.lg,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: THEME.spacing.lg,
+    marginTop: THEME.spacing.sm,
   },
   content: {
-    backgroundColor: THEME.colors.card,
-    padding: THEME.spacing.xl,
-    borderRadius: THEME.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: THEME.spacing.xxl,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: THEME.colors.primaryLight,
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: THEME.spacing.md,
   },
   title: {
     ...THEME.typography.h1,
-    marginBottom: 8,
+    textAlign: 'center',
+    marginBottom: THEME.spacing.xs,
   },
   subtitle: {
     ...THEME.typography.bodySmall,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+  },
+  emailText: {
+    ...THEME.typography.bodyMedium,
+    color: THEME.colors.primary,
     textAlign: 'center',
     marginBottom: THEME.spacing.xl,
   },
-  emailHighlight: {
-    fontWeight: '700',
-    color: THEME.colors.textPrimary,
+  otpCard: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.xl,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    ...THEME.shadows.md,
   },
   otpInput: {
-    borderWidth: 2,
-    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.inputBg,
     borderRadius: THEME.borderRadius.md,
-    fontSize: 32,
+    borderWidth: 1,
+    borderColor: THEME.colors.inputBorder,
+    height: 56,
+    fontSize: 28,
     fontWeight: '800',
-    letterSpacing: 10,
-    width: '100%',
-    paddingVertical: 14,
     color: THEME.colors.textPrimary,
-    backgroundColor: '#F8FAFC',
+    textAlign: 'center',
+    letterSpacing: 10,
     marginBottom: THEME.spacing.lg,
   },
-  primaryBtn: {
+  verifyBtn: {
     backgroundColor: THEME.colors.primary,
-    width: '100%',
-    paddingVertical: 14,
+    height: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
-    marginBottom: THEME.spacing.md,
+    justifyContent: 'center',
+    ...THEME.shadows.sm,
   },
-  primaryBtnText: {
+  disabledBtn: {
+    opacity: 0.6,
+  },
+  verifyBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
-  resendBtn: {
-    padding: 8,
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: THEME.spacing.md,
   },
-  resendText: {
-    fontSize: 14,
-    fontWeight: '600',
+  resendPrompt: {
+    ...THEME.typography.bodySmall,
+    color: THEME.colors.textSecondary,
+  },
+  resendLink: {
+    ...THEME.typography.bodySmall,
+    fontWeight: '700',
     color: THEME.colors.primary,
   },
-  disabledText: {
+  disabledLink: {
     color: THEME.colors.textMuted,
   },
 });

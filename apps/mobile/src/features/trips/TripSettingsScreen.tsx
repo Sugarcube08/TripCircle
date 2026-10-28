@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDate } from '../../utils/formatters';
@@ -55,7 +56,7 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
   const handleCloseTrip = () => {
     Alert.alert(
       'Close Trip',
-      'Closing the trip prevents any new expenses from being recorded. Outstanding balances remain intact and settlement payments can still be made.',
+      'Closing the trip prevents any new expenses from being recorded. Outstanding balances remain intact and settlement payments can still be confirmed.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -128,60 +129,105 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Trip Settings</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Overview Info Card */}
+        <Text style={styles.sectionHeader}>OVERVIEW</Text>
         <View style={styles.card}>
           <Text style={styles.tripName}>{trip.name}</Text>
-          <Text style={styles.tripSub}>
-            Destination: {trip.destination || 'Not specified'} · Currency: {trip.currency}
-          </Text>
-          <Text style={styles.tripSub}>
-            Dates: {formatDate(trip.startDate)}
-            {trip.endDate ? ` – ${formatDate(trip.endDate)}` : ''}
-          </Text>
+
+          {trip.destination ? (
+            <View style={styles.infoRow}>
+              <Ionicons name="location-outline" size={16} color={THEME.colors.textMuted} style={styles.infoIcon} />
+              <Text style={styles.infoText}>{trip.destination}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={16} color={THEME.colors.textMuted} style={styles.infoIcon} />
+            <Text style={styles.infoText}>
+              Starts {formatDate(trip.startDate)}
+              {trip.endDate ? ` · Ends ${formatDate(trip.endDate)}` : ''}
+            </Text>
+          </View>
+
+          <View style={styles.statusDivider} />
 
           <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Trip Status:</Text>
+            <Text style={styles.statusLabel}>Trip State</Text>
             <View style={[styles.statusBadge, isClosed && styles.closedBadge]}>
+              <View style={[styles.statusDot, isClosed ? styles.statusDotClosed : styles.statusDotActive]} />
               <Text style={[styles.statusBadgeText, isClosed && styles.closedBadgeText]}>
-                {trip.status}
+                {isClosed ? 'Closed (Settling)' : 'Active (Open)'}
               </Text>
             </View>
           </View>
         </View>
 
         {/* Quick Navigation Items */}
-        <View style={styles.card}>
+        <Text style={styles.sectionHeader}>TRIP ACTIONS</Text>
+        <View style={styles.navCard}>
           <TouchableOpacity
             style={styles.navRow}
             onPress={() => navigation.navigate('ExportReport', { tripId })}
+            activeOpacity={0.7}
           >
-            <Text style={styles.navText}>📄 Export Financial Reports (PDF / Excel)</Text>
-            <Text style={styles.arrow}>➔</Text>
+            <View style={styles.navLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="document-text-outline" size={18} color="#16A34A" />
+              </View>
+              <View>
+                <Text style={styles.navText}>Export Financial Reports</Text>
+                <Text style={styles.navSub}>Download PDF Ledger or Excel Statement</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={THEME.colors.textLight} />
           </TouchableOpacity>
+
+          <View style={styles.rowDivider} />
 
           <TouchableOpacity
             style={styles.navRow}
             onPress={() => navigation.navigate('TripMembers', { tripId })}
+            activeOpacity={0.7}
           >
-            <Text style={styles.navText}>👥 Manage Trip Members</Text>
-            <Text style={styles.arrow}>➔</Text>
+            <View style={styles.navLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: THEME.colors.primaryLight }]}>
+                <Ionicons name="people-outline" size={18} color={THEME.colors.primaryDark} />
+              </View>
+              <View>
+                <Text style={styles.navText}>Manage Trip Members</Text>
+                <Text style={styles.navSub}>{trip.members?.length || 0} active members</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={THEME.colors.textLight} />
           </TouchableOpacity>
         </View>
 
-        {/* Creator / Member Lifecycle Actions */}
-        <View style={styles.dangerZone}>
-          <Text style={styles.dangerTitle}>LIFECYCLE MANAGEMENT</Text>
-
+        {/* Lifecycle Actions */}
+        <Text style={styles.sectionHeader}>LIFECYCLE MANAGEMENT</Text>
+        <View style={styles.card}>
           {isCreator ? (
             isClosed ? (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.reopenBtn]}
                 onPress={handleReopenTrip}
                 disabled={actionLoading}
+                activeOpacity={0.85}
               >
+                <Ionicons name="refresh-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnText}>Reopen Trip</Text>
               </TouchableOpacity>
             ) : (
@@ -189,7 +235,9 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
                 style={[styles.actionBtn, styles.closeBtn]}
                 onPress={handleCloseTrip}
                 disabled={actionLoading}
+                activeOpacity={0.85}
               >
+                <Ionicons name="lock-closed-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnText}>Close Trip for Everyone</Text>
               </TouchableOpacity>
             )
@@ -198,12 +246,14 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
               style={[styles.actionBtn, styles.leaveBtn]}
               onPress={handleLeaveTrip}
               disabled={actionLoading}
+              activeOpacity={0.85}
             >
+              <Ionicons name="log-out-outline" size={18} color="#DC2626" style={{ marginRight: 6 }} />
               <Text style={styles.leaveBtnText}>Leave Trip</Text>
             </TouchableOpacity>
           )}
 
-          {actionLoading ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
+          {actionLoading && <ActivityIndicator color={THEME.colors.primary} style={{ marginTop: 12 }} />}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -215,12 +265,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
-    padding: THEME.spacing.md,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    ...THEME.typography.h1,
-    marginBottom: THEME.spacing.md,
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  scrollContent: {
+    padding: THEME.spacing.md,
+    paddingBottom: THEME.spacing.xxl,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginBottom: 8,
+    marginTop: 6,
+    marginLeft: 4,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -229,87 +307,128 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.colors.border,
     marginBottom: THEME.spacing.md,
+    ...THEME.shadows.sm,
   },
   tripName: {
     ...THEME.typography.h2,
-    marginBottom: 4,
+    fontSize: 20,
+    color: THEME.colors.textPrimary,
+    marginBottom: 8,
   },
-  tripSub: {
-    ...THEME.typography.bodySmall,
-    marginBottom: 2,
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  infoIcon: {
+    marginRight: 8,
+  },
+  infoText: {
+    fontSize: 13,
+    color: THEME.colors.textSecondary,
+  },
+  statusDivider: {
+    height: 1,
+    backgroundColor: THEME.colors.borderLight,
+    marginVertical: 12,
   },
   statusRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: THEME.colors.divider,
   },
   statusLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: THEME.colors.textSecondary,
-    marginRight: 8,
   },
   statusBadge: {
-    backgroundColor: THEME.colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: THEME.borderRadius.full,
   },
   closedBadge: {
     backgroundColor: '#F1F5F9',
   },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusDotActive: {
+    backgroundColor: '#10B981',
+  },
+  statusDotClosed: {
+    backgroundColor: '#94A3B8',
+  },
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: '#059669',
   },
   closedBadgeText: {
     color: '#64748B',
+  },
+  navCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    marginBottom: THEME.spacing.md,
+    ...THEME.shadows.sm,
   },
   navRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    padding: THEME.spacing.md,
+  },
+  navLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   navText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: THEME.colors.textPrimary,
   },
-  arrow: {
-    fontSize: 16,
-    color: THEME.colors.textMuted,
-  },
-  dangerZone: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-  },
-  dangerTitle: {
+  navSub: {
     fontSize: 12,
-    fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    marginBottom: 12,
-    letterSpacing: 0.5,
+    color: THEME.colors.textMuted,
+    marginTop: 1,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: THEME.colors.borderLight,
+    marginLeft: 62,
   },
   actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: THEME.borderRadius.md,
-    alignItems: 'center',
   },
   closeBtn: {
     backgroundColor: '#DC2626',
+    ...THEME.shadows.sm,
   },
   reopenBtn: {
     backgroundColor: THEME.colors.primary,
+    ...THEME.shadows.sm,
   },
   leaveBtn: {
     borderWidth: 1.5,

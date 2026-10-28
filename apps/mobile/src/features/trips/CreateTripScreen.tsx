@@ -8,8 +8,11 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  FlatList,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { THEME } from '../../theme';
@@ -62,7 +65,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
 
   const handleCreateTrip = async () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Please enter a trip name');
+      Alert.alert('Required', 'Please enter a name for your trip.');
       return;
     }
 
@@ -90,121 +93,183 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-      <Text style={styles.screenTitle}>Create a New Trip</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Trip</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-      <View style={styles.formCard}>
-        <Text style={styles.label}>Trip Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Goa Trip, Ladakh Roadtrip"
-          placeholderTextColor="#94A3B8"
-          value={name}
-          onChangeText={setName}
-        />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionHeader}>TRIP ESSENTIALS</Text>
+          <View style={styles.card}>
+            {/* Trip Name */}
+            <View style={styles.fieldRow}>
+              <Ionicons name="airplane-outline" size={20} color={THEME.colors.primary} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Trip Name * (e.g. Goa Vacation, Manali Trek)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={name}
+                onChangeText={setName}
+                autoFocus
+              />
+            </View>
 
-        <Text style={styles.label}>Destination (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Goa, India"
-          placeholderTextColor="#94A3B8"
-          value={destination}
-          onChangeText={setDestination}
-        />
+            <View style={styles.divider} />
 
-        <View style={styles.row}>
-          <View style={styles.col}>
-            <Text style={styles.label}>Start Date</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#94A3B8"
-              value={startDate}
-              onChangeText={setStartDate}
-            />
-          </View>
-          <View style={styles.col}>
-            <Text style={styles.label}>End Date</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#94A3B8"
-              value={endDate}
-              onChangeText={setEndDate}
-            />
-          </View>
-        </View>
-
-        <Text style={styles.label}>Cover Image URL (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="https://..."
-          placeholderTextColor="#94A3B8"
-          value={coverImageUrl}
-          onChangeText={setCoverImageUrl}
-        />
-
-        {/* Member Search & Invitation */}
-        <Text style={[styles.label, { marginTop: 16 }]}>Invite Friends</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Search by name or email..."
-          placeholderTextColor="#94A3B8"
-          value={searchQuery}
-          onChangeText={handleSearch}
-        />
-
-        {searching ? <ActivityIndicator size="small" style={{ marginVertical: 8 }} /> : null}
-
-        {searchResults.length > 0 ? (
-          <View style={styles.resultsContainer}>
-            {searchResults.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.searchItem}
-                onPress={() => addInvitee(item)}
-              >
-                <MemberAvatar name={item.name} avatarUrl={item.avatarUrl} size={32} />
-                <View style={styles.searchItemText}>
-                  <Text style={styles.searchItemName}>{item.name}</Text>
-                  <Text style={styles.searchItemEmail}>{item.email}</Text>
-                </View>
-                <Text style={styles.addText}>+ Add</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
-
-        {/* Selected Invitees List */}
-        {invitedUsers.length > 0 ? (
-          <View style={styles.inviteesSection}>
-            <Text style={styles.inviteesTitle}>Invited ({invitedUsers.length})</Text>
-            <View style={styles.chipsRow}>
-              {invitedUsers.map((u) => (
-                <View key={u.id} style={styles.chip}>
-                  <Text style={styles.chipText}>{u.name}</Text>
-                  <TouchableOpacity onPress={() => removeInvitee(u.id)}>
-                    <Text style={styles.chipRemove}> ✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+            {/* Destination */}
+            <View style={styles.fieldRow}>
+              <Ionicons name="location-outline" size={20} color={THEME.colors.primary} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Destination (Optional)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={destination}
+                onChangeText={setDestination}
+              />
             </View>
           </View>
-        ) : null}
 
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={handleCreateTrip}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.createBtnText}>Create Trip & Begin</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {/* Dates Card */}
+          <Text style={styles.sectionHeader}>DATES</Text>
+          <View style={styles.card}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="calendar-outline" size={20} color={THEME.colors.textMuted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Start Date (YYYY-MM-DD)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={startDate}
+                onChangeText={setStartDate}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.fieldRow}>
+              <Ionicons name="calendar-outline" size={20} color={THEME.colors.textMuted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="End Date (YYYY-MM-DD, Optional)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={endDate}
+                onChangeText={setEndDate}
+              />
+            </View>
+          </View>
+
+          {/* Cover Photo */}
+          <Text style={styles.sectionHeader}>COVER PHOTO (OPTIONAL)</Text>
+          <View style={styles.card}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="image-outline" size={20} color={THEME.colors.textMuted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="https://... cover image URL"
+                placeholderTextColor={THEME.colors.textLight}
+                value={coverImageUrl}
+                onChangeText={setCoverImageUrl}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* Member Search & Invite */}
+          <Text style={styles.sectionHeader}>INVITE MEMBERS</Text>
+          <View style={styles.card}>
+            <View style={styles.fieldRow}>
+              <Ionicons name="person-add-outline" size={20} color={THEME.colors.textMuted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Search friend by name or email..."
+                placeholderTextColor={THEME.colors.textLight}
+                value={searchQuery}
+                onChangeText={handleSearch}
+                autoCapitalize="none"
+              />
+              {searching && <ActivityIndicator size="small" color={THEME.colors.primary} />}
+            </View>
+
+            {searchResults.length > 0 && (
+              <View style={styles.searchResultsBox}>
+                {searchResults.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.searchItem}
+                    onPress={() => addInvitee(item)}
+                    activeOpacity={0.7}
+                  >
+                    <MemberAvatar name={item.name} avatarUrl={item.avatarUrl} size={34} />
+                    <View style={styles.searchItemInfo}>
+                      <Text style={styles.searchItemName}>{item.name}</Text>
+                      <Text style={styles.searchItemEmail}>{item.email}</Text>
+                    </View>
+                    <View style={styles.addBtnPill}>
+                      <Text style={styles.addBtnText}>+ Add</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Selected Invited Chips */}
+            {invitedUsers.length > 0 && (
+              <View style={styles.inviteesWrapper}>
+                <Text style={styles.inviteesCountLabel}>
+                  {invitedUsers.length} FRIEND{invitedUsers.length > 1 ? 'S' : ''} ADDED
+                </Text>
+                <View style={styles.chipsWrap}>
+                  {invitedUsers.map((u) => (
+                    <View key={u.id} style={styles.userChip}>
+                      <MemberAvatar name={u.name} avatarUrl={u.avatarUrl} size={22} />
+                      <Text style={styles.userChipText}>{u.name}</Text>
+                      <TouchableOpacity
+                        onPress={() => removeInvitee(u.id)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="close-circle" size={16} color={THEME.colors.textMuted} style={{ marginLeft: 4 }} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={[styles.createBtn, loading && styles.btnDisabled]}
+            onPress={handleCreateTrip}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="compass-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.createBtnText}>Create Trip & Begin</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -213,63 +278,81 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
-  screenTitle: {
-    ...THEME.typography.h1,
-    marginVertical: THEME.spacing.md,
-  },
-  formCard: {
-    backgroundColor: THEME.colors.card,
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.colors.textPrimary,
-    marginBottom: 6,
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginBottom: 8,
     marginTop: 8,
+    marginLeft: 4,
   },
-  input: {
-    backgroundColor: '#F8FAFC',
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.md,
+    ...THEME.shadows.sm,
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
+  },
+  fieldIcon: {
+    marginRight: 10,
+  },
+  textInput: {
+    flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
+  divider: {
+    height: 1,
+    backgroundColor: THEME.colors.borderLight,
   },
-  col: {
-    flex: 1,
-  },
-  resultsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: THEME.borderRadius.md,
-    marginTop: 4,
-    maxHeight: 180,
+  searchResultsBox: {
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.borderLight,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   searchItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    paddingVertical: 8,
   },
-  searchItemText: {
-    flex: 1,
+  searchItemInfo: {
     marginLeft: 10,
+    flex: 1,
   },
   searchItemName: {
     fontSize: 14,
@@ -278,52 +361,63 @@ const styles = StyleSheet.create({
   },
   searchItemEmail: {
     fontSize: 12,
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.textMuted,
   },
-  addText: {
-    color: THEME.colors.primary,
-    fontWeight: '700',
-    fontSize: 13,
+  addBtnPill: {
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: THEME.borderRadius.full,
   },
-  inviteesSection: {
-    marginTop: 14,
-  },
-  inviteesTitle: {
+  addBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    marginBottom: 6,
+    color: THEME.colors.primaryDark,
   },
-  chipsRow: {
+  inviteesWrapper: {
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.borderLight,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  inviteesCountLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginBottom: 8,
+  },
+  chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  chip: {
-    backgroundColor: THEME.colors.primaryLight,
+  userChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    backgroundColor: '#F1F5F9',
     borderRadius: THEME.borderRadius.full,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
-  chipText: {
+  userChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.primaryDark,
-  },
-  chipRemove: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.colors.primaryDark,
-    marginLeft: 4,
+    color: THEME.colors.textPrimary,
+    marginLeft: 6,
   },
   createBtn: {
-    backgroundColor: THEME.colors.primary,
-    paddingVertical: 15,
-    borderRadius: THEME.borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: THEME.spacing.xl,
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primary,
+    borderRadius: THEME.borderRadius.md,
+    paddingVertical: 15,
+    marginTop: THEME.spacing.sm,
+    ...THEME.shadows.md,
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   createBtnText: {
     color: '#FFFFFF',

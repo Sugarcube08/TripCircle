@@ -8,7 +8,9 @@ import {
   Alert,
   TextInput,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
@@ -49,7 +51,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
 
   const handleInvite = async () => {
     if (!inviteEmailOrId.trim()) {
-      Alert.alert('Required', 'Please enter an email or username');
+      Alert.alert('Required', 'Please enter an email or username to invite.');
       return;
     }
 
@@ -70,59 +72,116 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
   };
 
   if (loading) {
-    return <LoadingIndicator message="Loading members..." />;
+    return <LoadingIndicator message="Loading trip members..." />;
   }
+
+  const members = trip?.members || [];
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.inviteBox}>
-        <Text style={styles.inviteLabel}>INVITE MEMBER</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Trip Members</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{members.length}</Text>
+        </View>
+      </View>
+
+      {/* Invite Box */}
+      <View style={styles.inviteContainer}>
+        <Text style={styles.sectionHeader}>ADD NEW MEMBER</Text>
         <View style={styles.inviteInputRow}>
+          <Ionicons name="mail-outline" size={18} color={THEME.colors.textMuted} style={styles.inputIcon} />
           <TextInput
             style={styles.inviteInput}
-            placeholder="Search email or user ID..."
+            placeholder="Enter friend's email or user ID..."
+            placeholderTextColor={THEME.colors.textLight}
             value={inviteEmailOrId}
             onChangeText={setInviteEmailOrId}
             autoCapitalize="none"
           />
           <TouchableOpacity
-            style={styles.inviteBtn}
+            style={[styles.inviteBtn, inviting && styles.btnDisabled]}
             onPress={handleInvite}
             disabled={inviting}
+            activeOpacity={0.8}
           >
-            <Text style={styles.inviteBtnText}>{inviting ? '...' : 'Invite'}</Text>
+            {inviting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.inviteBtnText}>Invite</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       <FlatList
-        data={trip?.members || []}
+        data={members}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.memberCard}
-            onPress={() => navigation.navigate('MemberProfile', { tripId, memberId: item.id })}
-          >
-            <MemberAvatar name={item.user.name} avatarUrl={item.user.avatarUrl} size={44} />
-            <View style={styles.memberInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name}>{item.user.name}</Text>
-                {item.role === 'CREATOR' ? (
-                  <View style={styles.creatorBadge}>
-                    <Text style={styles.creatorText}>Creator</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.email}>{item.user.email}</Text>
-              <Text style={styles.status}>Status: {item.status}</Text>
-            </View>
+        renderItem={({ item }) => {
+          const isYou = item.userId === user?.id;
+          const isCreator = item.role === 'CREATOR';
+          const isPending = item.status === 'PENDING_INVITE';
 
-            <View style={styles.balanceCol}>
-              <AmountText paise={item.netBalancePaise || 0} size="medium" />
-            </View>
-          </TouchableOpacity>
-        )}
+          return (
+            <TouchableOpacity
+              style={styles.memberCard}
+              onPress={() => navigation.navigate('MemberProfile', { tripId, memberId: item.id })}
+              activeOpacity={0.75}
+            >
+              <MemberAvatar name={item.user.name} avatarUrl={item.user.avatarUrl} size={46} />
+              <View style={styles.memberInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {item.user.name} {isYou ? '(You)' : ''}
+                  </Text>
+                  {isCreator && (
+                    <View style={styles.creatorBadge}>
+                      <Ionicons name="star" size={10} color="#D97706" style={{ marginRight: 2 }} />
+                      <Text style={styles.creatorText}>Host</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.email} numberOfLines={1}>
+                  {item.user.email}
+                </Text>
+
+                <View style={styles.statusRow}>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      isPending ? styles.statusPillPending : styles.statusPillActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        isPending ? styles.statusTextPending : styles.statusTextActive,
+                      ]}
+                    >
+                      {isPending ? 'Invite Pending' : 'Active Member'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.rightCol}>
+                <AmountText paise={item.netBalancePaise || 0} size="medium" />
+                <Ionicons name="chevron-forward" size={16} color={THEME.colors.textLight} style={{ marginTop: 4 }} />
+              </View>
+            </TouchableOpacity>
+          );
+        }}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
@@ -133,46 +192,90 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  inviteBox: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  countBadge: {
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: THEME.borderRadius.full,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.primaryDark,
+  },
+  inviteContainer: {
     backgroundColor: '#FFFFFF',
     padding: THEME.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
-  inviteLabel: {
-    fontSize: 12,
+  sectionHeader: {
+    fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    marginBottom: 6,
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginBottom: 8,
   },
   inviteInputRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  inviteInput: {
-    flex: 1,
+    alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 4,
+    height: 46,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  inviteInput: {
+    flex: 1,
     fontSize: 14,
+    color: THEME.colors.textPrimary,
   },
   inviteBtn: {
     backgroundColor: THEME.colors.primary,
     paddingHorizontal: 16,
-    borderRadius: THEME.borderRadius.md,
+    height: 38,
+    borderRadius: THEME.borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   inviteBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   list: {
     padding: THEME.spacing.md,
+    paddingBottom: THEME.spacing.xxl,
   },
   memberCard: {
     backgroundColor: '#FFFFFF',
@@ -183,6 +286,7 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
+    ...THEME.shadows.sm,
   },
   memberInfo: {
     flex: 1,
@@ -199,6 +303,8 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
   },
   creatorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -211,15 +317,36 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: 12,
-    color: THEME.colors.textSecondary,
-    marginTop: 2,
-  },
-  status: {
-    fontSize: 11,
     color: THEME.colors.textMuted,
     marginTop: 2,
   },
-  balanceCol: {
+  statusRow: {
+    marginTop: 4,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  statusPillActive: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusPillPending: {
+    backgroundColor: '#FFFBEB',
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  statusTextActive: {
+    color: '#059669',
+  },
+  statusTextPending: {
+    color: '#D97706',
+  },
+  rightCol: {
     alignItems: 'flex-end',
+    marginLeft: 8,
   },
 });

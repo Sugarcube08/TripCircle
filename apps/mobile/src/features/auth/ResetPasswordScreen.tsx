@@ -7,7 +7,12 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { THEME } from '../../theme';
 
@@ -20,14 +25,20 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { email } = route.params;
-  const [otp, setOtp] = useState('');
+  const { email, otp: initialOtp } = route.params;
+  const [otp, setOtp] = useState(initialOtp || '');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleReset = async () => {
-    if (!otp || !newPassword) {
-      Alert.alert('Required', 'Please enter OTP and new password');
+    if (!otp.trim() || !newPassword) {
+      Alert.alert('Required Fields', 'Please enter the verification code and your new password.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      Alert.alert('Weak Password', 'Password must be at least 8 characters long.');
       return;
     }
 
@@ -44,9 +55,9 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
       });
 
       Alert.alert(
-        'Success',
-        'Password reset successfully. You can now log in with your new password.',
-        [{ text: 'Log In', onPress: () => navigation.navigate('Login') }]
+        'Password Reset Successful',
+        'Your password has been updated. You can now log in with your new credentials.',
+        [{ text: 'Log In Now', onPress: () => navigation.navigate('Login') }]
       );
     } catch (err) {
       Alert.alert('Reset Failed', (err as Error).message);
@@ -56,93 +67,196 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Set New Password</Text>
-        <Text style={styles.subtitle}>Enter the 6-digit OTP code and choose a new password.</Text>
-
-        <Text style={styles.label}>Recovery OTP Code</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="123456"
-          placeholderTextColor="#94A3B8"
-          value={otp}
-          onChangeText={setOtp}
-          keyboardType="number-pad"
-          maxLength={6}
-        />
-
-        <Text style={styles.label}>New Password (8+ characters)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="••••••••"
-          placeholderTextColor="#94A3B8"
-          value={newPassword}
-          onChangeText={setNewPassword}
-          secureTextEntry
-        />
-
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleReset}
-          disabled={loading}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Reset Password</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+          </TouchableOpacity>
+
+          <View style={styles.content}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="lock-open-outline" size={30} color={THEME.colors.primary} />
+            </View>
+
+            <Text style={styles.title}>Reset Password</Text>
+            <Text style={styles.subtitle}>
+              Set a new secure password for {email}
+            </Text>
+
+            <View style={styles.card}>
+              {/* OTP Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>6-Digit Verification Code</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="shield-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="000000"
+                    placeholderTextColor={THEME.colors.textMuted}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                  />
+                </View>
+              </View>
+
+              {/* New Password Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>New Password</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Minimum 8 characters"
+                    placeholderTextColor={THEME.colors.textMuted}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={THEME.colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.primaryBtn, loading && styles.disabledBtn]}
+                onPress={handleReset}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Update Password</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
-    justifyContent: 'center',
-    padding: THEME.spacing.lg,
   },
-  card: {
-    backgroundColor: THEME.colors.card,
-    padding: THEME.spacing.xl,
-    borderRadius: THEME.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: THEME.spacing.lg,
+    paddingBottom: THEME.spacing.xl,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: THEME.spacing.sm,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: THEME.spacing.lg,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: THEME.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: THEME.spacing.md,
   },
   title: {
-    ...THEME.typography.h2,
-    marginBottom: 6,
+    ...THEME.typography.h1,
+    textAlign: 'center',
+    marginBottom: THEME.spacing.xs,
   },
   subtitle: {
     ...THEME.typography.bodySmall,
-    marginBottom: THEME.spacing.lg,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: THEME.spacing.xl,
   },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.colors.textPrimary,
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  input: {
-    backgroundColor: '#F8FAFC',
+  card: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    ...THEME.shadows.md,
+  },
+  inputGroup: {
+    marginBottom: THEME.spacing.md,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.inputBg,
     borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.inputBorder,
     paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
+    height: 48,
+  },
+  inputIcon: {
+    marginRight: THEME.spacing.sm,
+  },
+  input: {
+    flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
+    paddingVertical: 0,
+  },
+  eyeBtn: {
+    padding: THEME.spacing.xs,
   },
   primaryBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
+    height: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    marginTop: THEME.spacing.sm,
+    ...THEME.shadows.sm,
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
   primaryBtnText: {
     color: '#FFFFFF',

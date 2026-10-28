@@ -10,7 +10,9 @@ import {
   Modal,
   TextInput,
   Alert,
+  StatusBar,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LocalDatabase } from '../../storage/db';
 import { AmountText } from '../../components/AmountText';
@@ -101,11 +103,11 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
         }),
       });
 
+      Alert.alert('Discount Recorded', 'Settlement discount recorded successfully.');
       setDiscountModalVisible(false);
-      Alert.alert('Discount Proposed', 'Discount waiver proposed. The creditor must accept it.');
       loadSettlement();
     } catch (err) {
-      Alert.alert('Proposal Failed', (err as Error).message);
+      Alert.alert('Error', (err as Error).message);
     } finally {
       setSubmittingDiscount(false);
     }
@@ -117,150 +119,204 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
   if (!plan) {
     return (
-      <View style={styles.container}>
-        <Text style={{ textAlign: 'center', marginTop: 40 }}>Could not calculate settlement.</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.navBar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Settlement Plan</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <Text style={styles.errorText}>Could not calculate settlement recommendations.</Text>
+      </SafeAreaView>
     );
   }
 
   const userBalance = plan.currentUserNetBalancePaise || 0;
   const isSettled = plan.isSettled;
-
-  // Filter transfers involving current user
   const transfersToReceive = plan.simplifiedTransfers.filter((t: any) => t.toUserId === user?.id);
   const transfersToPay = plan.simplifiedTransfers.filter((t: any) => t.fromUserId === user?.id);
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+
+      {/* Top Header */}
+      <View style={styles.navBar}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Settlement Plan</Text>
+        <TouchableOpacity
+          style={styles.exportNavBtn}
+          onPress={() => navigation.navigate('ExportReport', { tripId })}
+        >
+          <Ionicons name="document-text-outline" size={22} color={THEME.colors.primary} />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME.colors.primary]} />
         }
         contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.headerTitle}>Settlement Plan</Text>
-
-        {/* User's Net Outstanding Balance Card */}
+        {/* Net Outstanding Balance Card */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceCardTitle}>YOUR OUTSTANDING BALANCE</Text>
-          {userBalance > 0 ? (
-            <>
-              <Text style={styles.balanceSub}>You are owed</Text>
-              <AmountText paise={userBalance} size="large" colorType="credit" />
-            </>
-          ) : userBalance < 0 ? (
-            <>
-              <Text style={styles.balanceSub}>You need to pay</Text>
-              <AmountText paise={userBalance} size="large" colorType="debt" />
-            </>
-          ) : (
-            <>
-              <Text style={styles.balanceSub}>All settled</Text>
-              <AmountText paise={0} size="large" colorType="neutral" />
-            </>
-          )}
+          <View style={styles.balanceAmountRow}>
+            <Text style={styles.balanceSub}>
+              {userBalance > 0
+                ? 'You are owed in this trip'
+                : userBalance < 0
+                ? 'You need to pay'
+                : 'All settled up'}
+            </Text>
+            <AmountText
+              paise={userBalance}
+              size="large"
+              colorType={userBalance > 0 ? 'credit' : userBalance < 0 ? 'debt' : 'neutral'}
+            />
+          </View>
 
           {isSettled ? (
             <View style={styles.settledBadge}>
-              <Text style={styles.settledText}>✓ Entire Trip is Financially Settled</Text>
+              <Ionicons name="checkmark-circle" size={16} color={THEME.colors.credit} style={{ marginRight: 6 }} />
+              <Text style={styles.settledText}>Entire trip is financially settled</Text>
             </View>
           ) : null}
         </View>
 
-        {/* Pending / Disputed Notices */}
+        {/* Notices for Pending or Disputed Payments */}
         {plan.pendingPaymentsCount > 0 ? (
           <View style={styles.warningBox}>
+            <Ionicons name="time-outline" size={18} color="#D97706" style={{ marginRight: 8 }} />
             <Text style={styles.warningText}>
-              ⏳ {plan.pendingPaymentsCount} payment{plan.pendingPaymentsCount > 1 ? 's are' : ' is'} pending receiver confirmation.
+              {plan.pendingPaymentsCount} payment{plan.pendingPaymentsCount > 1 ? 's are' : ' is'} pending receiver confirmation.
             </Text>
           </View>
         ) : null}
 
         {plan.disputedPaymentsCount > 0 ? (
-          <View style={[styles.warningBox, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}>
-            <Text style={[styles.warningText, { color: '#991B1B' }]}>
-              ⚠️ {plan.disputedPaymentsCount} payment dispute{plan.disputedPaymentsCount > 1 ? 's' : ''} require resolution.
+          <View style={[styles.warningBox, styles.disputeBox]}>
+            <Ionicons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8 }} />
+            <Text style={[styles.warningText, { color: '#DC2626' }]}>
+              {plan.disputedPaymentsCount} payment dispute{plan.disputedPaymentsCount > 1 ? 's' : ''} require attention.
             </Text>
           </View>
         ) : null}
 
         {/* Transfers To Receive */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>RECEIVE</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>YOU RECEIVE</Text>
+            <View style={[styles.badgePill, { backgroundColor: THEME.colors.creditBg }]}>
+              <Text style={[styles.badgeText, { color: THEME.colors.credit }]}>
+                {transfersToReceive.length}
+              </Text>
+            </View>
+          </View>
+
           {transfersToReceive.length > 0 ? (
             transfersToReceive.map((t: any, idx: number) => (
               <View key={idx} style={styles.transferCard}>
-                <MemberAvatar name={t.fromUserName} size={36} />
+                <MemberAvatar name={t.fromUserName} size={40} />
                 <View style={styles.transferInfo}>
-                  <Text style={styles.transferParty}>{t.fromUserName} should pay you</Text>
+                  <Text style={styles.transferParty}>{t.fromUserName}</Text>
+                  <Text style={styles.transferHint}>should pay you</Text>
                 </View>
                 <AmountText paise={t.amountPaise} size="medium" colorType="credit" />
               </View>
             ))
           ) : (
-            <Text style={styles.noTransfers}>No incoming payments recommended.</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.noTransfers}>No incoming payments recommended.</Text>
+            </View>
           )}
         </View>
 
         {/* Transfers To Pay */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>YOU NEED TO PAY</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>YOU NEED TO PAY</Text>
+            <View style={[styles.badgePill, { backgroundColor: THEME.colors.debtBg }]}>
+              <Text style={[styles.badgeText, { color: THEME.colors.debt }]}>
+                {transfersToPay.length}
+              </Text>
+            </View>
+          </View>
+
           {transfersToPay.length > 0 ? (
             transfersToPay.map((t: any, idx: number) => (
               <View key={idx} style={styles.transferCard}>
-                <MemberAvatar name={t.toUserName} size={36} />
+                <MemberAvatar name={t.toUserName} size={40} />
                 <View style={styles.transferInfo}>
-                  <Text style={styles.transferParty}>You should pay {t.toUserName}</Text>
+                  <Text style={styles.transferParty}>Pay {t.toUserName}</Text>
+                  <Text style={styles.transferHint}>Simplified direct transfer</Text>
                 </View>
-                <AmountText paise={t.amountPaise} size="medium" colorType="debt" />
-                <TouchableOpacity
-                  style={styles.payBtn}
-                  onPress={() =>
-                    navigation.navigate('AddPayment', {
-                      tripId,
-                      defaultReceiverMemberId: t.toMemberId,
-                    })
-                  }
-                >
-                  <Text style={styles.payBtnText}>Pay Now</Text>
-                </TouchableOpacity>
+                <View style={styles.transferActionCol}>
+                  <AmountText paise={t.amountPaise} size="medium" colorType="debt" />
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={() =>
+                      navigation.navigate('AddPayment', {
+                        tripId,
+                        defaultReceiverMemberId: t.toMemberId,
+                      })
+                    }
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.payBtnText}>Pay Now</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))
           ) : (
-            <Text style={styles.noTransfers}>No outstanding payments to make.</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.noTransfers}>No outstanding payments to make.</Text>
+            </View>
           )}
         </View>
 
-        {/* Consolidated Settlement Plan across all members */}
+        {/* All Group Transfers Summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ALL GROUP TRANSFERS</Text>
-          {plan.simplifiedTransfers.map((t: any, idx: number) => (
-            <View key={idx} style={styles.allTransferRow}>
-              <Text style={styles.allTransferText}>
-                • {t.fromUserName} ➔ {t.toUserName}
-              </Text>
-              <AmountText paise={t.amountPaise} size="small" colorType="neutral" />
-            </View>
-          ))}
-          {plan.simplifiedTransfers.length === 0 ? (
-            <Text style={styles.noTransfers}>Group is fully settled!</Text>
-          ) : null}
+          <Text style={styles.sectionTitle}>ALL GROUP TRANSFERS ({plan.simplifiedTransfers.length})</Text>
+          <View style={styles.allTransfersCard}>
+            {plan.simplifiedTransfers.map((t: any, idx: number) => (
+              <View key={idx} style={[styles.allTransferRow, idx > 0 && styles.rowBorderTop]}>
+                <View style={styles.allTransferNames}>
+                  <Text style={styles.nameFrom}>{t.fromUserName}</Text>
+                  <Ionicons name="arrow-forward" size={14} color={THEME.colors.textMuted} style={{ marginHorizontal: 6 }} />
+                  <Text style={styles.nameTo}>{t.toUserName}</Text>
+                </View>
+                <AmountText paise={t.amountPaise} size="small" colorType="neutral" />
+              </View>
+            ))}
+            {plan.simplifiedTransfers.length === 0 ? (
+              <Text style={styles.noTransfers}>No group transfers needed. Everyone is settled!</Text>
+            ) : null}
+          </View>
         </View>
 
-        {/* Action Buttons: Propose Discount & Export Report */}
+        {/* Secondary Actions */}
         <View style={styles.btnRow}>
           <TouchableOpacity
             style={styles.discountBtn}
             onPress={() => setDiscountModalVisible(true)}
+            activeOpacity={0.85}
           >
-            <Text style={styles.discountBtnText}>Propose Settlement Discount</Text>
+            <Ionicons name="pricetag-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.discountBtnText}>Settlement Discount</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.exportBtn}
             onPress={() => navigation.navigate('ExportReport', { tripId })}
+            activeOpacity={0.85}
           >
-            <Text style={styles.exportBtnText}>📄 Export PDF / Excel</Text>
+            <Ionicons name="download-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.exportBtnText}>Export Report</Text>
           </TouchableOpacity>
         </View>
 
@@ -275,30 +331,33 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Propose Settlement Discount</Text>
               <Text style={styles.modalSub}>
-                Record an agreed waiver (e.g. waiving fractional coins like ₹0.65 or rounding off).
+                Explicitly record an agreed waiver or rounding adjustment (e.g. waiving fractional coins).
               </Text>
 
               <Text style={styles.inputLabel}>Creditor Member</Text>
-              {plan.memberBalances
-                .filter((b: any) => b.userId !== user?.id && b.netBalancePaise > 0)
-                .map((m: any) => (
-                  <TouchableOpacity
-                    key={m.memberId}
-                    style={[
-                      styles.creditorChoice,
-                      creditorMemberId === m.memberId && styles.selectedCreditor,
-                    ]}
-                    onPress={() => setCreditorMemberId(m.memberId)}
-                  >
-                    <Text style={styles.creditorName}>{m.userName}</Text>
-                    <AmountText paise={m.netBalancePaise} size="small" colorType="credit" />
-                  </TouchableOpacity>
-                ))}
+              <ScrollView style={{ maxHeight: 120 }}>
+                {plan.memberBalances
+                  .filter((b: any) => b.userId !== user?.id && b.netBalancePaise > 0)
+                  .map((m: any) => (
+                    <TouchableOpacity
+                      key={m.memberId}
+                      style={[
+                        styles.creditorChoice,
+                        creditorMemberId === m.memberId && styles.selectedCreditor,
+                      ]}
+                      onPress={() => setCreditorMemberId(m.memberId)}
+                    >
+                      <Text style={styles.creditorName}>{m.userName}</Text>
+                      <AmountText paise={m.netBalancePaise} size="small" colorType="credit" />
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
 
               <Text style={styles.inputLabel}>Original Debt (₹)</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 1586.65"
+                placeholderTextColor={THEME.colors.textMuted}
                 value={originalDebtRupees}
                 onChangeText={setOriginalDebtRupees}
                 keyboardType="decimal-pad"
@@ -308,6 +367,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 1586.00"
+                placeholderTextColor={THEME.colors.textMuted}
                 value={paidRupees}
                 onChangeText={setPaidRupees}
                 keyboardType="decimal-pad"
@@ -317,15 +377,17 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 0.65"
+                placeholderTextColor={THEME.colors.textMuted}
                 value={waivedRupees}
                 onChangeText={setWaivedRupees}
                 keyboardType="decimal-pad"
               />
 
-              <Text style={styles.inputLabel}>Reason</Text>
+              <Text style={styles.inputLabel}>Reason / Audit Note</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. Rounded off fractional rupee coins"
+                placeholder="e.g. Rounded off fractional coins"
+                placeholderTextColor={THEME.colors.textMuted}
                 value={discountReason}
                 onChangeText={setDiscountReason}
               />
@@ -343,7 +405,9 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
                   onPress={handleProposeDiscount}
                   disabled={submittingDiscount}
                 >
-                  <Text style={styles.modalSubmitText}>Propose</Text>
+                  <Text style={styles.modalSubmitText}>
+                    {submittingDiscount ? 'Saving...' : 'Propose'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -363,154 +427,254 @@ const styles = StyleSheet.create({
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
-  headerTitle: {
-    ...THEME.typography.h1,
-    marginBottom: THEME.spacing.md,
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: THEME.spacing.sm,
+    backgroundColor: THEME.colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.borderLight,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: {
+    ...THEME.typography.h3,
+    fontSize: 17,
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 40,
+    ...THEME.typography.bodySmall,
   },
   balanceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
+    backgroundColor: THEME.colors.darkCanvas,
+    borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    alignItems: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: THEME.spacing.md,
+    ...THEME.shadows.md,
   },
   balanceCardTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    marginBottom: 4,
-    letterSpacing: 0.5,
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  balanceAmountRow: {
+    marginVertical: THEME.spacing.sm,
   },
   balanceSub: {
-    fontSize: 14,
-    color: THEME.colors.textSecondary,
+    fontSize: 13,
+    color: '#94A3B8',
     marginBottom: 4,
   },
   settledBadge: {
-    marginTop: 12,
-    backgroundColor: THEME.colors.creditBg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.full,
+    alignSelf: 'flex-start',
+    marginTop: THEME.spacing.xs,
   },
   settledText: {
-    color: THEME.colors.credit,
-    fontWeight: '700',
     fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
   },
   warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FDE68A',
     borderRadius: THEME.borderRadius.md,
-    padding: 10,
+    padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
+  },
+  disputeBox: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
   },
   warningText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
     color: '#92400E',
-    fontWeight: '600',
+    flex: 1,
   },
   section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    marginBottom: THEME.spacing.md,
+    marginBottom: THEME.spacing.lg,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: THEME.spacing.sm,
   },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: THEME.colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    letterSpacing: 0.8,
+    marginBottom: THEME.spacing.xs,
+  },
+  badgePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: THEME.borderRadius.full,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   transferCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.lg,
+    padding: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    marginBottom: THEME.spacing.sm,
+    ...THEME.shadows.sm,
   },
   transferInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: THEME.spacing.sm,
   },
   transferParty: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: THEME.colors.textPrimary,
+    ...THEME.typography.h3,
+    fontSize: 15,
   },
-  noTransfers: {
-    fontSize: 13,
-    color: THEME.colors.textMuted,
-    fontStyle: 'italic',
-    paddingVertical: 6,
+  transferHint: {
+    ...THEME.typography.bodySmall,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+  },
+  transferActionCol: {
+    alignItems: 'flex-end',
+    gap: 6,
   },
   payBtn: {
     backgroundColor: THEME.colors.primary,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginLeft: 10,
+    paddingVertical: 5,
+    borderRadius: THEME.borderRadius.sm,
   },
   payBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
+  emptyCard: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.md,
+    padding: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderLight,
+  },
+  noTransfers: {
+    ...THEME.typography.bodySmall,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+  },
+  allTransfersCard: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.lg,
+    paddingHorizontal: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
+  },
   allTransferRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  allTransferText: {
-    fontSize: 13,
+  rowBorderTop: {
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.borderLight,
+  },
+  allTransferNames: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  nameFrom: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.textPrimary,
+  },
+  nameTo: {
+    fontSize: 14,
+    fontWeight: '600',
     color: THEME.colors.textPrimary,
   },
   btnRow: {
+    flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
+    marginTop: THEME.spacing.xs,
+    marginBottom: THEME.spacing.lg,
   },
   discountBtn: {
-    backgroundColor: '#FFFFFF',
+    flex: 1,
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: THEME.borderRadius.md,
     borderWidth: 1.5,
     borderColor: THEME.colors.primary,
-    paddingVertical: 13,
-    borderRadius: THEME.borderRadius.md,
+    backgroundColor: THEME.colors.card,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   discountBtnText: {
-    color: THEME.colors.primary,
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 14,
+    color: THEME.colors.primary,
   },
   exportBtn: {
-    backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
+    flex: 1,
+    flexDirection: 'row',
+    height: 48,
     borderRadius: THEME.borderRadius.md,
+    backgroundColor: THEME.colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...THEME.shadows.sm,
   },
   exportBtnText: {
-    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 15,
+    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    padding: 20,
+    padding: THEME.spacing.lg,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
-    padding: 20,
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.xl,
+    ...THEME.shadows.lg,
   },
   modalTitle: {
     ...THEME.typography.h2,
@@ -518,64 +682,70 @@ const styles = StyleSheet.create({
   },
   modalSub: {
     ...THEME.typography.bodySmall,
-    marginBottom: 12,
+    color: THEME.colors.textSecondary,
+    marginBottom: THEME.spacing.md,
   },
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: THEME.colors.textSecondary,
-    marginBottom: 4,
     marginTop: 8,
+    marginBottom: 4,
   },
   creditorChoice: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 8,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: 6,
-    marginBottom: 6,
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: THEME.colors.cardAlt,
+    marginBottom: 4,
   },
   selectedCreditor: {
     backgroundColor: THEME.colors.primaryLight,
+    borderWidth: 1,
     borderColor: THEME.colors.primary,
   },
   creditorName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
+    color: THEME.colors.textPrimary,
   },
   modalInput: {
+    backgroundColor: THEME.colors.inputBg,
+    borderRadius: THEME.borderRadius.sm,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: 6,
-    padding: 8,
+    borderColor: THEME.colors.inputBorder,
+    paddingHorizontal: 12,
+    height: 42,
     fontSize: 14,
+    color: THEME.colors.textPrimary,
   },
   modalActionRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: THEME.spacing.lg,
   },
   modalCancel: {
-    flex: 1,
     paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 6,
+    paddingHorizontal: 16,
+    borderRadius: THEME.borderRadius.sm,
   },
   modalCancelText: {
+    fontSize: 14,
     fontWeight: '600',
     color: THEME.colors.textSecondary,
   },
   modalSubmit: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
     backgroundColor: THEME.colors.primary,
-    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: THEME.borderRadius.sm,
   },
   modalSubmitText: {
-    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -10,7 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
+  SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
 import { THEME } from '../../theme';
@@ -23,11 +26,12 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Required', 'Please enter email and password');
+    if (!email.trim() || !password) {
+      Alert.alert('Required Fields', 'Please enter your email and password.');
       return;
     }
 
@@ -49,134 +53,239 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.brand}>
-          <Text style={styles.logo}>TripCircle</Text>
-          <Text style={styles.tagline}>Shared trip ledger without the confusion</Text>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Brand Header */}
+          <View style={styles.brandSection}>
+            <View style={styles.iconContainer}>
+              <Image
+                source={require('../../../assets/icon.png')}
+                style={styles.brandIcon}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.brandTitleRow}>
+              <Text style={styles.brandTitleTrip}>Trip</Text>
+              <Text style={styles.brandTitleCircle}>Circle</Text>
+            </View>
+            <Text style={styles.brandSubtitle}>Exact group expenses & transparent settlement</Text>
+          </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="you@example.com"
-            placeholderTextColor="#94A3B8"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+          {/* Form Card */}
+          <View style={styles.card}>
+            <Text style={styles.welcomeText}>Welcome back</Text>
+            <Text style={styles.welcomeSub}>Log in to access your shared trip ledgers</Text>
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor="#94A3B8"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="mail-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="name@example.com"
+                  placeholderTextColor={THEME.colors.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
 
-          <TouchableOpacity
-            style={styles.forgotBtn}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor={THEME.colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={THEME.colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.primaryBtnText}>Log In</Text>
-            )}
-          </TouchableOpacity>
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={() => navigation.navigate('ForgotPassword')}
+            >
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.footerLink}> Register</Text>
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, loading && styles.disabledBtn]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryBtnText}>Log In</Text>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {/* Footer Register Prompt */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>New to TripCircle? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.footerLink}>Create an account</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: THEME.spacing.lg,
+    paddingHorizontal: THEME.spacing.lg,
+    paddingVertical: THEME.spacing.xl,
   },
-  brand: {
+  brandSection: {
     alignItems: 'center',
     marginBottom: THEME.spacing.xl,
   },
-  logo: {
-    fontSize: 34,
+  iconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: THEME.borderRadius.lg,
+    overflow: 'hidden',
+    marginBottom: THEME.spacing.md,
+    ...THEME.shadows.md,
+  },
+  brandIcon: {
+    width: '100%',
+    height: '100%',
+  },
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandTitleTrip: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  brandTitleCircle: {
+    fontSize: 28,
     fontWeight: '800',
     color: THEME.colors.primary,
+    letterSpacing: -0.5,
   },
-  tagline: {
+  brandSubtitle: {
     ...THEME.typography.bodySmall,
-    marginTop: 6,
+    color: THEME.colors.textSecondary,
     textAlign: 'center',
+    marginTop: THEME.spacing.xs,
   },
-  form: {
+  card: {
     backgroundColor: THEME.colors.card,
-    padding: THEME.spacing.lg,
-    borderRadius: THEME.borderRadius.lg,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    ...THEME.shadows.md,
   },
-  label: {
+  welcomeText: {
+    ...THEME.typography.h2,
+    color: THEME.colors.textPrimary,
+  },
+  welcomeSub: {
+    ...THEME.typography.bodySmall,
+    color: THEME.colors.textSecondary,
+    marginTop: 2,
+    marginBottom: THEME.spacing.lg,
+  },
+  inputGroup: {
+    marginBottom: THEME.spacing.md,
+  },
+  inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.textPrimary,
+    color: THEME.colors.textSecondary,
     marginBottom: 6,
-    marginTop: 10,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.inputBg,
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.inputBorder,
+    paddingHorizontal: THEME.spacing.md,
+    height: 48,
+  },
+  inputIcon: {
+    marginRight: THEME.spacing.sm,
   },
   input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: THEME.borderRadius.md,
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
+    flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
+    paddingVertical: 0,
+  },
+  eyeBtn: {
+    padding: THEME.spacing.xs,
   },
   forgotBtn: {
     alignSelf: 'flex-end',
-    marginTop: 8,
-    marginBottom: 16,
+    marginBottom: THEME.spacing.lg,
+    marginTop: -4,
   },
   forgotText: {
     fontSize: 13,
-    color: THEME.colors.primary,
     fontWeight: '600',
+    color: THEME.colors.primary,
   },
   primaryBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
+    height: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    ...THEME.shadows.sm,
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
   primaryBtnText: {
     color: '#FFFFFF',
@@ -186,13 +295,15 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: THEME.spacing.lg,
+    alignItems: 'center',
+    marginTop: THEME.spacing.xl,
   },
   footerText: {
     ...THEME.typography.bodySmall,
+    color: THEME.colors.textSecondary,
   },
   footerLink: {
-    fontSize: 13,
+    ...THEME.typography.bodySmall,
     fontWeight: '700',
     color: THEME.colors.primary,
   },

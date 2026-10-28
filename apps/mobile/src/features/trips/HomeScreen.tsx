@@ -8,7 +8,9 @@ import {
   RefreshControl,
   SafeAreaView,
   StatusBar,
+  Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { TripSummary } from '@tripcircle/contracts';
 import { apiRequest } from '../../services/api';
 import { performSync } from '../../services/sync';
@@ -50,7 +52,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
         const invites = await apiRequest('/invitations').catch(() => []);
         setPendingInvitesCount(invites.length || 0);
       } else {
-        // Load from local SQLite / cache
         const cachedTrips = LocalDatabase.getTrips();
         setTrips(cachedTrips);
       }
@@ -79,77 +80,116 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
     return <LoadingIndicator message="Loading your trips..." />;
   }
 
+  const isNetOwed = (netPosition?.netOwedToUserPaise || 0) > 0;
+  const isNetOwing = (netPosition?.netUserOwesPaise || 0) > 0;
+  const netPaise = isNetOwed
+    ? netPosition.netOwedToUserPaise
+    : isNetOwing
+    ? -netPosition.netUserOwesPaise
+    : 0;
+
   const renderHeader = () => (
     <View style={styles.header}>
       <OfflineBanner isOffline={isOffline} lastSyncTimestamp={lastSync} />
 
+      {/* Top Bar Branding */}
       <View style={styles.topBar}>
-        <View>
-          <Text style={styles.appName}>TripCircle</Text>
-          <Text style={styles.appSub}>Your trips, without the confusion</Text>
+        <View style={styles.brandLockup}>
+          <Image
+            source={require('../../../assets/icon.png')}
+            style={styles.brandIconSmall}
+            resizeMode="contain"
+          />
+          <View>
+            <View style={styles.brandTitleRow}>
+              <Text style={styles.brandTitleTrip}>Trip</Text>
+              <Text style={styles.brandTitleCircle}>Circle</Text>
+            </View>
+            <Text style={styles.appSub}>Shared Group Ledger</Text>
+          </View>
         </View>
+
         <TouchableOpacity
           onPress={() => navigation.navigate('Main', { screen: 'ProfileTab' })}
+          style={styles.avatarButton}
+          activeOpacity={0.8}
         >
-          <MemberAvatar name={user?.name || 'You'} avatarUrl={user?.avatarUrl} size={42} />
+          <MemberAvatar name={user?.name || 'You'} avatarUrl={user?.avatarUrl} size={40} />
         </TouchableOpacity>
       </View>
 
-      {/* Invitations Alert Banner */}
+      {/* Invitations Notification Banner */}
       {pendingInvitesCount > 0 ? (
         <TouchableOpacity
           style={styles.inviteBanner}
           onPress={() => navigation.navigate('Invitations')}
+          activeOpacity={0.85}
         >
-          <Text style={styles.inviteText}>
-            📩 You have {pendingInvitesCount} pending trip invitation{pendingInvitesCount > 1 ? 's' : ''}!
-          </Text>
-          <Text style={styles.inviteAction}>View</Text>
+          <View style={styles.inviteBannerLeft}>
+            <View style={styles.inviteIconCircle}>
+              <Ionicons name="mail" size={16} color="#FFFFFF" />
+            </View>
+            <Text style={styles.inviteText}>
+              You have {pendingInvitesCount} pending trip invitation{pendingInvitesCount > 1 ? 's' : ''}
+            </Text>
+          </View>
+          <View style={styles.inviteActionBadge}>
+            <Text style={styles.inviteAction}>Review</Text>
+            <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+          </View>
         </TouchableOpacity>
       ) : null}
 
-      {/* Net Position Card */}
+      {/* Net Position Hero Card (Obsidian & Mint Fintech Card) */}
       <View style={styles.netCard}>
-        <Text style={styles.netCardTitle}>YOUR NET POSITION</Text>
-        {netPosition?.netOwedToUserPaise > 0 ? (
-          <>
-            <Text style={styles.netSubtitle}>You are owed</Text>
-            <AmountText
-              paise={netPosition.netOwedToUserPaise}
-              size="large"
-              colorType="credit"
-            />
-          </>
-        ) : netPosition?.netUserOwesPaise > 0 ? (
-          <>
-            <Text style={styles.netSubtitle}>You owe</Text>
-            <AmountText
-              paise={-netPosition.netUserOwesPaise}
-              size="large"
-              colorType="debt"
-            />
-          </>
-        ) : (
-          <>
-            <Text style={styles.netSubtitle}>All settled up</Text>
-            <AmountText paise={0} size="large" colorType="neutral" />
-          </>
-        )}
-        <Text style={styles.netTripsCount}>
-          Across {netPosition?.activeTripsCount || trips.length} active trips
-        </Text>
+        <View style={styles.netCardTop}>
+          <Text style={styles.netCardTitle}>OVERALL NET POSITION</Text>
+          <View style={styles.netPillBadge}>
+            <Ionicons name="shield-checkmark" size={12} color="#00F5A0" style={{ marginRight: 4 }} />
+            <Text style={styles.netPillText}>Paise-exact</Text>
+          </View>
+        </View>
+
+        <View style={styles.netBalanceRow}>
+          <Text style={styles.netSubtitle}>
+            {isNetOwed
+              ? 'You are owed in total'
+              : isNetOwing
+              ? 'You owe in total'
+              : 'All settled up'}
+          </Text>
+          <AmountText
+            paise={netPaise}
+            size="large"
+            colorType={isNetOwed ? 'credit' : isNetOwing ? 'debt' : 'neutral'}
+          />
+        </View>
+
+        <View style={styles.netCardFooter}>
+          <Text style={styles.netTripsCount}>
+            Across {netPosition?.activeTripsCount ?? trips.length} active trip
+            {(netPosition?.activeTripsCount ?? trips.length) === 1 ? '' : 's'}
+          </Text>
+        </View>
       </View>
 
+      {/* Section Header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>YOUR TRIPS</Text>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>YOUR TRIPS</Text>
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{trips.length}</Text>
+          </View>
+        </View>
+
         <TouchableOpacity
-          style={styles.newTripBtn}
+          style={[styles.newTripBtn, isOffline && styles.newTripBtnDisabled]}
           onPress={() => navigation.navigate('CreateTrip')}
           disabled={isOffline}
+          activeOpacity={0.85}
         >
-          <Text style={[styles.newTripBtnText, isOffline && { opacity: 0.5 }]}>
-            + New Trip
-          </Text>
+          <Ionicons name="add" size={18} color="#FFFFFF" />
+          <Text style={styles.newTripBtnText}>New Trip</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -170,8 +210,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
           <EmptyState
-            title="No Trips Yet"
-            message="Create your first trip or join friends to start tracking shared expenses."
+            title="No Trips Recorded"
+            message="Create your first trip or join friends to start keeping an exact shared ledger."
           />
         }
         refreshControl={
@@ -182,6 +222,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
           />
         }
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
@@ -196,7 +237,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   header: {
-    paddingBottom: THEME.spacing.sm,
+    paddingBottom: THEME.spacing.xs,
   },
   topBar: {
     flexDirection: 'row',
@@ -206,86 +247,194 @@ const styles = StyleSheet.create({
     paddingTop: THEME.spacing.md,
     paddingBottom: THEME.spacing.sm,
   },
-  appName: {
-    fontSize: 24,
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandIconSmall: {
+    width: 38,
+    height: 38,
+    borderRadius: THEME.borderRadius.sm,
+  },
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandTitleTrip: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+  brandTitleCircle: {
+    fontSize: 20,
     fontWeight: '800',
     color: THEME.colors.primary,
+    letterSpacing: -0.3,
   },
   appSub: {
-    ...THEME.typography.bodySmall,
+    fontSize: 11,
+    fontWeight: '500',
+    color: THEME.colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  avatarButton: {
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: THEME.colors.borderLight,
+    ...THEME.shadows.sm,
   },
   inviteBanner: {
-    backgroundColor: '#EFF6FF',
-    marginHorizontal: THEME.spacing.md,
-    marginTop: THEME.spacing.sm,
-    padding: THEME.spacing.md,
-    borderRadius: THEME.borderRadius.md,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: THEME.colors.primary,
+    marginHorizontal: THEME.spacing.md,
+    marginTop: THEME.spacing.xs,
+    marginBottom: THEME.spacing.sm,
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 10,
+    borderRadius: THEME.borderRadius.md,
+    ...THEME.shadows.sm,
+  },
+  inviteBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: THEME.spacing.sm,
+  },
+  inviteIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   inviteText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E40AF',
     flex: 1,
   },
+  inviteActionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: THEME.borderRadius.full,
+    gap: 2,
+  },
   inviteAction: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2563EB',
-    marginLeft: 8,
-  },
-  netCard: {
-    backgroundColor: THEME.colors.card,
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.lg,
-    marginHorizontal: THEME.spacing.md,
-    marginTop: THEME.spacing.md,
-    marginBottom: THEME.spacing.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-  },
-  netCardTitle: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  },
+  netCard: {
+    backgroundColor: THEME.colors.darkCanvas,
+    marginHorizontal: THEME.spacing.md,
+    marginTop: THEME.spacing.sm,
+    marginBottom: THEME.spacing.md,
+    borderRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    ...THEME.shadows.md,
+  },
+  netCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: THEME.spacing.xs,
+  },
+  netCardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  netPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 245, 160, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: THEME.borderRadius.full,
+  },
+  netPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#00F5A0',
+    letterSpacing: 0.2,
+  },
+  netBalanceRow: {
+    marginVertical: THEME.spacing.xs,
   },
   netSubtitle: {
-    fontSize: 14,
-    color: THEME.colors.textSecondary,
+    fontSize: 13,
+    color: '#94A3B8',
     marginBottom: 4,
   },
+  netCardFooter: {
+    marginTop: THEME.spacing.sm,
+    paddingTop: THEME.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
   netTripsCount: {
-    ...THEME.typography.caption,
-    marginTop: 8,
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: THEME.spacing.md,
-    marginBottom: THEME.spacing.sm,
+    paddingTop: THEME.spacing.xs,
+    paddingBottom: THEME.spacing.sm,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: THEME.colors.textSecondary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+  },
+  countBadge: {
+    backgroundColor: THEME.colors.cardAlt,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: THEME.borderRadius.full,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.textSecondary,
   },
   newTripBtn: {
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primary,
     paddingHorizontal: 12,
-    backgroundColor: THEME.colors.primaryLight,
-    borderRadius: THEME.borderRadius.sm,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.full,
+    gap: 4,
+    ...THEME.shadows.sm,
+  },
+  newTripBtnDisabled: {
+    opacity: 0.5,
   },
   newTripBtnText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
-    color: THEME.colors.primary,
   },
 });

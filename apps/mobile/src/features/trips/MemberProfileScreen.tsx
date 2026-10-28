@@ -10,6 +10,7 @@ import {
   Modal,
   SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
@@ -62,47 +63,94 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.profileHeader}>
-          <MemberAvatar name={member?.user.name || 'Member'} avatarUrl={member?.user.avatarUrl} size={64} />
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{member?.user.name || 'Member'}</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <MemberAvatar
+            name={member?.user.name || 'Member'}
+            avatarUrl={member?.user.avatarUrl}
+            size={76}
+            showBorder
+            borderColor={THEME.colors.primary}
+          />
           <Text style={styles.name}>{member?.user.name}</Text>
           <Text style={styles.email}>{member?.user.email}</Text>
-          {member?.user.phone ? <Text style={styles.phone}>{member?.user.phone}</Text> : null}
+          {member?.user.phone ? (
+            <View style={styles.phoneRow}>
+              <Ionicons name="call-outline" size={13} color={THEME.colors.textMuted} style={{ marginRight: 4 }} />
+              <Text style={styles.phone}>{member.user.phone}</Text>
+            </View>
+          ) : null}
         </View>
 
-        {/* Net Balance Card */}
+        {/* Net Balance Hero Card */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>TRIP NET BALANCE</Text>
-          <AmountText paise={memberBalance?.netBalancePaise || 0} size="large" />
+          <Text style={styles.cardHeaderTitle}>TRIP NET BALANCE</Text>
+          <AmountText
+            paise={memberBalance?.netBalancePaise || 0}
+            size="large"
+            style={styles.amountText}
+          />
           <Text style={styles.balanceStatus}>
             {(memberBalance?.netBalancePaise || 0) > 0
-              ? 'Owed money across the trip'
+              ? 'Owed money across the group'
               : (memberBalance?.netBalancePaise || 0) < 0
               ? 'Owes money to the group'
-              : 'All settled up'}
+              : 'All settled up with zero balance'}
           </Text>
         </View>
 
-        {/* Direct Obligation with Current User */}
-        {directObligation !== 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>BETWEEN YOU AND {member?.user.name?.toUpperCase()}</Text>
+        {/* Bilateral Direct Obligation */}
+        {directObligation !== 0 && (
+          <View style={styles.obligationCard}>
+            <Text style={styles.obligationHeader}>DIRECT SETTLEMENT WITH YOU</Text>
             {directObligation > 0 ? (
-              <Text style={styles.directText}>
-                {member?.user.name} owes you{' '}
-                <AmountText paise={directObligation} size="medium" colorType="credit" />
-              </Text>
+              <View style={styles.obligationContent}>
+                <Text style={styles.obligationText}>
+                  {member?.user.name} owes you{' '}
+                  <AmountText paise={directObligation} size="medium" colorType="credit" />
+                </Text>
+              </View>
             ) : (
-              <Text style={styles.directText}>
-                You owe {member?.user.name}{' '}
-                <AmountText paise={-directObligation} size="medium" colorType="debt" />
-              </Text>
+              <View style={styles.obligationContent}>
+                <Text style={styles.obligationText}>
+                  You owe {member?.user.name}{' '}
+                  <AmountText paise={-directObligation} size="medium" colorType="debt" />
+                </Text>
+                <TouchableOpacity
+                  style={styles.payBtn}
+                  onPress={() =>
+                    navigation.navigate('AddPayment', {
+                      tripId,
+                      defaultReceiverMemberId: memberId,
+                    })
+                  }
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="send" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.payBtnText}>Pay Now</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
-        ) : null}
+        )}
 
         {/* Financial Metrics */}
-        <View style={styles.metricsCard}>
+        <View style={styles.card}>
+          <Text style={styles.cardHeaderTitle}>FINANCIAL STATS</Text>
           <View style={styles.metricRow}>
             <Text style={styles.metricLabel}>Total Expenses Paid</Text>
             <AmountText paise={memberBalance?.totalPaidPaise || 0} size="medium" colorType="neutral" />
@@ -115,43 +163,48 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             <Text style={styles.metricLabel}>Confirmed Payments Made</Text>
             <AmountText paise={memberBalance?.paymentsMadePaise || 0} size="medium" colorType="neutral" />
           </View>
-          <View style={styles.metricRow}>
+          <View style={[styles.metricRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.metricLabel}>Confirmed Payments Received</Text>
             <AmountText paise={memberBalance?.paymentsReceivedPaise || 0} size="medium" colorType="neutral" />
           </View>
         </View>
 
-        {/* Payment QR button */}
-        {member?.user.paymentQrUrl ? (
+        {/* Payment QR Button */}
+        {member?.user.paymentQrUrl && (
           <TouchableOpacity
             style={styles.qrBtn}
             onPress={() => setQrModalVisible(true)}
+            activeOpacity={0.85}
           >
-            <Text style={styles.qrBtnText}>📷 View Payment QR Code</Text>
+            <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.qrBtnText}>View {member?.user.name.split(' ')[0]}'s Payment QR</Text>
           </TouchableOpacity>
-        ) : null}
+        )}
+      </ScrollView>
 
-        {/* Payment QR Modal */}
-        <Modal
-          visible={qrModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setQrModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.qrCard}>
-              <Text style={styles.qrTitle}>{member?.user.name}'s Payment QR</Text>
-              <Image source={{ uri: member?.user.paymentQrUrl }} style={styles.qrImage} />
-              <TouchableOpacity
-                style={styles.closeQrBtn}
-                onPress={() => setQrModalVisible(false)}
-              >
-                <Text style={styles.closeQrText}>Close</Text>
+      {/* Payment QR Modal */}
+      <Modal
+        visible={qrModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.qrModalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.qrTitle}>{member?.user.name}'s QR</Text>
+              <TouchableOpacity onPress={() => setQrModalVisible(false)}>
+                <Ionicons name="close-circle" size={24} color={THEME.colors.textMuted} />
               </TouchableOpacity>
             </View>
+            <Image
+              source={{ uri: member?.user.paymentQrUrl }}
+              style={styles.qrImage}
+              resizeMode="contain"
+            />
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -161,74 +214,152 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
-    padding: THEME.spacing.md,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
   },
-  profileHeader: {
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  scrollContent: {
+    padding: THEME.spacing.md,
+    paddingBottom: THEME.spacing.xxl,
+  },
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    padding: THEME.spacing.lg,
     alignItems: 'center',
     marginBottom: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
   },
   name: {
-    ...THEME.typography.h1,
-    marginTop: 8,
+    ...THEME.typography.h2,
+    fontSize: 20,
+    color: THEME.colors.textPrimary,
+    marginTop: 10,
   },
   email: {
-    ...THEME.typography.bodySmall,
+    fontSize: 13,
+    color: THEME.colors.textMuted,
     marginTop: 2,
   },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   phone: {
-    ...THEME.typography.bodySmall,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    fontWeight: '500',
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    alignItems: 'center',
+    padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
+    ...THEME.shadows.sm,
   },
-  cardLabel: {
-    fontSize: 12,
+  cardHeaderTitle: {
+    fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
     marginBottom: 6,
-    letterSpacing: 0.5,
+  },
+  amountText: {
+    fontSize: 32,
+    fontWeight: '800',
+    marginVertical: 4,
+    textAlign: 'center',
   },
   balanceStatus: {
     fontSize: 13,
     color: THEME.colors.textSecondary,
-    marginTop: 4,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  directText: {
-    fontSize: 15,
+  obligationCard: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    padding: THEME.spacing.md,
+    marginBottom: THEME.spacing.md,
+  },
+  obligationHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: '#0F766E',
+    marginBottom: 8,
+  },
+  obligationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  obligationText: {
+    fontSize: 14,
     fontWeight: '600',
     color: THEME.colors.textPrimary,
+    flex: 1,
   },
-  metricsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    marginBottom: THEME.spacing.md,
+  payBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.full,
+    marginLeft: 10,
+  },
+  payBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
   metricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    borderBottomColor: THEME.colors.borderLight,
   },
   metricLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: THEME.colors.textSecondary,
   },
   qrBtn: {
-    backgroundColor: THEME.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primaryDark,
     paddingVertical: 14,
     borderRadius: THEME.borderRadius.md,
-    alignItems: 'center',
+    marginTop: 4,
+    ...THEME.shadows.md,
   },
   qrBtnText: {
     color: '#FFFFFF',
@@ -237,38 +368,35 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
-  qrCard: {
+  qrModalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
-    padding: 24,
+    padding: THEME.spacing.lg,
     alignItems: 'center',
-    width: 280,
+    width: '100%',
+    maxWidth: 320,
+    ...THEME.shadows.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 16,
   },
   qrTitle: {
     ...THEME.typography.h3,
-    marginBottom: 16,
-    textAlign: 'center',
+    color: THEME.colors.textPrimary,
   },
   qrImage: {
-    width: 200,
-    height: 200,
-    backgroundColor: '#F1F5F9',
-  },
-  closeQrBtn: {
-    marginTop: 20,
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 6,
-  },
-  closeQrText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.colors.textPrimary,
+    width: 220,
+    height: 220,
+    backgroundColor: '#F8FAFC',
+    borderRadius: THEME.borderRadius.sm,
   },
 });

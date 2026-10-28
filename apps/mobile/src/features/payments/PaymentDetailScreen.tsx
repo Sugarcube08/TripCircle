@@ -10,6 +10,7 @@ import {
   Modal,
   SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
@@ -59,9 +60,14 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   if (!payment) {
     return (
-      <View style={styles.container}>
-        <Text style={{ textAlign: 'center', marginTop: 40 }}>Payment not found.</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Payment not found.</Text>
+          <TouchableOpacity style={styles.backBtnSimple} onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtnText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -71,8 +77,8 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   const handleConfirm = async () => {
     Alert.alert(
-      'Confirm Payment',
-      `Did you receive ₹${(payment.amountPaise / 100).toFixed(2)} from ${payment.payerMember?.user.name}? This will update balances immediately.`,
+      'Confirm Payment Received',
+      `Did you receive ₹${(payment.amountPaise / 100).toFixed(2)} from ${payment.payerMember?.user.name}? This will immediately update your balance and settle this transfer.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -85,7 +91,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
                 { method: 'POST' }
               );
               setPayment(confirmed);
-              Alert.alert('Confirmed', 'Payment confirmed. Balances have been updated.');
+              Alert.alert('Payment Confirmed', 'The payment has been confirmed and ledger balances updated.');
             } catch (err) {
               Alert.alert('Confirmation Failed', (err as Error).message);
             } finally {
@@ -99,7 +105,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   const handleDispute = async () => {
     if (!disputeReason.trim()) {
-      Alert.alert('Required', 'Please enter a dispute reason');
+      Alert.alert('Required', 'Please enter a reason for disputing this payment.');
       return;
     }
 
@@ -111,7 +117,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
       });
       setPayment(disputed);
       setDisputeModalVisible(false);
-      Alert.alert('Payment Disputed', 'Payment has been disputed. Balances will not be affected.');
+      Alert.alert('Payment Disputed', 'Payment has been disputed. Group balances remain unaltered.');
     } catch (err) {
       Alert.alert('Dispute Failed', (err as Error).message);
     } finally {
@@ -120,7 +126,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   };
 
   const handleCancel = async () => {
-    Alert.alert('Cancel Payment', 'Are you sure you want to cancel this pending payment?', [
+    Alert.alert('Cancel Payment', 'Are you sure you want to cancel this pending payment submission?', [
       { text: 'No', style: 'cancel' },
       {
         text: 'Yes, Cancel',
@@ -132,7 +138,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
               method: 'DELETE',
             });
             setPayment(cancelled);
-            Alert.alert('Cancelled', 'Pending payment cancelled.');
+            Alert.alert('Payment Cancelled', 'The pending payment was cancelled.');
           } catch (err) {
             Alert.alert('Cancellation Failed', (err as Error).message);
           } finally {
@@ -145,44 +151,86 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.card}>
-          <PaymentStatusBadge status={payment.status} />
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Payment Details</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-          <Text style={styles.amountLabel}>PAYMENT AMOUNT</Text>
-          <AmountText paise={payment.amountPaise} size="large" colorType="neutral" style={styles.amount} />
-          <Text style={styles.methodText}>Method: {payment.paymentMethod}</Text>
-
-          <View style={styles.divider} />
-
-          {/* Transfer Parties */}
-          <View style={styles.transferRow}>
-            <View style={styles.partyCol}>
-              <Text style={styles.partyLabel}>PAID BY</Text>
-              <MemberAvatar
-                name={payment.payerMember?.user.name || 'Payer'}
-                avatarUrl={payment.payerMember?.user.avatarUrl}
-                size={40}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Main Status & Amount Card */}
+        <View style={styles.heroCard}>
+          <View style={styles.badgeRow}>
+            <PaymentStatusBadge status={payment.status} size="medium" />
+            <View style={styles.methodBadge}>
+              <Ionicons
+                name={payment.paymentMethod === 'CASH' ? 'cash-outline' : payment.paymentMethod === 'UPI' ? 'phone-portrait-outline' : 'card-outline'}
+                size={14}
+                color={THEME.colors.primaryDark}
+                style={{ marginRight: 4 }}
               />
-              <Text style={styles.partyName}>{payment.payerMember?.user.name}</Text>
-            </View>
-
-            <Text style={styles.arrowIcon}>➔</Text>
-
-            <View style={styles.partyCol}>
-              <Text style={styles.partyLabel}>PAID TO</Text>
-              <MemberAvatar
-                name={payment.receiverMember?.user.name || 'Receiver'}
-                avatarUrl={payment.receiverMember?.user.avatarUrl}
-                size={40}
-              />
-              <Text style={styles.partyName}>{payment.receiverMember?.user.name}</Text>
+              <Text style={styles.methodBadgeText}>{payment.paymentMethod}</Text>
             </View>
           </View>
 
+          <Text style={styles.amountLabel}>AMOUNT PAID</Text>
+          <AmountText
+            paise={payment.amountPaise}
+            size="large"
+            colorType="neutral"
+            style={styles.amountText}
+          />
+          <Text style={styles.dateText}>{formatDateTime(payment.createdAt)}</Text>
+
+          {/* Transfer Visual Representation */}
+          <View style={styles.transferVisual}>
+            <View style={styles.partyBox}>
+              <Text style={styles.partyRole}>FROM (PAYER)</Text>
+              <MemberAvatar
+                name={payment.payerMember?.user.name || 'Payer'}
+                avatarUrl={payment.payerMember?.user.avatarUrl}
+                size={44}
+              />
+              <Text style={styles.partyName} numberOfLines={1}>
+                {payment.payerMember?.user.name} {isPayer ? '(You)' : ''}
+              </Text>
+            </View>
+
+            <View style={styles.arrowContainer}>
+              <View style={styles.arrowLine} />
+              <View style={styles.arrowIconCircle}>
+                <Ionicons name="arrow-forward" size={16} color={THEME.colors.primary} />
+              </View>
+            </View>
+
+            <View style={styles.partyBox}>
+              <Text style={styles.partyRole}>TO (RECEIVER)</Text>
+              <MemberAvatar
+                name={payment.receiverMember?.user.name || 'Receiver'}
+                avatarUrl={payment.receiverMember?.user.avatarUrl}
+                size={44}
+              />
+              <Text style={styles.partyName} numberOfLines={1}>
+                {payment.receiverMember?.user.name} {isReceiver ? '(You)' : ''}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Payment Metadata Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardHeaderTitle}>PAYMENT INFORMATION</Text>
+
           {payment.note ? (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Note</Text>
+              <Text style={styles.infoLabel}>Reference / Note</Text>
               <Text style={styles.infoValue}>{payment.note}</Text>
             </View>
           ) : null}
@@ -195,92 +243,109 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
           {payment.confirmedAt ? (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Confirmed At</Text>
-              <Text style={styles.infoValue}>{formatDateTime(payment.confirmedAt)}</Text>
+              <Text style={[styles.infoValue, { color: THEME.colors.credit }]}>
+                {formatDateTime(payment.confirmedAt)}
+              </Text>
             </View>
           ) : null}
 
           {payment.disputedAt ? (
-            <View style={styles.disputeBox}>
-              <Text style={styles.disputeTitle}>Dispute Reason</Text>
-              <Text style={styles.disputeText}>{payment.disputeReason}</Text>
+            <View style={styles.disputeNotice}>
+              <View style={styles.disputeNoticeHeader}>
+                <Ionicons name="alert-circle" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
+                <Text style={styles.disputeNoticeTitle}>Disputed by Receiver</Text>
+              </View>
+              <Text style={styles.disputeNoticeText}>"{payment.disputeReason}"</Text>
+              <Text style={styles.disputeNoticeDate}>Disputed on {formatDateTime(payment.disputedAt)}</Text>
             </View>
           ) : null}
         </View>
 
-        {/* Action Controls for Receiver or Payer */}
-        {isPending && isReceiver ? (
+        {/* Action Controls for Receiver */}
+        {isPending && isReceiver && (
           <View style={styles.actionsContainer}>
             <TouchableOpacity
               style={[styles.btn, styles.confirmBtn]}
               onPress={handleConfirm}
               disabled={actionLoading}
+              activeOpacity={0.85}
             >
-              <Text style={styles.confirmBtnText}>✓ Confirm Payment Received</Text>
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.confirmBtnText}>Confirm Payment Received</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.btn, styles.disputeBtn]}
               onPress={() => setDisputeModalVisible(true)}
               disabled={actionLoading}
+              activeOpacity={0.85}
             >
-              <Text style={styles.disputeBtnText}>✕ Dispute Payment</Text>
+              <Ionicons name="close-circle-outline" size={20} color={THEME.colors.debt} style={{ marginRight: 6 }} />
+              <Text style={styles.disputeBtnText}>Dispute Payment</Text>
             </TouchableOpacity>
           </View>
-        ) : null}
+        )}
 
-        {isPending && isPayer ? (
+        {/* Action Controls for Payer */}
+        {isPending && isPayer && (
           <TouchableOpacity
             style={[styles.btn, styles.cancelBtn]}
             onPress={handleCancel}
             disabled={actionLoading}
+            activeOpacity={0.85}
           >
+            <Ionicons name="trash-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
             <Text style={styles.cancelBtnText}>Cancel Pending Payment</Text>
           </TouchableOpacity>
-        ) : null}
+        )}
+      </ScrollView>
 
-        {/* Dispute Modal */}
-        <Modal
-          visible={disputeModalVisible}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setDisputeModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+      {/* Dispute Modal */}
+      <Modal
+        visible={disputeModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setDisputeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="alert-circle-outline" size={24} color={THEME.colors.debt} style={{ marginRight: 8 }} />
               <Text style={styles.modalTitle}>Dispute Payment</Text>
-              <Text style={styles.modalSubtitle}>
-                State why this payment could not be confirmed (e.g. wrong amount, payment not received in account).
-              </Text>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              Explain why this transfer could not be verified (e.g. incorrect amount, funds not received in bank account).
+            </Text>
 
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Reason for dispute..."
-                value={disputeReason}
-                onChangeText={setDisputeReason}
-                multiline
-                numberOfLines={3}
-              />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="State clear reason for dispute..."
+              placeholderTextColor={THEME.colors.textLight}
+              value={disputeReason}
+              onChangeText={setDisputeReason}
+              multiline
+              numberOfLines={3}
+            />
 
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalCancelBtn]}
-                  onPress={() => setDisputeModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalCancelBtn]}
+                onPress={() => setDisputeModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalConfirmBtn]}
-                  onPress={handleDispute}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.modalConfirmText}>Submit Dispute</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalConfirmBtn]}
+                onPress={handleDispute}
+                disabled={actionLoading}
+              >
+                <Text style={styles.modalConfirmText}>Submit Dispute</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -290,69 +355,147 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  scroll: {
-    padding: THEME.spacing.md,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
   },
-  card: {
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...THEME.typography.h2,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
+  },
+  scrollContent: {
+    padding: THEME.spacing.md,
+    paddingBottom: THEME.spacing.xxl,
+  },
+  heroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
+    alignItems: 'center',
+    marginBottom: THEME.spacing.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    alignItems: 'center',
-    marginBottom: THEME.spacing.lg,
+    ...THEME.shadows.sm,
   },
-  amountLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    marginTop: 12,
-  },
-  amount: {
-    marginVertical: 4,
-  },
-  methodText: {
-    ...THEME.typography.bodySmall,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: THEME.colors.divider,
-    width: '100%',
-    marginVertical: THEME.spacing.md,
-  },
-  transferRow: {
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    width: '100%',
+    gap: 8,
+    marginBottom: THEME.spacing.sm,
+  },
+  methodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  methodBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.primaryDark,
+  },
+  amountLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
+    marginTop: 4,
+  },
+  amountText: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+    marginVertical: 4,
+  },
+  dateText: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
     marginBottom: THEME.spacing.md,
   },
-  partyCol: {
+  transferVisual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingTop: THEME.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.borderLight,
+  },
+  partyBox: {
     alignItems: 'center',
     flex: 1,
   },
-  partyLabel: {
-    fontSize: 11,
+  partyRole: {
+    fontSize: 10,
     fontWeight: '700',
-    color: THEME.colors.textSecondary,
+    letterSpacing: 0.8,
+    color: THEME.colors.textMuted,
     marginBottom: 6,
   },
   partyName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: THEME.colors.textPrimary,
     marginTop: 6,
     textAlign: 'center',
   },
-  arrowIcon: {
-    fontSize: 22,
+  arrowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 60,
+  },
+  arrowLine: {
+    position: 'absolute',
+    height: 1.5,
+    backgroundColor: '#E2E8F0',
+    width: 48,
+  },
+  arrowIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: THEME.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    padding: THEME.spacing.md,
+    marginBottom: THEME.spacing.md,
+    ...THEME.shadows.sm,
+  },
+  cardHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
     color: THEME.colors.textMuted,
+    marginBottom: THEME.spacing.sm,
   },
   infoRow: {
-    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.borderLight,
   },
   infoLabel: {
     fontSize: 13,
@@ -363,36 +506,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: THEME.colors.textPrimary,
   },
-  disputeBox: {
+  disputeNotice: {
     backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: THEME.borderRadius.md,
-    width: '100%',
-    marginTop: 10,
     borderWidth: 1,
     borderColor: '#FECACA',
+    borderRadius: THEME.borderRadius.md,
+    padding: 12,
+    marginTop: 10,
   },
-  disputeTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#991B1B',
+  disputeNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  disputeText: {
+  disputeNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: THEME.colors.debt,
+  },
+  disputeNoticeText: {
     fontSize: 13,
     color: '#991B1B',
+    fontStyle: 'italic',
+    marginBottom: 4,
+  },
+  disputeNoticeDate: {
+    fontSize: 11,
+    color: '#B91C1C',
   },
   actionsContainer: {
-    gap: 12,
+    gap: 10,
+    marginTop: 6,
   },
   btn: {
-    paddingVertical: 14,
-    borderRadius: THEME.borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: THEME.borderRadius.md,
   },
   confirmBtn: {
     backgroundColor: THEME.colors.credit,
+    ...THEME.shadows.sm,
   },
   confirmBtnText: {
     color: '#FFFFFF',
@@ -410,18 +565,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: '#FCA5A5',
+    paddingVertical: 12,
+    borderRadius: THEME.borderRadius.md,
+    marginTop: 10,
   },
   cancelBtnText: {
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.debt,
     fontSize: 14,
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     padding: 20,
   },
@@ -429,24 +590,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
     padding: 20,
+    ...THEME.shadows.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   modalTitle: {
     ...THEME.typography.h2,
-    marginBottom: 6,
+    fontSize: 18,
+    color: THEME.colors.textPrimary,
   },
   modalSubtitle: {
-    ...THEME.typography.bodySmall,
-    marginBottom: 12,
+    fontSize: 13,
+    color: THEME.colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 14,
   },
   modalInput: {
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
-    padding: 10,
+    padding: 12,
     fontSize: 14,
-    height: 80,
+    height: 90,
     textAlignVertical: 'top',
     marginBottom: 16,
+    color: THEME.colors.textPrimary,
   },
   modalBtnRow: {
     flexDirection: 'row',
@@ -471,5 +642,26 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: THEME.spacing.xl,
+  },
+  errorText: {
+    fontSize: 16,
+    color: THEME.colors.textSecondary,
+    marginBottom: 16,
+  },
+  backBtnSimple: {
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.md,
+  },
+  backBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
