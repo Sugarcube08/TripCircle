@@ -78,7 +78,7 @@ export async function apiRequest<T = any>(
     if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
       if (!response.ok) {
-        const errorMsg = data.error?.message || data.message || 'Request failed';
+        const errorMsg = data.error?.message || data.error || data.message || 'Request failed';
         throw new Error(errorMsg);
       }
       return data.data !== undefined ? data.data : data;
@@ -99,4 +99,72 @@ export async function apiRequest<T = any>(
     }
     throw error;
   }
+}
+
+/**
+ * Upload binary file to Cloudflare R2 using presigned URL workflow
+ */
+export async function uploadFileToR2(params: {
+  blob: Blob;
+  fileName: string;
+  mimeType: string;
+  category: 'AVATAR' | 'PAYMENT_QR' | 'EXPENSE_RECEIPT' | 'PAYMENT_RECEIPT' | 'TRIP_COVER';
+  tripId?: string;
+  expenseId?: string;
+  paymentId?: string;
+}) {
+  // 1. Request presigned upload URL from API
+  const presignResult = await apiRequest<{
+    uploadUrl: string;
+    storageKey: string;
+    fileId: string;
+  }>('/files/upload', {
+    method: 'POST',
+    body: JSON.stringify({
+      category: params.category,
+      fileName: params.fileName,
+      mimeType: params.mimeType,
+      sizeBytes: params.blob.size,
+      tripId: params.tripId,
+      expenseId: params.expenseId,
+      paymentId: params.paymentId,
+    }),
+  });
+
+  // 2. Upload file directly to Cloudflare R2 via HTTP PUT
+  const uploadRes = await fetch(presignResult.uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': params.mimeType,
+    },
+    body: params.blob,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error(`Failed to upload file to storage: ${uploadRes.statusText}`);
+  }
+
+  // 3. Confirm upload with API to record metadata
+  const metadata = await apiRequest('/files/confirm', {
+    method: 'POST',
+    body: JSON.stringify({
+      storageKey: presignResult.storageKey,
+      originalName: params.fileName,
+      mimeType: params.mimeType,
+      sizeBytes: params.blob.size,
+      tripId: params.tripId,
+    }),
+  });
+
+  return metadata;
+}
+
+/**
+ * Retrieve short-lived authorized download URL for private files
+ */
+export async function getAuthorizedFileUrl(storageKey: string): Promise<string> {
+  const result = await apiRequest<{ downloadUrl: string }>(
+    `/files/${encodeURIComponent(storageKey)}?format=url`
+  );
+  return result.downloadUrl;
 }

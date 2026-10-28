@@ -127,9 +127,34 @@ User ────< Session
 ## 4. Migration & Seeding Commands
 
 ```bash
-# Apply pending migrations
+# Apply pending migrations (production-safe)
 pnpm --filter @tripcircle/api db:migrate
 
-# Seed demo trips and members
+# Seed demo trips and members (development only)
 pnpm --filter @tripcircle/api db:seed
 ```
+
+---
+
+## 5. Remote Database & Operational Configuration
+
+### Supported Managed MySQL Providers
+- AWS RDS MySQL 8.0
+- DigitalOcean Managed MySQL
+- PlanetScale MySQL
+- Google Cloud SQL
+- Railway / Aiven Managed MySQL
+
+### Connection Pooling & SSL Parameters
+Database connections are managed via Prisma with explicit connection pooling and timeout configuration:
+```dotenv
+DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/tripcircle?sslaccept=strict"
+DATABASE_CONNECTION_LIMIT=10
+```
+- In containerized long-running deployments, `DATABASE_CONNECTION_LIMIT=10-20` is recommended.
+- If using PlanetScale or serverless connection pooling, Prisma's connection string automatically parses `?ssl={"rejectUnauthorized":true}`.
+
+### Migration Deployment Workflow
+- **Production Migrations:** Strict execution of `prisma migrate deploy`. Destructive resets or `prisma db push` are strictly prohibited in production.
+- **Backups:** MySQL `--single-transaction` logical dumps or provider-level continuous point-in-time recovery (PITR) snapshots.
+

@@ -29,16 +29,44 @@
 
 ---
 
-## 4. File Upload & Media Protection
+## 4. File Upload & Media Protection (Cloudflare R2)
 
-- **MIME-Type Whitelist:** Only `image/jpeg`, `image/png`, `image/webp`, and `application/pdf` are accepted.
-- **Size Limits:** Hard-capped at 10 MB per file.
-- **Opaque File Names:** Files are stored under random UUIDs to prevent directory traversal or predictable file enumeration attacks.
-- **Sanitized Paths:** File serving uses `path.basename` sanitization against path traversal exploits.
+- **Private Bucket Architecture:** The Cloudflare R2 bucket (`tripcircle-assets`) is strictly private. Public bucket browsing and anonymous access are disabled.
+- **Short-Lived Presigned URLs:**
+  - Presigned upload URLs expire in 5 minutes (300 seconds).
+  - Presigned download URLs expire in 15 minutes (900 seconds).
+  - Presigned URLs are bearer tokens; the complete signed URLs are never written to application logs.
+- **Resource-Level Authorization on Downloads:** A user cannot obtain a download URL by knowing the object key. Every download request verifies that the requesting user is an active member of the trip (for receipts/covers) or shares a trip with the user (for payment QR codes).
+- **MIME-Type & Extension Whitelist:** Strict whitelist: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, and `application/pdf`. Unrecognized extensions default to `.bin`.
+- **Size Limits:** Enforced at 10 MB per file, validated prior to issuing upload URLs and re-verified on the storage driver before persisting database metadata.
+- **Opaque File Names & Key Hierarchy:**
+  - Avatars: `users/{userId}/avatars/{uuid}.webp`
+  - Payment QR: `users/{userId}/payment-qr/{uuid}.png`
+  - Expense receipts: `trips/{tripId}/expenses/{expenseId}/{uuid}.jpg`
+  - Payment receipts: `trips/{tripId}/payments/{paymentId}/{uuid}.jpg`
+  - Trip covers: `trips/{tripId}/covers/{uuid}.webp`
+  - All identifiers are sanitized against path traversal (`../` stripped).
 
 ---
 
-## 5. Privacy & Information Disclosure
+## 5. Email & SMTP Security (Gmail)
+
+- **Dedicated App Passwords:** Standard Google account passwords are prohibited. Gmail SMTP requires 2-Step Verification and a 16-character Google Account App Password.
+- **Mandatory TLS:** Port 587 operates over STARTTLS. In production, TLS certificate verification is strictly enforced (`rejectUnauthorized: true`).
+- **No Sensitive Credential Logging:** OTP values, password recovery tokens, SMTP passwords, and database connection strings are masked and never emitted to console logs or API responses in production.
+- **Atomic Outbox Processing:** Emails are never dispatched directly in an uncommitted database transaction. Outbox events are persisted atomically with business records, preventing orphaned state or partial failures.
+
+---
+
+## 6. Mobile Client Secrets Isolation
+
+- **Zero Server Secrets in Mobile Binaries:** The React Native / Expo application contains only the public API URL (`EXPO_PUBLIC_API_URL`).
+- Database credentials, Cloudflare R2 access keys, SMTP secrets, and JWT private signing secrets exist exclusively on the server.
+- The mobile application uploads files directly to R2 using temporary presigned PUT URLs, and requests short-lived authorized GET URLs from the API when displaying receipts.
+
+---
+
+## 7. Privacy & Information Disclosure
 
 - **Password Reset Protection:** The password recovery endpoint returns identical generic success responses whether an email is registered or not, preventing email enumeration.
 - **Sensitive Credentials:** Database passwords, JWT secrets, SMTP credentials, and encryption keys are strictly read from environment variables and never checked into source control.

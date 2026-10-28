@@ -8,9 +8,18 @@ tripCircle is an end-to-end, production-oriented monorepo providing groups of fr
 
 ## Architecture
 
-- **`apps/api`**: Next.js 14 Standalone REST API server, MySQL 8.0, Prisma ORM, financial calculation engine, transactional outbox, and PDF/Excel reports.
-- **`apps/mobile`**: React Native Expo mobile application with clean finance-oriented UI, local cache, and offline detection.
+- **`apps/api`**: Next.js 14 Standalone REST API server, MySQL 8.0, Prisma ORM, Cloudflare R2 object storage, Gmail SMTP transactional email, durable transactional outbox worker, and PDF/Excel reports.
+- **`apps/mobile`**: React Native Expo mobile application with clean finance-oriented UI, local SQLite caching, offline detection, and presigned R2 upload workflow.
 - **`packages/contracts`**: Shared TypeScript types, Zod schemas, constants, and financial math.
+
+---
+
+## Production Infrastructure Stack
+
+- **Object Storage:** Cloudflare R2 (S3-compatible API via `@aws-sdk/client-s3`) with private bucket policy and short-lived presigned URLs for upload (5m) and download (15m).
+- **Transactional Email:** Gmail SMTP (`smtp.gmail.com:587` with STARTTLS) utilizing 16-character Google Account App Passwords and branded responsive templates.
+- **Authoritative Database:** Remote MySQL 8.0 managed instance (AWS RDS, PlanetScale, DigitalOcean, Railway) with connection pooling and TLS enforcement.
+- **Asynchronous Reliability:** Durable MySQL-backed transactional Outbox (`OutboxEvent`) with exponential backoff and recovery worker (`scripts/run-worker.mjs`).
 
 ---
 
