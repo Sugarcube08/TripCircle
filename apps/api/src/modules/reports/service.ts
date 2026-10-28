@@ -103,7 +103,7 @@ export class ReportService {
       doc.on('error', reject);
 
       // Header
-      doc.fontSize(22).font('Helvetica-Bold').text('tripCircle Financial Report', { align: 'center' });
+      doc.fontSize(22).font('Helvetica-Bold').text('TripCircle Financial Report', { align: 'center' });
       doc.moveDown(0.5);
       doc.fontSize(14).font('Helvetica-Bold').text(`Trip: ${trip.name}`, { align: 'center' });
       doc.fontSize(10).font('Helvetica').text(
@@ -145,8 +145,8 @@ export class ReportService {
           const pos = b.netBalancePaise > 0
             ? `+₹${(b.netBalancePaise / 100).toFixed(2)} (Owed)`
             : b.netBalancePaise < 0
-            ? `-₹${(Math.abs(b.netBalancePaise) / 100).toFixed(2)} (Owes)`
-            : '₹0.00 (Settled)';
+              ? `-₹${(Math.abs(b.netBalancePaise) / 100).toFixed(2)} (Owes)`
+              : '₹0.00 (Settled)';
 
           doc.fontSize(10).font('Helvetica').text(
             `• ${m?.user.name}: Paid ₹${(b.totalPaidPaise / 100).toFixed(2)} | Share ₹${(b.totalExpenseSharePaise / 100).toFixed(2)} | Net: ${pos}`
@@ -216,7 +216,7 @@ export class ReportService {
     input: ExportReportInput
   ): Promise<{ buffer: Buffer; contentType: string; filename: string }> {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'tripCircle';
+    workbook.creator = 'TripCircle';
     workbook.created = new Date();
 
     // Sheet 1: Summary & Balances

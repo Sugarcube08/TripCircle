@@ -6,7 +6,7 @@ import { ExpenseService } from '../../src/modules/expenses/service';
 import { PaymentService } from '../../src/modules/payments/service';
 import { SettlementService } from '../../src/modules/settlements/service';
 
-describe('tripCircle End-to-End Financial & Lifecycle Integration Test', () => {
+describe('TripCircle End-to-End Financial & Lifecycle Integration Test', () => {
   let userA: any;
   let userB: any;
   let userC: any;
@@ -74,13 +74,13 @@ describe('tripCircle End-to-End Financial & Lifecycle Integration Test', () => {
 
   afterAll(async () => {
     if (trip?.id) {
-      await prisma.trip.delete({ where: { id: trip.id } }).catch(() => {});
+      await prisma.trip.delete({ where: { id: trip.id } }).catch(() => { });
     }
     await prisma.user.deleteMany({
       where: {
         email: { in: ['test.a@tripcircle.app', 'test.b@tripcircle.app', 'test.c@tripcircle.app', 'test.d@tripcircle.app'] },
       },
-    }).catch(() => {});
+    }).catch(() => { });
   });
 
   it('Step 1: User A creates a trip and invites B, C, D', async () => {

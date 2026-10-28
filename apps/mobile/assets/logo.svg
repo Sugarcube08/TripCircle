@@ -24,9 +24,9 @@
     <circle cx="116" cy="120" r="3.5" fill="#00F5A0"/>
   </g>
 
-  <!-- Typography -->
+  <!-- Typography: Title Case "TripCircle" -->
   <text x="216" y="132" font-family="'Liberation Sans', 'Inter', -apple-system, sans-serif" font-size="64" font-weight="700" letter-spacing="-1.5px">
-    <tspan fill="#FFFFFF">trip</tspan><tspan fill="#00F5A0">Circle</tspan>
+    <tspan fill="#FFFFFF">Trip</tspan><tspan fill="#00F5A0">Circle</tspan>
   </text>
   <text x="218" y="170" fill="#64748B" font-family="'Liberation Sans', 'Inter', -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="4.5px">SHARED TRIP LEDGER</text>
 </svg>

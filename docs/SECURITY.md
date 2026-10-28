@@ -1,4 +1,4 @@
-# tripCircle — Security & Privacy Architecture
+# TripCircle — Security & Privacy Architecture
 
 ## 1. Authentication & Session Security
 

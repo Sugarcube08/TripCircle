@@ -1,4 +1,4 @@
-# tripCircle — REST API Reference (v1)
+# TripCircle — REST API Reference (v1)
 
 Base URL: `/api/v1`  
 Authentication: HTTP Bearer Token (`Authorization: Bearer <jwt-access-token>`)

@@ -13,7 +13,7 @@ export async function GET() {
 
   const responsePayload = {
     status: isHealthy ? 'healthy' : 'unhealthy',
-    service: 'tripCircle API',
+    service: 'TripCircle API',
     version: '1.0.0',
     environment: env.NODE_ENV,
     timestamp: new Date().toISOString(),

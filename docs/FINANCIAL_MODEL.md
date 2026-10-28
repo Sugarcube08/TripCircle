@@ -1,8 +1,8 @@
-# tripCircle — Financial Model & Exact Accounting Specification
+# TripCircle — Financial Model & Exact Accounting Specification
 
 ## 1. Monetary Representation: Integer Paise
 
-All currency calculations and storage throughout tripCircle are strictly in **integer paise**:
+All currency calculations and storage throughout TripCircle are strictly in **integer paise**:
 - ₹100.00 = `10000` paise
 - ₹1,586.65 = `158665` paise
 - ₹0.01 = `1` paisa

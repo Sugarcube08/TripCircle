@@ -1,11 +1,11 @@
-# tripCircle — Monorepo Architecture
+# TripCircle — Monorepo Architecture
 
 ## 1. System Overview
 
-tripCircle is organized as a pnpm monorepo containing two independently deployable applications and a shared contract package:
+TripCircle is organized as a pnpm monorepo containing two independently deployable applications and a shared contract package:
 
 ```text
-tripCircle/
+TripCircle/
 ├── apps/
 │   ├── api/          # Next.js 14 Standalone REST API & Background Worker
 │   └── mobile/       # React Native Expo Mobile Application

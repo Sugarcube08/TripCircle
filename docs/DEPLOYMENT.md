@@ -1,6 +1,6 @@
-# tripCircle — Independent Deployment & Production Infrastructure Guide
+# TripCircle — Independent Deployment & Production Infrastructure Guide
 
-**Product:** tripCircle  
+**Product:** TripCircle  
 **Infrastructure Target:** Cloudflare R2 + Gmail SMTP + Remote MySQL Database  
 
 The API server and mobile application are built, configured, and released completely independently.
@@ -9,7 +9,7 @@ The API server and mobile application are built, configured, and released comple
 
 ## 1. Cloudflare R2 Object Storage Setup
 
-tripCircle uses Cloudflare R2 via its S3-compatible API for receipts, avatars, trip covers, and payment QR codes.
+TripCircle uses Cloudflare R2 via its S3-compatible API for receipts, avatars, trip covers, and payment QR codes.
 
 ### Step 1: Create a Private Bucket
 1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com) and navigate to **R2 Object Storage**.
@@ -44,7 +44,7 @@ R2_REGION="auto"
 
 ## 2. Gmail SMTP Email Delivery Setup
 
-tripCircle sends email verification OTPs, password recovery codes, and trip invitations through Gmail SMTP.
+TripCircle sends email verification OTPs, password recovery codes, and trip invitations through Gmail SMTP.
 
 ### Step 1: Prepare Gmail Account
 1. Choose or create the Google/Gmail account for sending application emails (e.g. `notifications@yourdomain.com` or `tripcircle.app@gmail.com`).
@@ -53,7 +53,7 @@ tripCircle sends email verification OTPs, password recovery codes, and trip invi
 
 ### Step 2: Generate an App Password
 1. In Google Account Security, search for or select **App passwords**.
-2. Under App name, type `tripCircle API`.
+2. Under App name, type `TripCircle API`.
 3. Click **Create**.
 4. Google will generate a 16-character passcode (e.g. `abcd efgh ijkl mnop`).
 5. **Never use your personal Google account password.** Store this 16-character App Password as `SMTP_PASSWORD`.
@@ -65,16 +65,16 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER="your-email@gmail.com"
 SMTP_PASSWORD="your-16-char-app-password"
-SMTP_FROM_NAME="tripCircle"
+SMTP_FROM_NAME="TripCircle"
 SMTP_FROM_EMAIL="your-email@gmail.com"
 ```
-*Note:* Port 587 uses STARTTLS. tripCircle automatically enforces TLS certificate validation in production (`rejectUnauthorized: true`).
+*Note:* Port 587 uses STARTTLS. TripCircle automatically enforces TLS certificate validation in production (`rejectUnauthorized: true`).
 
 ---
 
 ## 3. Remote MySQL Database Configuration
 
-tripCircle requires MySQL 8.0 or compatible managed MySQL (e.g. AWS RDS MySQL, DigitalOcean Managed MySQL, PlanetScale, Google Cloud SQL, Railway, Aiven).
+TripCircle requires MySQL 8.0 or compatible managed MySQL (e.g. AWS RDS MySQL, DigitalOcean Managed MySQL, PlanetScale, Google Cloud SQL, Railway, Aiven).
 
 ### Step 1: Provisioning & Connection String
 Format:
@@ -107,7 +107,7 @@ pnpm --filter @tripcircle/api db:migrate
 
 ## 4. Background Processing & Durable Outbox
 
-tripCircle records transactional events (`EMAIL_VERIFY_REQUESTED`, `PAYMENT_CREATED`, `DISCOUNT_PROPOSED`, etc.) atomically into the MySQL `OutboxEvent` table.
+TripCircle records transactional events (`EMAIL_VERIFY_REQUESTED`, `PAYMENT_CREATED`, `DISCOUNT_PROPOSED`, etc.) atomically into the MySQL `OutboxEvent` table.
 
 ### Option A: Long-running Daemon (VPS, Docker, ECS, Railway)
 Run the dedicated worker alongside the API container:
@@ -218,7 +218,7 @@ docker run -d \
   -e SMTP_SECURE=false \
   -e SMTP_USER="notifications@tripcircle.app" \
   -e SMTP_PASSWORD="<gmail-app-password>" \
-  -e SMTP_FROM_NAME="tripCircle" \
+  -e SMTP_FROM_NAME="TripCircle" \
   -e SMTP_FROM_EMAIL="notifications@tripcircle.app" \
   tripcircle-api:1.0.0
 ```
@@ -257,7 +257,7 @@ Expected response (HTTP 200 OK):
 ```json
 {
   "status": "healthy",
-  "service": "tripCircle API",
+  "service": "TripCircle API",
   "version": "1.0.0",
   "environment": "production",
   "timestamp": "2026-10-28T15:00:00.000Z",

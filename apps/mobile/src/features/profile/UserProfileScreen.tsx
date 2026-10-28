@@ -44,7 +44,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   }, []);
 
   const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out of tripCircle?', [
+    Alert.alert('Log Out', 'Are you sure you want to log out of TripCircle?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log Out',
@@ -89,9 +89,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => Alert.alert('App Version', 'tripCircle v1.0.0 (Exact Paise Precision)')}
+            onPress={() => Alert.alert('App Version', 'TripCircle v1.0.0 (Exact Paise Precision)')}
           >
-            <Text style={styles.optionText}>ℹ️ About tripCircle</Text>
+            <Text style={styles.optionText}>ℹ️ About TripCircle</Text>
             <Text style={styles.arrow}>➔</Text>
           </TouchableOpacity>
         </View>

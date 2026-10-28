@@ -16,7 +16,7 @@ export default defineConfig({
       SMTP_PORT: '587',
       SMTP_USER: 'test-user',
       SMTP_PASSWORD: 'test-password',
-      SMTP_FROM_NAME: 'tripCircle Test',
+      SMTP_FROM_NAME: 'TripCircle Test',
       SMTP_FROM_EMAIL: 'test@tripcircle.app',
       API_BASE_URL: 'http://localhost:3000',
       APP_PUBLIC_URL: 'http://localhost:8081',

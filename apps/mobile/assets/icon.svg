@@ -40,7 +40,7 @@
   </defs>
 
   
-  <!-- Background -->
+  <!-- Background: Deep Midnight Obsidian -->
   <rect width="1024" height="1024" fill="url(#bgGrad)"/>
   <!-- Ambient Center Illumination -->
   <circle cx="512" cy="512" r="420" fill="url(#centerGlow)"/>

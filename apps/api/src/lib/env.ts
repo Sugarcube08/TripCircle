@@ -32,7 +32,7 @@ const envSchema = z.object({
     .transform((v) => v.toLowerCase() === 'true' || v === '1'),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASSWORD: z.string().optional().default(''),
-  SMTP_FROM_NAME: z.string().default('tripCircle'),
+  SMTP_FROM_NAME: z.string().default('TripCircle'),
   SMTP_FROM_EMAIL: z.string().email().optional().or(z.literal('')).default('noreply@tripcircle.app'),
 
   // Cloudflare R2

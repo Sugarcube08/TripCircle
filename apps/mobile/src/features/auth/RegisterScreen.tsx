@@ -63,7 +63,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.brand}>
           <Text style={styles.logo}>Create Account</Text>
-          <Text style={styles.tagline}>Join tripCircle to track expenses effortlessly</Text>
+          <Text style={styles.tagline}>Join TripCircle to track expenses effortlessly</Text>
         </View>
 
         <View style={styles.form}>

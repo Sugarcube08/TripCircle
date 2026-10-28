@@ -85,7 +85,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
 
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.appName}>tripCircle</Text>
+          <Text style={styles.appName}>TripCircle</Text>
           <Text style={styles.appSub}>Your trips, without the confusion</Text>
         </View>
         <TouchableOpacity

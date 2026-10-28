@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'tripCircle API',
-  description: 'Backend API for tripCircle Expense Management',
+  title: 'TripCircle API',
+  description: 'Backend API for TripCircle Expense Management',
 };
 
 export default function RootLayout({

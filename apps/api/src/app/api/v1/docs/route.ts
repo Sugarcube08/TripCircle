@@ -6,14 +6,14 @@ export async function GET() {
   const openApiSpec = {
     openapi: '3.0.3',
     info: {
-      title: 'tripCircle API',
+      title: 'TripCircle API',
       version: '1.0.0',
       description: 'Collaborative trip expense tracking and exact paise settlement API',
     },
     servers: [
       {
         url: '/api/v1',
-        description: 'tripCircle REST API v1',
+        description: 'TripCircle REST API v1',
       },
     ],
     components: {

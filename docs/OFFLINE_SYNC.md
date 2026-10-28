@@ -1,10 +1,10 @@
-# tripCircle — Offline Access & Synchronization Architecture
+# TripCircle — Offline Access & Synchronization Architecture
 
 ## 1. Core Synchronization Principles
 
 1. **Server-Authoritative:** The Next.js API server is the single source of truth for all balances, allocations, and transaction states.
 2. **Offline-Safe Viewing:** All previously synchronized trips, expenses, member allocations, payments, and settlement recommendations are locally persisted and viewable offline.
-3. **No Offline Financial Submissions:** Because tripCircle manages real financial liabilities without pre-approval queues, creating or modifying financial transactions requires network connectivity. This eliminates complex multi-master ledger divergence.
+3. **No Offline Financial Submissions:** Because TripCircle manages real financial liabilities without pre-approval queues, creating or modifying financial transactions requires network connectivity. This eliminates complex multi-master ledger divergence.
 4. **Transparent Stale State:** When operating offline, the mobile interface presents an unmistakable offline banner displaying the exact `lastSyncTimestamp`.
 
 ---

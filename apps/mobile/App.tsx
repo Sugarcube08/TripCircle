@@ -29,7 +29,7 @@ export default function App() {
   }, []);
 
   if (initializing) {
-    return <LoadingIndicator message="Initializing tripCircle..." />;
+    return <LoadingIndicator message="Initializing TripCircle..." />;
   }
 
   return (

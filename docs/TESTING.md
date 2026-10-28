@@ -1,8 +1,8 @@
-# tripCircle — Verification & Testing Guide
+# TripCircle — Verification & Testing Guide
 
 ## 1. Automated Test Suite
 
-tripCircle includes automated unit tests for exact financial algorithms, zero-sum invariant assertions, and end-to-end integration tests for complete trip lifecycles.
+TripCircle includes automated unit tests for exact financial algorithms, zero-sum invariant assertions, and end-to-end integration tests for complete trip lifecycles.
 
 ### Running Tests
 

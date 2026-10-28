@@ -1,9 +1,9 @@
 export default function HomePage() {
   return (
     <main style={{ maxWidth: 700, margin: '0 auto', lineHeight: 1.6 }}>
-      <h1 style={{ color: '#0F172A' }}>tripCircle API Server</h1>
+      <h1 style={{ color: '#0F172A' }}>TripCircle API Server</h1>
       <p style={{ color: '#475569' }}>
-        The backend API for tripCircle is running. Collaborative trip expense tracking,
+        The backend API for TripCircle is running. Collaborative trip expense tracking,
         transparent financial records, and simplified group settlement.
       </p>
       <ul>

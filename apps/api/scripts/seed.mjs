@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding tripCircle database...');
+  console.log('🌱 Seeding TripCircle database...');
 
   // 1. Seed Expense Categories
   const categories = [

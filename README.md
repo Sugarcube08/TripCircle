@@ -1,8 +1,8 @@
-# tripCircle (V1)
+# TripCircle (V1)
 
 **Collaborative trip expense tracking, transparent financial records, and simplified group settlement.**
 
-tripCircle is an end-to-end, production-oriented monorepo providing groups of friends with a shared financial ledger during trips. It features exact integer paise accounting, receiver-confirmed payments, immediate expense updates without approvals, auditable revision histories, greedy debt simplification settlement, offline viewing, and PDF/Excel export.
+TripCircle is an end-to-end, production-oriented monorepo providing groups of friends with a shared financial ledger during trips. It features exact integer paise accounting, receiver-confirmed payments, immediate expense updates without approvals, auditable revision histories, greedy debt simplification settlement, offline viewing, and PDF/Excel export.
 
 ---
 

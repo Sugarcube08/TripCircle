@@ -55,7 +55,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
     >
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.brand}>
-          <Text style={styles.logo}>tripCircle</Text>
+          <Text style={styles.logo}>TripCircle</Text>
           <Text style={styles.tagline}>Shared trip ledger without the confusion</Text>
         </View>
 

@@ -1,8 +1,8 @@
-# tripCircle — Product Specification (V1)
+# TripCircle — Product Specification (V1)
 
 ## 1. Product Overview
 
-**tripCircle** is a collaborative trip expense management, transparent financial ledger, and simplified group settlement platform. It provides friends travelling together with a shared financial ledger where every rupee and paisa is tracked without ambiguity or manual reconstruction.
+**TripCircle** is a collaborative trip expense management, transparent financial ledger, and simplified group settlement platform. It provides friends travelling together with a shared financial ledger where every rupee and paisa is tracked without ambiguity or manual reconstruction.
 
 ### Five Fundamental Questions Answered
 1. **What happened financially during the trip?** Complete, immutable chronological log of every expense, payment, revision, and discount.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Standalone tripCircle Durable Outbox Worker
+ * Standalone TripCircle Durable Outbox Worker
  * Run via: node scripts/run-worker.mjs
  */
 import { PrismaClient } from '@prisma/client';
@@ -43,7 +43,7 @@ async function recoverStuckEvents() {
 }
 
 async function runWorkerLoop() {
-  console.log(`[Worker] tripCircle Outbox Worker started. Poll interval: ${POLL_INTERVAL_MS}ms, Batch size: ${BATCH_SIZE}`);
+  console.log(`[Worker] TripCircle Outbox Worker started. Poll interval: ${POLL_INTERVAL_MS}ms, Batch size: ${BATCH_SIZE}`);
   await recoverStuckEvents();
 
   while (isRunning) {

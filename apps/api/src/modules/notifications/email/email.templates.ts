@@ -10,7 +10,7 @@ function baseHtml(content: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>tripCircle</title>
+  <title>TripCircle</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
     .container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
@@ -32,8 +32,8 @@ function baseHtml(content: string): string {
       ${content}
     </div>
     <div class="footer">
-      <p>This is an automated transactional message from tripCircle. Please do not reply directly to this email.</p>
-      <p>&copy; ${new Date().getFullYear()} tripCircle. All rights reserved.</p>
+      <p>This is an automated transactional message from TripCircle. Please do not reply directly to this email.</p>
+      <p>&copy; ${new Date().getFullYear()} TripCircle. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -42,30 +42,30 @@ function baseHtml(content: string): string {
 
 export const EmailTemplates = {
   accountVerificationOtp(otp: string): EmailTemplateResult {
-    const subject = 'tripCircle — Verify Your Email Address';
+    const subject = 'TripCircle — Verify Your Email Address';
     const content = `
-      <h2 style="margin-top:0; color:#0f172a;">Welcome to tripCircle!</h2>
+      <h2 style="margin-top:0; color:#0f172a;">Welcome to TripCircle!</h2>
       <p>Thank you for registering. Please enter the verification code below in your mobile app to activate your account:</p>
       <div class="code-box">${otp}</div>
-      <p style="color:#64748b; font-size:14px;">This code will expire in 10 minutes. If you did not create a tripCircle account, please ignore this message.</p>
+      <p style="color:#64748b; font-size:14px;">This code will expire in 10 minutes. If you did not create a TripCircle account, please ignore this message.</p>
     `;
-    const text = `Welcome to tripCircle!\n\nYour 6-digit email verification code is: ${otp}\n\nThis code expires in 10 minutes. If you did not create a tripCircle account, you can safely ignore this message.`;
+    const text = `Welcome to TripCircle!\n\nYour 6-digit email verification code is: ${otp}\n\nThis code expires in 10 minutes. If you did not create a TripCircle account, you can safely ignore this message.`;
     return { subject, html: baseHtml(content), text };
   },
 
   passwordResetOtp(otp: string, resetUrl?: string): EmailTemplateResult {
-    const subject = 'tripCircle — Password Recovery Code';
+    const subject = 'TripCircle — Password Recovery Code';
     const buttonHtml = resetUrl
       ? `<div style="text-align:center;"><a href="${resetUrl}" class="btn">Reset Password</a></div>`
       : '';
     const content = `
       <h2 style="margin-top:0; color:#0f172a;">Password Recovery Request</h2>
-      <p>We received a request to reset the password for your tripCircle account. Use the code below to proceed:</p>
+      <p>We received a request to reset the password for your TripCircle account. Use the code below to proceed:</p>
       <div class="code-box">${otp}</div>
       ${buttonHtml}
       <p style="color:#64748b; font-size:14px;">This code is valid for 10 minutes. If you did not request a password reset, please secure your account immediately.</p>
     `;
-    const text = `tripCircle Password Recovery\n\nYour recovery code is: ${otp}\n\n${resetUrl ? `You can also reset via this link: ${resetUrl}\n\n` : ''}This code expires in 10 minutes. If you did not request this, please secure your account.`;
+    const text = `TripCircle Password Recovery\n\nYour recovery code is: ${otp}\n\n${resetUrl ? `You can also reset via this link: ${resetUrl}\n\n` : ''}This code expires in 10 minutes. If you did not request this, please secure your account.`;
     return { subject, html: baseHtml(content), text };
   },
 
@@ -74,15 +74,15 @@ export const EmailTemplates = {
     inviterName: string;
     appUrl?: string;
   }): EmailTemplateResult {
-    const subject = `You've been invited to join "${params.tripName}" on tripCircle`;
+    const subject = `You've been invited to join "${params.tripName}" on TripCircle`;
     const content = `
       <h2 style="margin-top:0; color:#0f172a;">You're Invited!</h2>
-      <p><strong>${params.inviterName}</strong> invited you to join the trip <strong>"${params.tripName}"</strong> on tripCircle.</p>
-      <p>tripCircle keeps shared trip expenses transparent, automatically calculates who owes whom, and simplifies settlements.</p>
-      ${params.appUrl ? `<div style="text-align:center;"><a href="${params.appUrl}" class="btn">Open tripCircle</a></div>` : ''}
-      <p style="color:#64748b; font-size:14px;">Log in to the tripCircle mobile app to accept your invitation.</p>
+      <p><strong>${params.inviterName}</strong> invited you to join the trip <strong>"${params.tripName}"</strong> on TripCircle.</p>
+      <p>TripCircle keeps shared trip expenses transparent, automatically calculates who owes whom, and simplifies settlements.</p>
+      ${params.appUrl ? `<div style="text-align:center;"><a href="${params.appUrl}" class="btn">Open TripCircle</a></div>` : ''}
+      <p style="color:#64748b; font-size:14px;">Log in to the TripCircle mobile app to accept your invitation.</p>
     `;
-    const text = `${params.inviterName} has invited you to join "${params.tripName}" on tripCircle.\n\nOpen the tripCircle app to accept your invitation.`;
+    const text = `${params.inviterName} has invited you to join "${params.tripName}" on TripCircle.\n\nOpen the TripCircle app to accept your invitation.`;
     return { subject, html: baseHtml(content), text };
   },
 
@@ -91,14 +91,14 @@ export const EmailTemplates = {
     payerName: string;
     amountFormatted: string;
   }): EmailTemplateResult {
-    const subject = `tripCircle — Action Required: Payment confirmation from ${params.payerName}`;
+    const subject = `TripCircle — Action Required: Payment confirmation from ${params.payerName}`;
     const content = `
       <h2 style="margin-top:0; color:#0f172a;">Payment Received?</h2>
       <p><strong>${params.payerName}</strong> recorded a payment of <strong>${params.amountFormatted}</strong> to you for trip <strong>"${params.tripName}"</strong>.</p>
-      <p>Under tripCircle's financial rules, payments only update ledger balances after you confirm receipt.</p>
-      <p style="color:#64748b; font-size:14px;">Please open tripCircle to confirm or dispute this payment.</p>
+      <p>Under TripCircle's financial rules, payments only update ledger balances after you confirm receipt.</p>
+      <p style="color:#64748b; font-size:14px;">Please open TripCircle to confirm or dispute this payment.</p>
     `;
-    const text = `${params.payerName} recorded a payment of ${params.amountFormatted} to you in "${params.tripName}".\n\nPlease open tripCircle to confirm or dispute receipt.`;
+    const text = `${params.payerName} recorded a payment of ${params.amountFormatted} to you in "${params.tripName}".\n\nPlease open TripCircle to confirm or dispute receipt.`;
     return { subject, html: baseHtml(content), text };
   },
 
@@ -108,7 +108,7 @@ export const EmailTemplates = {
     amountFormatted: string;
     reason: string;
   }): EmailTemplateResult {
-    const subject = `tripCircle — Payment disputed by ${params.receiverName}`;
+    const subject = `TripCircle — Payment disputed by ${params.receiverName}`;
     const content = `
       <h2 style="margin-top:0; color:#e11d48;">Payment Disputed</h2>
       <p><strong>${params.receiverName}</strong> has disputed your payment of <strong>${params.amountFormatted}</strong> in trip <strong>"${params.tripName}"</strong>.</p>
@@ -125,14 +125,14 @@ export const EmailTemplates = {
     waivedFormatted: string;
     paidFormatted: string;
   }): EmailTemplateResult {
-    const subject = `tripCircle — Settlement discount proposal from ${params.fromMemberName}`;
+    const subject = `TripCircle — Settlement discount proposal from ${params.fromMemberName}`;
     const content = `
       <h2 style="margin-top:0; color:#0f172a;">Settlement Adjustment Proposal</h2>
       <p><strong>${params.fromMemberName}</strong> proposed a settlement discount for trip <strong>"${params.tripName}"</strong>.</p>
       <p>They paid <strong>${params.paidFormatted}</strong> and requested waiving <strong>${params.waivedFormatted}</strong>.</p>
       <p style="color:#64748b; font-size:14px;">Open the settlement dashboard to accept or decline this adjustment.</p>
     `;
-    const text = `${params.fromMemberName} proposed a settlement adjustment in "${params.tripName}". Paid: ${params.paidFormatted}, Waived: ${params.waivedFormatted}. Open tripCircle to review.`;
+    const text = `${params.fromMemberName} proposed a settlement adjustment in "${params.tripName}". Paid: ${params.paidFormatted}, Waived: ${params.waivedFormatted}. Open TripCircle to review.`;
     return { subject, html: baseHtml(content), text };
   },
 };

@@ -1,5 +1,5 @@
 # ==============================================================================
-# tripCircle API Dockerfile (Multi-stage standalone build)
+# TripCircle API Dockerfile (Multi-stage standalone build)
 # ==============================================================================
 FROM node:20-alpine AS base
 WORKDIR /app

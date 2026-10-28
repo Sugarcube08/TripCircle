@@ -1,4 +1,4 @@
-# tripCircle — Database Schema & Data Model
+# TripCircle — Database Schema & Data Model
 
 ## 1. Relational Database: MySQL 8.0
 

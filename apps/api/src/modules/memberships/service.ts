@@ -28,7 +28,7 @@ export class MembershipService {
     });
 
     if (!targetUser) {
-      throw new Error(`User "${input.userIdOrEmail}" is not registered on tripCircle.`);
+      throw new Error(`User "${input.userIdOrEmail}" is not registered on TripCircle.`);
     }
 
     // Check existing membership

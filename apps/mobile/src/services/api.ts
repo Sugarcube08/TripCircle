@@ -10,7 +10,7 @@ export function getApiBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!envUrl || envUrl.trim() === '') {
     throw new Error(
-      '[tripCircle Configuration Error] EXPO_PUBLIC_API_URL is missing. Please set EXPO_PUBLIC_API_URL in your apps/mobile/.env file.'
+      '[TripCircle Configuration Error] EXPO_PUBLIC_API_URL is missing. Please set EXPO_PUBLIC_API_URL in your apps/mobile/.env file.'
     );
   }
   return envUrl.trim().replace(/\/$/, '');

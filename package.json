@@ -2,7 +2,7 @@
   "name": "tripcircle-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "tripCircle - Collaborative trip expense tracking and group settlement",
+  "description": "TripCircle - Collaborative trip expense tracking and group settlement",
   "scripts": {
     "dev:api": "pnpm --filter @tripcircle/api dev",
     "dev:mobile": "pnpm --filter @tripcircle/mobile start",
