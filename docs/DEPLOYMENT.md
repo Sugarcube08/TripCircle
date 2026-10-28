@@ -128,7 +128,65 @@ curl -X POST https://api.yourdomain.com/api/v1/jobs/outbox \
 
 ---
 
-## 5. Production API Deployment (Docker & Containers)
+## 5. Non-Docker & Serverless Deployment (Vercel, Render, Railway, Bare VPS)
+
+The API is a standard Next.js 14 application that can be built and deployed individually without Docker.
+
+### 5.1 Vercel Deployment (Recommended for Serverless)
+
+When deploying on Vercel:
+1. In the Vercel Dashboard, click **Add New Project** and import the GitHub repository.
+2. In the project configuration:
+   - **Framework Preset:** `Next.js`
+   - **Root Directory:** Click Edit and select `apps/api`.
+   - **Build Command:** Leave as default (`prisma generate && next build`).
+   - **Output Directory:** Leave as default (`.next`).
+   - **Install Command:** Leave as default (`pnpm install`).
+3. Add your production environment variables (from `apps/api/.env.example`):
+   - `DATABASE_URL`: Your remote MySQL connection string (e.g. Aiven, PlanetScale, AWS RDS). Ensure the port is included (e.g. `:15832`) and SSL is enabled.
+   - `DATABASE_CONNECTION_LIMIT`: `10`
+   - `JWT_ACCESS_SECRET`: High-entropy 32+ character random secret
+   - `JWT_REFRESH_SECRET`: High-entropy 32+ character random secret
+   - `STORAGE_DRIVER`: `r2`
+   - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
+   - `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`
+4. Click **Deploy**. Vercel will build and deploy the API as serverless functions.
+
+### 5.2 Render or Railway (Standard Node.js Web Service)
+1. **Root Directory:** `apps/api` (or monorepo root).
+2. **Build Command:**
+   ```bash
+   pnpm --filter @tripcircle/contracts build && pnpm --filter @tripcircle/api build
+   ```
+3. **Start Command:**
+   ```bash
+   node apps/api/server.js
+   ```
+   *(Or `pnpm --filter @tripcircle/api start`)*
+
+### 5.3 Bare Linux VPS (Systemd or PM2 without Docker)
+1. Clone the repository and install dependencies:
+   ```bash
+   git clone https://github.com/your-org/tripcircle.git
+   cd tripcircle
+   pnpm install
+   ```
+2. Build the contracts and API:
+   ```bash
+   pnpm build:api
+   ```
+3. Run database migrations:
+   ```bash
+   pnpm db:migrate
+   ```
+4. Start via PM2 or systemd:
+   ```bash
+   pm2 start apps/api/server.js --name tripcircle-api
+   ```
+
+---
+
+## 6. Docker Deployment (Containers)
 
 ### Multi-stage Docker Build
 Build the optimized standalone container:
