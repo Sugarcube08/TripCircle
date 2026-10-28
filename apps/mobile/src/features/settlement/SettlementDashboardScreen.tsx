@@ -139,7 +139,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
 
       {/* Top Header */}
       <View style={styles.navBar}>
@@ -191,7 +191,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
         {/* Notices for Pending or Disputed Payments */}
         {plan.pendingPaymentsCount > 0 ? (
           <View style={styles.warningBox}>
-            <Ionicons name="time-outline" size={18} color="#D97706" style={{ marginRight: 8 }} />
+            <Ionicons name="time-outline" size={18} color={THEME.colors.pending} style={{ marginRight: 8 }} />
             <Text style={styles.warningText}>
               {plan.pendingPaymentsCount} payment{plan.pendingPaymentsCount > 1 ? 's are' : ' is'} pending receiver confirmation.
             </Text>
@@ -200,8 +200,8 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
         {plan.disputedPaymentsCount > 0 ? (
           <View style={[styles.warningBox, styles.disputeBox]}>
-            <Ionicons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8 }} />
-            <Text style={[styles.warningText, { color: '#DC2626' }]}>
+            <Ionicons name="alert-circle-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 8 }} />
+            <Text style={[styles.warningText, { color: '#F87171' }]}>
               {plan.disputedPaymentsCount} payment dispute{plan.disputedPaymentsCount > 1 ? 's' : ''} require attention.
             </Text>
           </View>
@@ -501,21 +501,21 @@ const styles = StyleSheet.create({
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
     borderRadius: THEME.borderRadius.md,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
   },
   disputeBox: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   warningText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#92400E',
+    color: '#FCD34D',
     flex: 1,
   },
   section: {

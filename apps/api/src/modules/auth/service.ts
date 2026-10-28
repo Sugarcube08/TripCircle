@@ -11,13 +11,13 @@ import {
   hashOtp,
   sendOtpEmail,
 } from '../../lib/email';
-import {
-  RegisterInput,
+import { RegisterInput,
   LoginInput,
   VerifyOtpInput,
   ResetPasswordInput,
 } from '@tripcircle/contracts';
 import { verifyRegistrationQrToken } from '../../lib/registration-token';
+import { getEnv } from '../../lib/env';
 
 export class AuthService {
   static async register(input: RegisterInput) {
@@ -38,7 +38,8 @@ export class AuthService {
 
     if (input.paymentQrToken) {
       const verified = verifyRegistrationQrToken(input.paymentQrToken);
-      finalQrUrl = `/api/v1/files/${encodeURIComponent(verified.storageKey)}`;
+      const env = getEnv();
+      finalQrUrl = `${env.API_BASE_URL}/api/v1/files/${encodeURIComponent(verified.storageKey)}`;
       qrMetadata = verified;
     }
 

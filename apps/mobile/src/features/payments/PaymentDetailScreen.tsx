@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -151,6 +152,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -361,7 +363,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -382,7 +384,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   heroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -475,7 +477,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -555,7 +557,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   disputeBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1.5,
     borderColor: THEME.colors.debt,
   },
@@ -568,9 +570,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
     paddingVertical: 12,
     borderRadius: THEME.borderRadius.md,
     marginTop: 10,
@@ -582,13 +584,15 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
     padding: 20,
     ...THEME.shadows.lg,
   },

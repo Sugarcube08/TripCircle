@@ -20,6 +20,7 @@ import { ExpenseRow } from '../../components/ExpenseRow';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
 import { formatDate } from '../../utils/formatters';
+import { resolveMediaUrl } from '../../utils/media';
 import { THEME } from '../../theme';
 
 interface TripDashboardScreenProps {
@@ -177,7 +178,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
 
       {/* Top Navigation Bar */}
       <View style={styles.navBar}>
@@ -659,9 +660,9 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {previewReceiptUrl ? (
+            {resolveMediaUrl(previewReceiptUrl) ? (
               <Image
-                source={{ uri: previewReceiptUrl }}
+                source={{ uri: resolveMediaUrl(previewReceiptUrl)! }}
                 style={styles.receiptImage}
                 resizeMode="contain"
               />
@@ -985,7 +986,7 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#1E293B',
     marginHorizontal: THEME.spacing.md,
     borderRadius: THEME.borderRadius.md,
     padding: 3,
@@ -998,7 +999,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.sm,
   },
   activeTabItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     ...THEME.shadows.sm,
   },
   tabText: {
@@ -1007,7 +1008,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSecondary,
   },
   activeTabText: {
-    color: THEME.colors.primary,
+    color: THEME.colors.mint,
     fontWeight: '700',
   },
   entriesList: {
@@ -1039,10 +1040,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   expenseIconBg: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
   },
   paymentIconBg: {
-    backgroundColor: '#F5F3FF',
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
   },
   ledgerInfo: {
     flex: 1,
@@ -1089,16 +1090,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: THEME.borderRadius.full,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#1E293B',
   },
   statusBadgeConfirmed: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
   },
   statusBadgePending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
   statusBadgeDisputed: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   statusBadgeSmallText: {
     fontSize: 10,
@@ -1112,12 +1113,14 @@ const styles = StyleSheet.create({
     padding: THEME.spacing.lg,
   },
   receiptModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.md,
     width: '100%',
     maxHeight: '80%',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   receiptModalHeader: {
     flexDirection: 'row',

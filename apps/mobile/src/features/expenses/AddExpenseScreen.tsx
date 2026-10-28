@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -211,6 +212,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Branded Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -539,7 +541,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -560,7 +562,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl + 20,
   },
   amountCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -630,7 +632,7 @@ const styles = StyleSheet.create({
   categoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.full,
@@ -653,9 +655,9 @@ const styles = StyleSheet.create({
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.inputBorder,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
     height: 52,
@@ -676,7 +678,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   payerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.md,
     padding: 10,
     alignItems: 'center',
@@ -731,7 +733,7 @@ const styles = StyleSheet.create({
   },
   methodToggleCard: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#1E293B',
     borderRadius: THEME.borderRadius.md,
     padding: 4,
     marginBottom: THEME.spacing.md,
@@ -745,7 +747,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.sm,
   },
   activeToggleBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     ...THEME.shadows.sm,
   },
   toggleText: {
@@ -754,7 +756,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   activeToggleText: {
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
     fontWeight: '700',
   },
   allocationBanner: {
@@ -779,7 +781,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   beneficiariesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -824,7 +826,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
   },
   textDisabled: {
-    color: THEME.colors.textLight,
+    color: THEME.colors.textMuted,
   },
   shareValueText: {
     fontSize: 14,
@@ -835,9 +837,9 @@ const styles = StyleSheet.create({
   unequalInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.inputBorder,
     borderRadius: THEME.borderRadius.sm,
     paddingHorizontal: 8,
     height: 36,
@@ -858,7 +860,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   optionalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,

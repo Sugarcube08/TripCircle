@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -124,6 +125,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -332,7 +334,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: THEME.colors.background,
   },
   container: {
     flex: 1,
@@ -358,12 +360,12 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: THEME.colors.border,
     ...THEME.shadows.sm,
   },
   brandIcon: {
@@ -377,7 +379,7 @@ const styles = StyleSheet.create({
   brandTitleTrip: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#0F172A',
+    color: THEME.colors.textPrimary,
     letterSpacing: -0.5,
   },
   brandTitleCircle: {
@@ -388,17 +390,17 @@ const styles = StyleSheet.create({
   },
   brandSubtitle: {
     fontSize: 13,
-    color: THEME.colors.textMuted,
+    color: THEME.colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 280,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: THEME.colors.border,
     ...THEME.shadows.sm,
   },
   inputGroup: {
@@ -407,15 +409,15 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.textPrimary,
+    color: THEME.colors.textSecondary,
     marginBottom: 6,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: THEME.colors.inputBorder,
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 48,
@@ -432,9 +434,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   qrSection: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.12)',
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: 'rgba(13, 148, 136, 0.3)',
     borderRadius: 14,
     padding: 14,
     marginBottom: 18,
@@ -447,7 +449,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   requiredBadge: {
-    backgroundColor: '#0D9488',
+    backgroundColor: THEME.colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -460,17 +462,17 @@ const styles = StyleSheet.create({
   },
   qrHelpText: {
     fontSize: 12,
-    color: '#0F766E',
+    color: THEME.colors.textSecondary,
     lineHeight: 16,
     marginBottom: 12,
   },
   qrPickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.cardAlt,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#0D9488',
+    borderColor: THEME.colors.primary,
     borderRadius: 12,
     padding: 12,
   },
@@ -481,7 +483,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#CCFBF1',
+    backgroundColor: 'rgba(13, 148, 136, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -492,7 +494,7 @@ const styles = StyleSheet.create({
   qrPickerTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: THEME.colors.textPrimary,
   },
   qrPickerSub: {
     fontSize: 11,
@@ -502,9 +504,9 @@ const styles = StyleSheet.create({
   qrPreviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.cardAlt,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: THEME.colors.border,
     borderRadius: 12,
     padding: 10,
   },
@@ -512,9 +514,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: THEME.colors.border,
   },
   qrPreviewDetails: {
     marginLeft: 12,
@@ -548,12 +550,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   qrRemoveBtn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   qrActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   registerButton: {
     backgroundColor: THEME.colors.primary,

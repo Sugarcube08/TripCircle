@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -127,6 +128,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Branded Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -293,7 +295,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -314,7 +316,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   amountCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -377,7 +379,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -393,7 +395,7 @@ const styles = StyleSheet.create({
     borderBottomColor: THEME.colors.borderLight,
   },
   selectedMemberRow: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.12)',
   },
   memberInfo: {
     marginLeft: 12,
@@ -437,7 +439,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
@@ -446,7 +448,7 @@ const styles = StyleSheet.create({
   },
   selectedMethodBtn: {
     borderColor: THEME.colors.primary,
-    backgroundColor: THEME.colors.primaryLight,
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
     borderWidth: 1.5,
   },
   methodText: {
@@ -455,15 +457,15 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   selectedMethodText: {
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
     fontWeight: '700',
   },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.inputBorder,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
     height: 52,

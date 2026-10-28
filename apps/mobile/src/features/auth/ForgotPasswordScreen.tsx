@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +48,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

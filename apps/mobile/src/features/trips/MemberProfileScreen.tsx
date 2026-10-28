@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { apiRequest } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { resolveMediaUrl } from '../../utils/media';
 import { THEME } from '../../theme';
 
 interface MemberProfileScreenProps {
@@ -66,13 +68,14 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
   const directObligation = bilateral ? bilateral.amountPaise : 0;
 
   const handleSaveOrShareQr = async () => {
-    if (!member?.user?.paymentQrUrl) return;
+    const rawQrUrl = resolveMediaUrl(member?.user?.paymentQrUrl);
+    if (!rawQrUrl) return;
     try {
       setDownloadingQr(true);
       const filename = `tripcircle_qr_${member.user.id || memberId}.png`;
       const localUri = `${FileSystem.cacheDirectory}${filename}`;
 
-      const result = await FileSystem.downloadAsync(member.user.paymentQrUrl, localUri);
+      const result = await FileSystem.downloadAsync(rawQrUrl, localUri);
       if (result.status === 200) {
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
@@ -95,6 +98,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -241,11 +245,13 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             </View>
 
             <View style={styles.qrContainer}>
-              <Image
-                source={{ uri: member?.user.paymentQrUrl }}
-                style={styles.qrImage}
-                resizeMode="contain"
-              />
+              {resolveMediaUrl(member?.user.paymentQrUrl) ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(member?.user.paymentQrUrl)! }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              ) : null}
             </View>
 
             {/* Recipient Account Name Verification Callout */}
@@ -307,7 +313,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -328,7 +334,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   profileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.xl,
     alignItems: 'center',
@@ -356,7 +362,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     marginBottom: THEME.spacing.md,
@@ -379,12 +385,12 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSecondary,
   },
   obligationCard: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.12)',
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     marginBottom: THEME.spacing.md,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.primary,
   },
   obligationHeader: {
     fontSize: 11,
@@ -447,7 +453,7 @@ const styles = StyleSheet.create({
   noQrNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.md,
     padding: 12,
     gap: 8,
@@ -468,12 +474,14 @@ const styles = StyleSheet.create({
     padding: THEME.spacing.lg,
   },
   qrModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     width: '100%',
     maxWidth: 360,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
     ...THEME.shadows.lg,
   },
   modalHeader: {
@@ -552,7 +560,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1.5,
     borderColor: THEME.colors.primary,
@@ -560,7 +568,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   recordPayButtonText: {
-    color: THEME.colors.primary,
+    color: THEME.colors.mint,
     fontSize: 14,
     fontWeight: '700',
   },

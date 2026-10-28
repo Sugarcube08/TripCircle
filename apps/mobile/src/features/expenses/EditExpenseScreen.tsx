@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -145,6 +146,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Branded Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -186,6 +188,8 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
                 value={amountRupees}
                 onChangeText={setAmountRupees}
                 keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={THEME.colors.textLight}
               />
             </View>
           </View>
@@ -199,6 +203,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
               value={description}
               onChangeText={setDescription}
               placeholder="Description"
+              placeholderTextColor={THEME.colors.textLight}
             />
           </View>
 
@@ -284,6 +289,8 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
                         value={unequalShares[m.id] || ''}
                         onChangeText={(val) => setUnequalShares({ ...unequalShares, [m.id]: val })}
                         keyboardType="decimal-pad"
+                        placeholder="0.00"
+                        placeholderTextColor={THEME.colors.textMuted}
                         editable={isIncluded}
                       />
                     </View>
@@ -332,7 +339,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -357,7 +364,7 @@ const styles = StyleSheet.create({
   versionBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   scrollContent: {
     padding: THEME.spacing.md,
@@ -366,8 +373,8 @@ const styles = StyleSheet.create({
   noticeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9FF',
-    borderColor: '#BAE6FD',
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    borderColor: 'rgba(14, 165, 233, 0.3)',
     borderWidth: 1,
     borderRadius: THEME.borderRadius.md,
     padding: 12,
@@ -375,12 +382,12 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     fontSize: 13,
-    color: '#0369A1',
+    color: THEME.colors.cyan,
     flexShrink: 1,
     lineHeight: 18,
   },
   amountCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -422,9 +429,9 @@ const styles = StyleSheet.create({
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.inputBorder,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
     height: 52,
@@ -441,10 +448,12 @@ const styles = StyleSheet.create({
   },
   methodToggleCard: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: THEME.colors.inputBg,
     borderRadius: THEME.borderRadius.md,
     padding: 4,
     marginBottom: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   toggleBtn: {
     flex: 1,
@@ -455,7 +464,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.sm,
   },
   activeToggleBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.cardAlt,
     ...THEME.shadows.sm,
   },
   toggleText: {
@@ -464,11 +473,11 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   activeToggleText: {
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
     fontWeight: '700',
   },
   beneficiariesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -521,9 +530,9 @@ const styles = StyleSheet.create({
   unequalInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.inputBorder,
     borderRadius: THEME.borderRadius.sm,
     paddingHorizontal: 8,
     height: 36,

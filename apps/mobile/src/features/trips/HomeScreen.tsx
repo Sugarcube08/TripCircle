@@ -213,7 +213,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <FlatList
         data={filteredTrips}
         keyExtractor={(item) => item.id}
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: THEME.borderRadius.full,

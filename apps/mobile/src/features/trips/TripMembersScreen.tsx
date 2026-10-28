@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,6 +80,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -223,10 +225,10 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   inviteContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     padding: THEME.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
@@ -241,9 +243,9 @@ const styles = StyleSheet.create({
   inviteInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: THEME.colors.inputBg,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.inputBorder,
     borderRadius: THEME.borderRadius.md,
     paddingLeft: 12,
     paddingRight: 4,
@@ -278,7 +280,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   memberCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.sm,

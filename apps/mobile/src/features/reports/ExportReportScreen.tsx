@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +60,7 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -219,7 +221,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   introCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -255,7 +257,7 @@ const styles = StyleSheet.create({
     marginBottom: THEME.spacing.md,
   },
   choiceCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1.5,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.lg,
@@ -264,7 +266,7 @@ const styles = StyleSheet.create({
   },
   selectedChoice: {
     borderColor: THEME.colors.primary,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
   },
   choiceHeader: {
     flexDirection: 'row',
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
   },
   selectedChoiceTitle: {
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   choiceSub: {
     fontSize: 12,
@@ -306,7 +308,7 @@ const styles = StyleSheet.create({
   },
   formatBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1.5,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
@@ -317,7 +319,7 @@ const styles = StyleSheet.create({
   },
   selectedFormatBtn: {
     borderColor: THEME.colors.primary,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
   },
   formatText: {
     fontSize: 13,
@@ -325,21 +327,21 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   selectedFormatText: {
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   securityNote: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.12)',
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: 'rgba(13, 148, 136, 0.25)',
     borderRadius: THEME.borderRadius.md,
     padding: 12,
     marginBottom: THEME.spacing.lg,
   },
   securityText: {
     fontSize: 12,
-    color: '#0F766E',
+    color: THEME.colors.textSecondary,
     flex: 1,
     lineHeight: 16,
   },

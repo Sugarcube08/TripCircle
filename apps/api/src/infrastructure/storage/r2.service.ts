@@ -163,7 +163,7 @@ export class R2StorageService implements IStorageDriver {
     const env = getEnv();
     const publicUrl = env.R2_PUBLIC_BASE_URL
       ? `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')}/${storageKey}`
-      : `/api/v1/files/${encodeURIComponent(storageKey)}`;
+      : `${env.API_BASE_URL}/api/v1/files/${encodeURIComponent(storageKey)}`;
 
     return { storageKey, publicUrl };
   }

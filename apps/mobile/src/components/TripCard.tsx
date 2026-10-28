@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TripSummary } from '@tripcircle/contracts';
 import { AmountText } from './AmountText';
 import { THEME } from '../theme';
+import { resolveMediaUrl } from '../utils/media';
 
 interface TripCardProps {
   trip: TripSummary;
@@ -22,8 +23,8 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
       onPress={onPress}
     >
       {/* Cover Header */}
-      {trip.coverImageUrl ? (
-        <Image source={{ uri: trip.coverImageUrl }} style={styles.coverImage} />
+      {resolveMediaUrl(trip.coverImageUrl) ? (
+        <Image source={{ uri: resolveMediaUrl(trip.coverImageUrl)! }} style={styles.coverImage} />
       ) : (
         <View style={styles.placeholderCover}>
           <View style={styles.placeholderEmblem}>

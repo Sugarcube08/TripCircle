@@ -8,6 +8,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,6 +70,7 @@ export const InvitationsScreen: React.FC<InvitationsScreenProps> = ({ navigation
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -201,7 +203,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   inviteCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
   emblemText: {
     fontSize: 15,
     fontWeight: '800',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   headerText: {
     flex: 1,
@@ -284,7 +286,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   declineBtn: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: THEME.colors.cardAlt,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   declineBtnText: {
     color: THEME.colors.textSecondary,

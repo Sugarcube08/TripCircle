@@ -11,12 +11,14 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { apiRequest, uploadImageFromUri } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
+import { resolveMediaUrl } from '../../utils/media';
 import { THEME } from '../../theme';
 
 interface EditProfileScreenProps {
@@ -134,6 +136,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -238,9 +241,9 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
                   <Image source={{ uri: qrUri }} style={styles.qrPreviewImage} resizeMode="contain" />
                   <Text style={styles.newBadgeText}>New QR Selected (Unsaved)</Text>
                 </View>
-              ) : user?.paymentQrUrl ? (
+              ) : resolveMediaUrl(user?.paymentQrUrl) ? (
                 <View style={styles.qrPreviewWrapper}>
-                  <Image source={{ uri: user.paymentQrUrl }} style={styles.qrPreviewImage} resizeMode="contain" />
+                  <Image source={{ uri: resolveMediaUrl(user.paymentQrUrl)! }} style={styles.qrPreviewImage} resizeMode="contain" />
                   <Text style={styles.activeBadgeText}>Current Active QR</Text>
                 </View>
               ) : (
@@ -292,7 +295,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -364,7 +367,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -433,7 +436,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     marginBottom: 6,
   },
   newBadgeText: {
@@ -465,7 +468,9 @@ const styles = StyleSheet.create({
   replaceQrBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.primaryLight,
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+    borderWidth: 1,
+    borderColor: THEME.colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: THEME.borderRadius.md,
@@ -473,7 +478,7 @@ const styles = StyleSheet.create({
   replaceQrText: {
     fontSize: 13,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   saveBtn: {
     flexDirection: 'row',

@@ -116,7 +116,9 @@ export class StorageService {
     }
 
     // 2. Persist metadata in database
-    const publicUrl = `/api/v1/files/${encodeURIComponent(params.storageKey)}`;
+    const publicUrl = env.R2_PUBLIC_BASE_URL
+      ? `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')}/${params.storageKey}`
+      : `${env.API_BASE_URL}/api/v1/files/${encodeURIComponent(params.storageKey)}`;
     const metadata = await prisma.fileMetadata.create({
       data: {
         userId: params.userId,

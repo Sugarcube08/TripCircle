@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,6 +130,7 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -271,7 +273,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.md,
     borderWidth: 1,
@@ -345,13 +347,13 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: THEME.borderRadius.full,
   },
   closedBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(100, 116, 139, 0.2)',
   },
   statusDot: {
     width: 6,
@@ -368,13 +370,13 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#059669',
+    color: THEME.colors.credit,
   },
   closedBadgeText: {
-    color: '#64748B',
+    color: THEME.colors.textMuted,
   },
   navCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -423,7 +425,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.md,
   },
   closeBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: THEME.colors.debt,
     ...THEME.shadows.sm,
   },
   reopenBtn: {
@@ -432,8 +434,8 @@ const styles = StyleSheet.create({
   },
   leaveBtn: {
     borderWidth: 1.5,
-    borderColor: '#DC2626',
-    backgroundColor: '#FEF2F2',
+    borderColor: THEME.colors.debt,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
   },
   actionBtnText: {
     color: '#FFFFFF',
@@ -441,7 +443,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   leaveBtnText: {
-    color: '#DC2626',
+    color: '#F87171',
     fontSize: 15,
     fontWeight: '700',
   },

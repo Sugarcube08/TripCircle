@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getStorageDriver } from '@/infrastructure/storage';
 import { createRegistrationQrToken } from '@/lib/registration-token';
 import { successResponse, handleApiError } from '@/lib/api-response';
+import { getEnv } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,11 +89,16 @@ export async function POST(req: NextRequest) {
       sizeBytes: buffer.length,
     });
 
+    const env = getEnv();
+    const finalPublicUrl =
+      directResult.publicUrl ||
+      `${env.API_BASE_URL}/api/v1/files/${encodeURIComponent(storageKey)}`;
+
     return successResponse(
       {
         token: qrToken,
         storageKey,
-        publicUrl: directResult.publicUrl || `/api/v1/files/${encodeURIComponent(storageKey)}`,
+        publicUrl: finalPublicUrl,
       },
       201
     );

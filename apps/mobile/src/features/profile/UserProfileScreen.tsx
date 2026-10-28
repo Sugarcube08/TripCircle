@@ -18,6 +18,7 @@ import { clearTokens } from '../../storage/secureStore';
 import { checkForAppUpdate } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { resolveMediaUrl } from '../../utils/media';
 import { THEME } from '../../theme';
 
 interface UserProfileScreenProps {
@@ -95,7 +96,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -265,10 +266,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               Trip members scan this code to pay you back directly.
             </Text>
 
-            {profile?.paymentQrUrl ? (
+            {resolveMediaUrl(profile?.paymentQrUrl) ? (
               <View style={styles.qrImageContainer}>
                 <Image
-                  source={{ uri: profile.paymentQrUrl }}
+                  source={{ uri: resolveMediaUrl(profile.paymentQrUrl)! }}
                   style={styles.qrImage}
                   resizeMode="contain"
                 />
@@ -357,9 +358,9 @@ const styles = StyleSheet.create({
   editProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: THEME.borderRadius.full,
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
   editProfileBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.primary,
+    color: THEME.colors.mint,
   },
   statBox: {
     flexDirection: 'row',
@@ -467,12 +468,14 @@ const styles = StyleSheet.create({
     padding: THEME.spacing.lg,
   },
   qrModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     width: '100%',
     maxWidth: 360,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
     ...THEME.shadows.lg,
   },
   modalHeader: {

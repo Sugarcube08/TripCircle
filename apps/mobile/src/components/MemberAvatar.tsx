@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { resolveMediaUrl } from '../utils/media';
 
 interface MemberAvatarProps {
   name: string;
@@ -16,6 +17,14 @@ export const MemberAvatar: React.FC<MemberAvatarProps> = ({
   showBorder = false,
   borderColor = '#FFFFFF',
 }) => {
+  const [loadError, setLoadError] = useState(false);
+  const resolvedUrl = resolveMediaUrl(avatarUrl);
+
+  // Reset error state if avatarUrl changes
+  useEffect(() => {
+    setLoadError(false);
+  }, [avatarUrl]);
+
   const initials = (name || 'Member')
     .split(' ')
     .filter(Boolean)
@@ -47,10 +56,11 @@ export const MemberAvatar: React.FC<MemberAvatarProps> = ({
       }
     : null;
 
-  if (avatarUrl && !avatarUrl.includes('dicebear')) {
+  if (resolvedUrl && !resolvedUrl.includes('dicebear') && !loadError) {
     return (
       <Image
-        source={{ uri: avatarUrl }}
+        source={{ uri: resolvedUrl }}
+        onError={() => setLoadError(true)}
         style={[
           styles.avatar,
           { width: size, height: size, borderRadius: size / 2 },
@@ -83,7 +93,7 @@ export const MemberAvatar: React.FC<MemberAvatarProps> = ({
 
 const styles = StyleSheet.create({
   avatar: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#1E293B',
     overflow: 'hidden',
   },
   fallback: {

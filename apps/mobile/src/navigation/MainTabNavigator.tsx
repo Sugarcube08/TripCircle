@@ -20,10 +20,10 @@ export const MainTabNavigator: React.FC<MainTabProps> = ({ user, setUser, onLogo
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: THEME.colors.primary,
+        tabBarActiveTintColor: THEME.colors.mint,
         tabBarInactiveTintColor: THEME.colors.textMuted,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: THEME.colors.background,
           borderTopColor: THEME.colors.border,
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 88 : 64,

@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   Modal,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDateTime } from '../../utils/formatters';
+import { resolveMediaUrl } from '../../utils/media';
 import { THEME } from '../../theme';
 
 interface ExpenseDetailScreenProps {
@@ -81,6 +83,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
   if (!expense) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+        <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Expense not found.</Text>
           <TouchableOpacity style={styles.backBtnSimple} onPress={() => navigation.goBack()}>
@@ -96,6 +99,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -265,11 +269,13 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
                   <Ionicons name="close-circle" size={26} color={THEME.colors.textMuted} />
                 </TouchableOpacity>
               </View>
-              <Image
-                source={{ uri: expense.receiptUrl }}
-                style={styles.receiptImage}
-                resizeMode="contain"
-              />
+              {resolveMediaUrl(expense.receiptUrl) ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(expense.receiptUrl)! }}
+                  style={styles.receiptImage}
+                  resizeMode="contain"
+                />
+              ) : null}
             </View>
           </View>
         </Modal>
@@ -289,7 +295,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
@@ -316,14 +322,14 @@ const styles = StyleSheet.create({
   editText: {
     fontSize: 13,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
   heroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -374,10 +380,10 @@ const styles = StyleSheet.create({
   receiptButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -485,7 +491,7 @@ const styles = StyleSheet.create({
   revBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.mint,
   },
   revDate: {
     fontSize: 12,
@@ -524,11 +530,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.card,
     borderRadius: THEME.borderRadius.lg,
     width: '100%',
     maxHeight: '80%',
     padding: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
