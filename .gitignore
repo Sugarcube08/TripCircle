@@ -30,7 +30,6 @@ build/
 *.sqlite3
 *.db
 uploads/
-storage/
 
 # Logs
 npm-debug.log*
@@ -38,9 +37,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.log
+*.txt
 
 # OS & Editor
 .DS_Store
 *.pem
 .idea/
 .vscode/
+

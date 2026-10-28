@@ -1,0 +1,102 @@
+import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../storage/secureStore';
+
+declare const process: { env: Record<string, string | undefined> };
+
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+
+let isOnline = true;
+
+export function setOnlineStatus(status: boolean) {
+  isOnline = status;
+}
+
+export function getOnlineStatus(): boolean {
+  return isOnline;
+}
+
+interface RequestOptions extends RequestInit {
+  requiresAuth?: boolean;
+}
+
+export async function apiRequest<T = any>(
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<T> {
+  const requiresAuth = options.requiresAuth !== false;
+  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (requiresAuth) {
+    const token = await getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
+  try {
+    let response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    // Handle token refresh on 401 Unauthorized
+    if (response.status === 401 && requiresAuth) {
+      const refreshToken = await getRefreshToken();
+      if (refreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          });
+
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            await setTokens(refreshData.data.accessToken, refreshData.data.refreshToken);
+
+            // Retry original request with new token
+            headers['Authorization'] = `Bearer ${refreshData.data.accessToken}`;
+            response = await fetch(url, {
+              ...options,
+              headers,
+            });
+          } else {
+            await clearTokens();
+          }
+        } catch {
+          await clearTokens();
+        }
+      }
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      if (!response.ok) {
+        const errorMsg = data.error?.message || data.message || 'Request failed';
+        throw new Error(errorMsg);
+      }
+      return data.data !== undefined ? data.data : data;
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+    }
+
+    return response as unknown as T;
+  } catch (error) {
+    // If network fetch fails, set offline
+    if (
+      (error as Error).message.includes('Network request failed') ||
+      (error as Error).message.includes('Failed to fetch')
+    ) {
+      isOnline = false;
+    }
+    throw error;
+  }
+}
