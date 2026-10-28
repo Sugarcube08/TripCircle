@@ -5,13 +5,15 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
+    "export": "expo export",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'mobile: lint ok'"
   },
   "dependencies": {
+    "@babel/runtime": "^8.0.8",
     "@expo/vector-icons": "^14.0.2",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
@@ -20,6 +22,8 @@
     "expo": "~51.0.38",
     "expo-constants": "~16.0.2",
     "expo-image-picker": "~15.0.7",
+    "expo-modules-core": "~1.12.26",
+    "expo-modules-core": "^58.0.27",
     "expo-secure-store": "~13.0.2",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",

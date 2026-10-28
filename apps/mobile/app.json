@@ -22,8 +22,8 @@
       },
       "package": "app.tripcircle.mobile"
     },
-    "extra": {
-      "apiUrl": "http://localhost:3000/api/v1"
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }

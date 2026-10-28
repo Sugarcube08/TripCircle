@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
-import { API_BASE_URL } from '../../services/api';
+import { getApiBaseUrl } from '../../services/api';
 import { getAccessToken } from '../../storage/secureStore';
 import { THEME } from '../../theme';
 
@@ -30,7 +30,8 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
     try {
       setLoading(true);
       const token = await getAccessToken();
-      const url = `${API_BASE_URL}/trips/${tripId}/reports/export?reportType=${reportType}&format=${format}`;
+      const baseUrl = getApiBaseUrl();
+      const url = `${baseUrl}/trips/${tripId}/reports/export?reportType=${reportType}&format=${format}`;
 
       const res = await fetch(url, {
         headers: {

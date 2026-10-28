@@ -2,8 +2,19 @@ import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../stor
 
 declare const process: { env: Record<string, string | undefined> };
 
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+/**
+ * Resolves the API base URL strictly from environment variables.
+ * The API endpoint is NEVER hardcoded and is always fetched from .env.
+ */
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!envUrl || envUrl.trim() === '') {
+    throw new Error(
+      '[tripCircle Configuration Error] EXPO_PUBLIC_API_URL is missing. Please set EXPO_PUBLIC_API_URL in your apps/mobile/.env file.'
+    );
+  }
+  return envUrl.trim().replace(/\/$/, '');
+}
 
 let isOnline = true;
 
@@ -23,8 +34,9 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
+  const baseUrl = getApiBaseUrl();
   const requiresAuth = options.requiresAuth !== false;
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -49,7 +61,7 @@ export async function apiRequest<T = any>(
       const refreshToken = await getRefreshToken();
       if (refreshToken) {
         try {
-          const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          const refreshRes = await fetch(`${baseUrl}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
