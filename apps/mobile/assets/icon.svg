@@ -1,90 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- Background Gradient -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b1120" />
-      <stop offset="50%" stop-color="#0f172a" />
-      <stop offset="100%" stop-color="#020617" />
+      <stop offset="0%" stop-color="#0B0F19"/>
+      <stop offset="60%" stop-color="#070A12"/>
+      <stop offset="100%" stop-color="#020408"/>
     </linearGradient>
 
-    <!-- Teal-Emerald Loop Gradient 1 -->
-    <linearGradient id="tealGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2dd4bf" />
-      <stop offset="50%" stop-color="#14b8a6" />
-      <stop offset="100%" stop-color="#0d9488" />
+    <!-- Arc 1: Pure Electric Mint to Crisp Emerald Teal -->
+    <linearGradient id="g1" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#00F5A0"/>
+      <stop offset="100%" stop-color="#00D2B4"/>
     </linearGradient>
 
-    <!-- Emerald-Cyan Loop Gradient 2 -->
-    <linearGradient id="cyanGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#06b6d4" />
-      <stop offset="50%" stop-color="#0ea5e9" />
-      <stop offset="100%" stop-color="#38bdf8" />
+    <!-- Arc 2: Emerald Teal to Electric Cyan -->
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D2B4"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
     </linearGradient>
 
-    <!-- Accent Gradient -->
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34d399" />
-      <stop offset="100%" stop-color="#10b981" />
+    <!-- Arc 3: Electric Cyan to Pure Mint -->
+    <linearGradient id="g3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#00F5A0"/>
     </linearGradient>
 
-    <!-- Ambient Glow Filter -->
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="32" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00F5A0" stop-opacity="0.10"/>
+      <stop offset="60%" stop-color="#0EA5E9" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
 
-    <filter id="subtleShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.5" />
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
-  <!-- Background Canvas -->
-  <rect width="1024" height="1024" rx="224" fill="url(#bgGrad)" />
+  
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+  <!-- Ambient Center Illumination -->
+  <circle cx="512" cy="512" r="420" fill="url(#centerGlow)"/>
 
-  <!-- Outer Subtle Orbit Ring -->
-  <circle cx="512" cy="512" r="340" fill="none" stroke="#1e293b" stroke-width="6" stroke-dasharray="16 12" />
 
-  <!-- Dynamic Travel & Ledger Loop Structure -->
-  <g filter="url(#glow)">
-    <!-- Arc 1: Top Right to Bottom -->
-    <path d="M 512 192 A 320 320 0 0 1 789 672" fill="none" stroke="url(#tealGrad1)" stroke-width="64" stroke-linecap="round" />
-    
-    <!-- Arc 2: Bottom to Top Left -->
-    <path d="M 720 735 A 320 320 0 0 1 235 672" fill="none" stroke="url(#cyanGrad2)" stroke-width="64" stroke-linecap="round" />
-
-    <!-- Arc 3: Bottom Left to Top -->
-    <path d="M 235 352 A 320 320 0 0 1 512 192" fill="none" stroke="url(#accentGrad)" stroke-width="64" stroke-linecap="round" />
-  </g>
-
-  <!-- Intersecting Member Connection Nodes (The Group Circle) -->
-  <!-- Top Node -->
-  <circle cx="512" cy="192" r="44" fill="#ffffff" filter="url(#subtleShadow)" />
-  <circle cx="512" cy="192" r="24" fill="#14b8a6" />
-
-  <!-- Bottom Right Node -->
-  <circle cx="750" cy="700" r="44" fill="#ffffff" filter="url(#subtleShadow)" />
-  <circle cx="750" cy="700" r="24" fill="#0ea5e9" />
-
-  <!-- Bottom Left Node -->
-  <circle cx="274" cy="700" r="44" fill="#ffffff" filter="url(#subtleShadow)" />
-  <circle cx="274" cy="700" r="24" fill="#10b981" />
-
-  <!-- Center Travel Compass / Arrow Element -->
-  <g transform="translate(512, 512)" filter="url(#subtleShadow)">
-    <!-- Central Halo -->
-    <circle cx="0" cy="0" r="110" fill="#0f172a" stroke="#334155" stroke-width="6" />
-    
-    <!-- Compass / Currency Dynamic Directional Pointer -->
-    <!-- North Arrow (Teal) -->
-    <polygon points="0,-76 38,20 0,0" fill="#2dd4bf" />
-    <polygon points="0,-76 -38,20 0,0" fill="#0d9488" />
-
-    <!-- South Arrow (Slate/Navy) -->
-    <polygon points="0,76 38,-20 0,0" fill="#64748b" />
-    <polygon points="0,76 -38,-20 0,0" fill="#475569" />
-
-    <!-- Center Pivot Pin -->
-    <circle cx="0" cy="0" r="14" fill="#ffffff" />
-    <circle cx="0" cy="0" r="7" fill="#0f172a" />
+  <!-- Emblem: Three Harmonic Orbit Ribbons -->
+  <g filter="url(#subtleGlow)">
+    <path d="M 701.50 341.37 A 255 255 0 0 0 322.50 341.37" fill="none" stroke="url(#g1)" stroke-width="58" stroke-linecap="round"/>
+    <path d="M 269.48 433.20 A 255 255 0 0 0 458.98 761.43" fill="none" stroke="url(#g2)" stroke-width="58" stroke-linecap="round"/>
+    <path d="M 565.02 761.43 A 255 255 0 0 0 754.52 433.20" fill="none" stroke="url(#g3)" stroke-width="58" stroke-linecap="round"/>
+    <!-- Center Equilibrium Node -->
+    <circle cx="512" cy="512" r="14" fill="#00F5A0"/>
   </g>
 </svg>
