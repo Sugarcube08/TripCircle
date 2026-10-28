@@ -1,0 +1,28 @@
+{
+  "name": "tripcircle-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "tripCircle - Collaborative trip expense tracking and group settlement",
+  "scripts": {
+    "dev:api": "pnpm --filter @tripcircle/api dev",
+    "dev:mobile": "pnpm --filter @tripcircle/mobile start",
+    "dev": "pnpm --parallel --filter @tripcircle/api --filter @tripcircle/mobile dev",
+    "build:contracts": "pnpm --filter @tripcircle/contracts build",
+    "build:api": "pnpm --filter @tripcircle/contracts build && pnpm --filter @tripcircle/api build",
+    "build:mobile": "pnpm --filter @tripcircle/contracts build && pnpm --filter @tripcircle/mobile typecheck",
+    "build": "pnpm --filter @tripcircle/contracts build && pnpm --filter @tripcircle/api build",
+    "typecheck": "pnpm --recursive typecheck",
+    "lint": "pnpm --recursive lint",
+    "test": "pnpm --filter @tripcircle/api test",
+    "test:financial": "pnpm --filter @tripcircle/api test:financial",
+    "test:integration": "pnpm --filter @tripcircle/api test:integration",
+    "db:migrate": "pnpm --filter @tripcircle/api db:migrate",
+    "db:seed": "pnpm --filter @tripcircle/api db:seed",
+    "db:studio": "pnpm --filter @tripcircle/api db:studio",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

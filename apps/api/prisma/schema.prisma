@@ -1,0 +1,412 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TripRole {
+  CREATOR
+  MEMBER
+}
+
+enum TripStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DECLINED
+  LEFT
+}
+
+enum SplitMethod {
+  EQUAL
+  UNEQUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  DISPUTED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  UPI
+  CASH
+  OTHER
+}
+
+enum DiscountStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum LedgerEventType {
+  EXPENSE_CREATED
+  EXPENSE_EDITED
+  PAYMENT_CONFIRMED
+  SETTLEMENT_DISCOUNT
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id              String             @id @default(uuid())
+  email           String             @unique
+  passwordHash    String
+  name            String
+  phone           String?
+  avatarUrl       String?            @db.Text
+  paymentQrUrl    String?            @db.Text
+  isEmailVerified Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  sessions        Session[]
+  otpTokens       OtpToken[]
+  createdTrips    Trip[]             @relation("TripCreator")
+  memberships     TripMember[]
+  submittedExpenses Expense[]        @relation("ExpenseSubmitter")
+  editedRevisions ExpenseRevision[]  @relation("RevisionEditor")
+  notifications   Notification[]
+  pushTokens      PushDeviceToken[]
+  auditLogs       AuditLog[]
+  files           FileMetadata[]
+
+  @@index([email])
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  refreshTokenHash String    @db.VarChar(255)
+  userAgent        String?   @db.VarChar(255)
+  ipAddress        String?   @db.VarChar(45)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+}
+
+model OtpToken {
+  id        String   @id @default(uuid())
+  email     String
+  otpHash   String   @db.VarChar(255)
+  purpose   String   @db.VarChar(50) // 'EMAIL_VERIFY' | 'PASSWORD_RESET'
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  @@index([email, purpose])
+}
+
+model Trip {
+  id            String             @id @default(uuid())
+  name          String             @db.VarChar(100)
+  coverImageUrl String?            @db.Text
+  destination   String?            @db.VarChar(100)
+  startDate     DateTime
+  endDate       DateTime?
+  currency      String             @default("INR") @db.VarChar(10)
+  status        TripStatus         @default(ACTIVE)
+  creatorId     String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  closedAt      DateTime?
+  reopenedAt    DateTime?
+
+  creator       User               @relation("TripCreator", fields: [creatorId], references: [id])
+  members       TripMember[]
+  expenses      Expense[]
+  payments      Payment[]
+  discounts     SettlementDiscount[]
+  ledgerEntries LedgerEntry[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  files         FileMetadata[]
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model TripMember {
+  id             String           @id @default(uuid())
+  tripId         String
+  userId         String
+  role           TripRole         @default(MEMBER)
+  status         MembershipStatus @default(INVITED)
+  invitedAt      DateTime         @default(now())
+  respondedAt    DateTime?
+  leftAt         DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  trip           Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paidExpenses   Expense[]        @relation("ExpensePayer")
+  allocations    ExpenseAllocation[]
+  paidPayments   Payment[]        @relation("PaymentPayer")
+  receivedPayments Payment[]      @relation("PaymentReceiver")
+  givenDiscounts SettlementDiscount[] @relation("DiscountFrom")
+  receivedDiscounts SettlementDiscount[] @relation("DiscountTo")
+  ledgerEntries  LedgerEntry[]
+
+  @@unique([tripId, userId])
+  @@index([tripId, status])
+  @@index([userId])
+}
+
+model ExpenseCategory {
+  id        String    @id @default(uuid())
+  key       String    @unique @db.VarChar(50)
+  name      String    @db.VarChar(100)
+  icon      String    @db.VarChar(50)
+  isSystem  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  expenses  Expense[]
+
+  @@index([key])
+}
+
+model Expense {
+  id             String              @id @default(uuid())
+  tripId         String
+  submitterId    String
+  payerMemberId  String
+  amountPaise    Int // Exact integer paise: ₹100.00 = 10000
+  categoryId     String
+  description    String              @db.VarChar(200)
+  note           String?             @db.Text
+  location       String?             @db.VarChar(100)
+  expenseDate    DateTime            @default(now())
+  receiptUrl     String?             @db.Text
+  splitMethod    SplitMethod         @default(EQUAL)
+  version        Int                 @default(1)
+  isDeleted      Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  trip           Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  submitter      User                @relation("ExpenseSubmitter", fields: [submitterId], references: [id])
+  payerMember    TripMember          @relation("ExpensePayer", fields: [payerMemberId], references: [id])
+  category       ExpenseCategory     @relation(fields: [categoryId], references: [id])
+  allocations    ExpenseAllocation[]
+  revisions      ExpenseRevision[]
+
+  @@index([tripId, isDeleted])
+  @@index([payerMemberId])
+  @@index([categoryId])
+}
+
+model ExpenseAllocation {
+  id         String     @id @default(uuid())
+  expenseId  String
+  memberId   String
+  sharePaise Int // Exact share in paise
+  createdAt  DateTime   @default(now())
+
+  expense    Expense    @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member     TripMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@index([memberId])
+}
+
+model ExpenseRevision {
+  id                  String      @id @default(uuid())
+  expenseId           String
+  version             Int
+  editorId            String
+  amountPaise         Int
+  payerMemberId       String
+  categoryId          String
+  description         String      @db.VarChar(200)
+  note                String?     @db.Text
+  location            String?     @db.VarChar(100)
+  receiptUrl          String?     @db.Text
+  splitMethod         SplitMethod
+  allocationsSnapshot Json // Snapshot of memberId -> sharePaise
+  changeReason        String?     @db.VarChar(255)
+  createdAt           DateTime    @default(now())
+
+  expense             Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  editor              User        @relation("RevisionEditor", fields: [editorId], references: [id])
+
+  @@unique([expenseId, version])
+  @@index([expenseId])
+}
+
+model Payment {
+  id               String              @id @default(uuid())
+  tripId           String
+  payerMemberId    String
+  receiverMemberId String
+  amountPaise      Int // Exact paise
+  paymentMethod    PaymentMethod       @default(UPI)
+  status           PaymentStatus       @default(PENDING)
+  receiptUrl       String?             @db.Text
+  note             String?             @db.Text
+  disputeReason    String?             @db.VarChar(500)
+  idempotencyKey   String?             @unique @db.VarChar(100)
+  confirmedAt      DateTime?
+  disputedAt       DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  trip             Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  payerMember      TripMember          @relation("PaymentPayer", fields: [payerMemberId], references: [id])
+  receiverMember   TripMember          @relation("PaymentReceiver", fields: [receiverMemberId], references: [id])
+  discounts        SettlementDiscount[]
+
+  @@index([tripId, status])
+  @@index([payerMemberId])
+  @@index([receiverMemberId])
+}
+
+model SettlementDiscount {
+  id                String         @id @default(uuid())
+  tripId            String
+  fromMemberId      String
+  toMemberId        String
+  originalDebtPaise Int
+  paidAmountPaise   Int
+  waivedPaise       Int // Explicitly waived amount in paise
+  reason            String         @db.VarChar(255)
+  status            DiscountStatus @default(PENDING)
+  paymentId         String?
+  createdAt         DateTime       @default(now())
+  respondedAt       DateTime?
+
+  trip              Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  fromMember        TripMember     @relation("DiscountFrom", fields: [fromMemberId], references: [id])
+  toMember          TripMember     @relation("DiscountTo", fields: [toMemberId], references: [id])
+  payment           Payment?       @relation(fields: [paymentId], references: [id])
+
+  @@index([tripId, status])
+  @@index([fromMemberId])
+  @@index([toMemberId])
+}
+
+model LedgerEntry {
+  id               String          @id @default(uuid())
+  tripId           String
+  eventType        LedgerEventType
+  referenceId      String          @db.VarChar(100) // expenseId or paymentId or discountId
+  memberId         String
+  creditPaise      Int             @default(0) // paise credited to member
+  debitPaise       Int             @default(0) // paise debited from member
+  netChangePaise   Int             // creditPaise - debitPaise
+  balanceAfterPaise Int            // calculated snapshot
+  description      String          @db.VarChar(255)
+  createdAt        DateTime        @default(now())
+
+  trip             Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  member           TripMember      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, memberId])
+  @@index([referenceId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  tripId    String?
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(150)
+  body      String   @db.Text
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([tripId])
+}
+
+model PushDeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @db.VarChar(255)
+  platform  String   @default("expo") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+}
+
+model OutboxEvent {
+  id            String       @id @default(uuid())
+  aggregateType String       @db.VarChar(50)
+  aggregateId   String       @db.VarChar(100)
+  eventType     String       @db.VarChar(50)
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  error         String?      @db.Text
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  tripId     String?
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(50)
+  entityId   String   @db.VarChar(100)
+  details    Json?
+  ipAddress  String?  @db.VarChar(45)
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  trip       Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+  @@index([userId])
+}
+
+model FileMetadata {
+  id           String   @id @default(uuid())
+  userId       String?
+  tripId       String?
+  fileName     String   @db.VarChar(255)
+  originalName String   @db.VarChar(255)
+  mimeType     String   @db.VarChar(100)
+  sizeBytes    Int
+  storageKey   String   @db.VarChar(500)
+  publicUrl    String   @db.Text
+  createdAt    DateTime @default(now())
+
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  trip         Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+  @@index([userId])
+}

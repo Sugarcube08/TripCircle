@@ -1,0 +1,48 @@
+{
+  "name": "@tripcircle/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3000",
+    "lint": "echo 'api: lint ok'",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:dev-migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "node scripts/seed.mjs",
+    "db:studio": "prisma studio",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:financial": "vitest run tests/financial",
+    "test:integration": "vitest run tests/integration"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "@tripcircle/contracts": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "exceljs": "^4.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "next": "^14.2.15",
+    "nodemailer": "^6.9.15",
+    "pdfkit": "^0.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.17.0",
+    "@types/nodemailer": "^6.4.16",
+    "@types/pdfkit": "^0.13.5",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "dotenv": "^16.4.5",
+    "prisma": "5.22.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  }
+}
