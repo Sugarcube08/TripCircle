@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { EXPENSE_CATEGORIES, calculateEqualSplit } from '@tripcircle/contracts';
-import { apiRequest, getOnlineStatus, uploadImageFromUri } from '../../services/api';
+import { apiRequest, getOnlineStatus, uploadImageFromUri, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { dialog } from '../../components/ui';
@@ -160,6 +160,8 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   };
 
   const handleSave = async () => {
+    if (loading) return;
+
     if (!getOnlineStatus()) {
       dialog.alert('Offline Mode', 'Transaction submission requires active network connectivity.', 'warning');
       return;
@@ -167,10 +169,6 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
     if (!amountRupees || totalAmountPaise <= 0) {
       dialog.alert('Amount Required', 'Please enter a valid expense amount in rupees.', 'warning');
-      return;
-    }
-    if (!description.trim()) {
-      dialog.alert('Description Required', 'Please enter a description for this expense.', 'warning');
       return;
     }
     if (!payerMemberId) {
@@ -222,7 +220,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         method: 'POST',
         body: JSON.stringify({
           payerMemberId,
-          description: description.trim(),
+          description: description.trim() || undefined,
           amountPaise: totalAmountPaise,
           categoryId: cat.id,
           splitMethod,
@@ -234,8 +232,9 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       });
 
       navigation.goBack();
-    } catch (err) {
-      dialog.alert('Failed to Save Expense', (err as Error).message, 'error');
+    } catch (err: any) {
+      const msg = err instanceof ApiError ? err.formatUserMessage() : (err as Error).message;
+      dialog.alert('Failed to Save Expense', msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -339,15 +338,16 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
           </ScrollView>
 
           {/* Description Input */}
-          <Text style={styles.sectionHeader}>DESCRIPTION</Text>
+          <Text style={styles.sectionHeader}>DESCRIPTION (OPTIONAL)</Text>
           <View style={styles.inputCard}>
             <Ionicons name="receipt-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
-              placeholder="e.g. Seafood Dinner, Taxi to airport, Groceries"
+              placeholder="e.g. Seafood Dinner, Taxi to airport, Groceries (optional)"
               placeholderTextColor={THEME.colors.textLight}
               value={description}
               onChangeText={setDescription}
+              maxLength={200}
             />
           </View>
 

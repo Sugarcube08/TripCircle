@@ -64,33 +64,7 @@ export const ChangePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 
-// --- Trip Schemas ---
-
-export const CreateTripSchema = z.object({
-  name: z.string().min(2, 'Trip name is required').max(100),
-  coverImageUrl: z.string().optional().nullable(),
-  destination: z.string().max(100).optional().nullable(),
-  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), 'Valid start date required'),
-  endDate: z.string().refine((val) => !isNaN(Date.parse(val)), 'Valid end date required').optional().nullable(),
-  currency: z.string().default('INR'),
-  initialInvitedUserIds: z.array(z.string()).optional(),
-});
-export type CreateTripInput = z.infer<typeof CreateTripSchema>;
-
-export const UpdateTripSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
-  coverImageUrl: z.string().optional().nullable(),
-  destination: z.string().max(100).optional().nullable(),
-  startDate: z.string().refine((val) => !isNaN(Date.parse(val))).optional(),
-  endDate: z.string().refine((val) => !isNaN(Date.parse(val))).optional().nullable(),
-  status: z.enum(TRIP_STATUSES).optional(),
-});
-export type UpdateTripInput = z.infer<typeof UpdateTripSchema>;
-
-export const InviteMemberSchema = z.object({
-  userIdOrEmail: z.string().min(1, 'User identifier or email required'),
-});
-export type InviteMemberInput = z.infer<typeof InviteMemberSchema>;
+// --- Trip Member Schemas ---
 
 export const AddDummyMemberSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -104,10 +78,61 @@ export const ReplaceDummyMemberSchema = z.object({
 });
 export type ReplaceDummyMemberInput = z.infer<typeof ReplaceDummyMemberSchema>;
 
+export const InviteMemberSchema = z.object({
+  userIdOrEmail: z.string().min(1, 'User identifier or email required'),
+});
+export type InviteMemberInput = z.infer<typeof InviteMemberSchema>;
+
 export const RespondInviteSchema = z.object({
   action: z.enum(['ACCEPT', 'DECLINE']),
 });
 export type RespondInviteInput = z.infer<typeof RespondInviteSchema>;
+
+// --- Trip Schemas ---
+
+export const CreateTripSchema = z.object({
+  name: z.string().min(2, 'Trip name is required').max(100),
+  coverImageUrl: z.string().optional().nullable(),
+  destination: z.string().max(100).optional().nullable(),
+  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), 'Valid start date required'),
+  endDate: z.string().refine((val) => !isNaN(Date.parse(val)), 'Valid end date required').optional().nullable(),
+  currency: z.string().default('INR'),
+  initialInvitedUserIds: z.array(z.string()).optional(),
+  initialDummyMembers: z.array(AddDummyMemberSchema).optional(),
+}).refine(
+  (data) => {
+    if (data.endDate && new Date(data.endDate) < new Date(data.startDate)) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'End date cannot be earlier than start date',
+    path: ['endDate'],
+  }
+);
+export type CreateTripInput = z.infer<typeof CreateTripSchema>;
+
+export const UpdateTripSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  coverImageUrl: z.string().optional().nullable(),
+  destination: z.string().max(100).optional().nullable(),
+  startDate: z.string().refine((val) => !isNaN(Date.parse(val))).optional(),
+  endDate: z.string().refine((val) => !isNaN(Date.parse(val))).optional().nullable(),
+  status: z.enum(TRIP_STATUSES).optional(),
+}).refine(
+  (data) => {
+    if (data.startDate && data.endDate && new Date(data.endDate) < new Date(data.startDate)) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'End date cannot be earlier than start date',
+    path: ['endDate'],
+  }
+);
+export type UpdateTripInput = z.infer<typeof UpdateTripSchema>;
 
 // --- Expense Schemas ---
 
@@ -119,7 +144,7 @@ export type ExpenseAllocationInput = z.infer<typeof ExpenseAllocationInputSchema
 
 export const CreateExpenseSchema = z.object({
   payerMemberId: z.string().min(1, 'Payer member is required'),
-  description: z.string().min(1, 'Description is required').max(200),
+  description: z.string().max(200, 'Description cannot exceed 200 characters').optional().nullable(),
   amountPaise: z
     .number()
     .int()
@@ -146,7 +171,7 @@ export type CreateExpenseInput = z.infer<typeof CreateExpenseSchema>;
 
 export const EditExpenseSchema = z.object({
   payerMemberId: z.string().min(1),
-  description: z.string().min(1).max(200),
+  description: z.string().max(200, 'Description cannot exceed 200 characters').optional().nullable(),
   amountPaise: z
     .number()
     .int()

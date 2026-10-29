@@ -25,7 +25,37 @@ export function getOnlineStatus(): boolean {
 }
 
 /**
- * Rich API Error with HTTP status, correlation ID, timeout flags, and network error classification.
+ * Parses raw server error details into a structured field -> error message array map.
+ */
+export function parseFieldErrors(details: unknown): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  if (!details) return result;
+
+  if (Array.isArray(details)) {
+    for (const item of details) {
+      if (typeof item === 'object' && item !== null) {
+        const path = (item as any).path || (item as any).field;
+        const msg = (item as any).message;
+        if (typeof path === 'string' && typeof msg === 'string') {
+          if (!result[path]) result[path] = [];
+          result[path].push(msg);
+        }
+      }
+    }
+  } else if (typeof details === 'object' && details !== null) {
+    for (const [k, v] of Object.entries(details as Record<string, unknown>)) {
+      if (typeof v === 'string') {
+        result[k] = [v];
+      } else if (Array.isArray(v)) {
+        result[k] = v.filter((item): item is string => typeof item === 'string');
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Rich API Error with HTTP status, correlation ID, timeout flags, field-level validation errors, and network classification.
  */
 export class ApiError extends Error {
   status: number;
@@ -33,6 +63,8 @@ export class ApiError extends Error {
   isTimeout: boolean;
   isNetworkError: boolean;
   correlationId?: string;
+  details?: unknown;
+  fieldErrors: Record<string, string[]>;
 
   constructor(
     message: string,
@@ -42,6 +74,7 @@ export class ApiError extends Error {
       isTimeout?: boolean;
       isNetworkError?: boolean;
       correlationId?: string;
+      details?: unknown;
     } = {}
   ) {
     super(message);
@@ -51,6 +84,61 @@ export class ApiError extends Error {
     this.isTimeout = options.isTimeout || false;
     this.isNetworkError = options.isNetworkError || false;
     this.correlationId = options.correlationId;
+    this.details = options.details;
+    this.fieldErrors = parseFieldErrors(options.details);
+  }
+
+  get isValidationError(): boolean {
+    return this.status === 422 || this.code === 'VALIDATION_ERROR' || Object.keys(this.fieldErrors).length > 0;
+  }
+
+  get isAuthError(): boolean {
+    return this.status === 401 || this.code === 'UNAUTHORIZED';
+  }
+
+  get isForbidden(): boolean {
+    return this.status === 403 || this.code === 'FORBIDDEN';
+  }
+
+  get isConflict(): boolean {
+    return this.status === 409 || this.code === 'CONFLICT';
+  }
+
+  get isNotFound(): boolean {
+    return this.status === 404 || this.code === 'NOT_FOUND';
+  }
+
+  get isServerError(): boolean {
+    return this.status >= 500;
+  }
+
+  getFieldError(field: string): string | undefined {
+    return this.fieldErrors[field]?.[0];
+  }
+
+  hasFieldError(field: string): boolean {
+    return !!this.fieldErrors[field] && this.fieldErrors[field].length > 0;
+  }
+
+  formatUserMessage(): string {
+    if (this.isTimeout) {
+      return 'Request timed out. Please check your network connection and try again.';
+    }
+    if (this.isNetworkError) {
+      return 'Network unavailable. Please check your internet connection.';
+    }
+    if (this.isAuthError) {
+      return 'Your session has expired. Please log in again.';
+    }
+    if (this.isConflict) {
+      return this.message || 'This item was modified by someone else. Please refresh and try again.';
+    }
+    const fieldKeys = Object.keys(this.fieldErrors);
+    if (fieldKeys.length > 0) {
+      const messages = fieldKeys.map((k) => this.fieldErrors[k].join(', '));
+      return messages.join('\n');
+    }
+    return this.message || 'An unexpected error occurred.';
   }
 }
 
@@ -211,6 +299,7 @@ export async function apiRequest<T = any>(
           status: response.status,
           code: errorCode,
           correlationId,
+          details: data.error?.details || data.details,
         });
       }
       return data.data !== undefined ? data.data : data;
@@ -423,7 +512,12 @@ export async function uploadImageFromUri(
     const data = await response.json();
     if (!response.ok) {
       const errorMsg = data.error?.message || data.error || 'Failed to upload image';
-      throw new ApiError(errorMsg, { status: response.status, correlationId });
+      throw new ApiError(errorMsg, {
+        status: response.status,
+        correlationId,
+        code: data.error?.code || data.code,
+        details: data.error?.details || data.details,
+      });
     }
 
     return data.data || data;

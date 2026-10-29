@@ -4,6 +4,36 @@ import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculat
 import { createOutboxEvent } from '../../lib/outbox';
 import { StorageService } from '../../infrastructure/storage';
 
+/**
+ * Normalizes an expense description at the backend boundary.
+ * If rawDescription is non-empty, trims and returns it.
+ * If omitted/cleared:
+ *  - when existingDescription is provided (editing without clearing), preserves it.
+ *  - otherwise falls back to category name, or 'Expense'.
+ */
+export function normalizeExpenseDescription(
+  rawDescription?: string | null,
+  categoryName?: string | null,
+  existingDescription?: string | null
+): string {
+  if (rawDescription === undefined && existingDescription) {
+    const trimmedExisting = existingDescription.trim();
+    if (trimmedExisting.length > 0) return trimmedExisting;
+  }
+
+  const trimmed = rawDescription?.trim();
+  if (trimmed && trimmed.length > 0) {
+    return trimmed;
+  }
+
+  const trimmedCategory = categoryName?.trim();
+  if (trimmedCategory && trimmedCategory.length > 0) {
+    return trimmedCategory;
+  }
+
+  return 'Expense';
+}
+
 export class ExpenseService {
   static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
     return prisma.$transaction(async (tx) => {
@@ -41,13 +71,29 @@ export class ExpenseService {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
       }
 
-      // Verify all beneficiaries are members of this trip
-      for (const a of calculatedAllocations) {
-        const bm = await tx.tripMember.findUnique({ where: { id: a.memberId } });
-        if (!bm || bm.tripId !== tripId) {
-          throw new Error(`Beneficiary member ${a.memberId} is not a valid member of this trip`);
-        }
+      // Batched verification: all beneficiaries must be members of this trip
+      const beneficiaryMemberIds = calculatedAllocations.map((a) => a.memberId);
+      const validMembers = await tx.tripMember.findMany({
+        where: {
+          id: { in: beneficiaryMemberIds },
+          tripId,
+        },
+        select: { id: true },
+      });
+      if (validMembers.length !== beneficiaryMemberIds.length) {
+        throw new Error('One or more beneficiary members are not valid members of this trip');
       }
+
+      // Category lookup
+      const category = await tx.expenseCategory.findUnique({
+        where: { id: input.categoryId },
+      });
+      if (!category) {
+        throw new Error('Expense category not found');
+      }
+
+      // Normalize description consistently at backend boundary
+      const normalizedDescription = normalizeExpenseDescription(input.description, category.name);
 
       // 5. Create expense record
       const expense = await tx.expense.create({
@@ -57,7 +103,7 @@ export class ExpenseService {
           payerMemberId: input.payerMemberId,
           amountPaise: input.amountPaise,
           categoryId: input.categoryId,
-          description: input.description,
+          description: normalizedDescription,
           note: input.note,
           location: input.location,
           expenseDate: input.expenseDate ? new Date(input.expenseDate) : new Date(),
@@ -91,7 +137,7 @@ export class ExpenseService {
           amountPaise: input.amountPaise,
           payerMemberId: input.payerMemberId,
           categoryId: input.categoryId,
-          description: input.description,
+          description: normalizedDescription,
           note: input.note,
           location: input.location,
           receiptUrl: input.receiptUrl,
@@ -112,56 +158,58 @@ export class ExpenseService {
           debitPaise: 0,
           netChangePaise: input.amountPaise,
           balanceAfterPaise: 0, // transient snapshot
-          description: `Paid for expense: ${expense.description}`,
+          description: `Paid for expense: ${normalizedDescription}`,
         },
       });
 
-      // Debit beneficiaries
-      for (const a of calculatedAllocations) {
-        await tx.ledgerEntry.create({
-          data: {
-            tripId,
-            eventType: 'EXPENSE_CREATED',
-            referenceId: expense.id,
-            memberId: a.memberId,
-            creditPaise: 0,
-            debitPaise: a.sharePaise,
-            netChangePaise: -a.sharePaise,
-            balanceAfterPaise: 0,
-            description: `Share for expense: ${expense.description}`,
-          },
-        });
-      }
+      // Debit beneficiaries (batched createMany)
+      await tx.ledgerEntry.createMany({
+        data: calculatedAllocations.map((a) => ({
+          tripId,
+          eventType: 'EXPENSE_CREATED',
+          referenceId: expense.id,
+          memberId: a.memberId,
+          creditPaise: 0,
+          debitPaise: a.sharePaise,
+          netChangePaise: -a.sharePaise,
+          balanceAfterPaise: 0,
+          description: `Share for expense: ${normalizedDescription}`,
+        })),
+      });
 
       // 8. Create transactional outbox event
       await createOutboxEvent(tx, 'EXPENSE', expense.id, 'EXPENSE_CREATED', {
         expenseId: expense.id,
         tripId,
         amountPaise: expense.amountPaise,
-        description: expense.description,
+        description: normalizedDescription,
         payerName: expense.payerMember.user?.name || expense.payerMember.displayName || 'Offline Member',
       });
 
-      // 9. Create in-app notifications for other trip members
+      // 9. Create in-app notifications for other trip members (batched createMany)
       const otherMembers = await tx.tripMember.findMany({
         where: {
           tripId,
           userId: { not: currentUserId },
           status: 'ACTIVE',
         },
+        select: { userId: true },
       });
 
-      for (const m of otherMembers) {
-        if (!m.userId) continue;
-        await tx.notification.create({
-          data: {
-            userId: m.userId,
-            tripId,
-            type: 'NEW_EXPENSE',
-            title: `New Expense: ${expense.description}`,
-            body: `${submitterMember.user?.name || 'A member'} added ₹${(expense.amountPaise / 100).toFixed(2)} for ${expense.description}.`,
-            data: { expenseId: expense.id, tripId },
-          },
+      const notificationRows = otherMembers
+        .filter((m) => !!m.userId)
+        .map((m) => ({
+          userId: m.userId!,
+          tripId,
+          type: 'NEW_EXPENSE' as const,
+          title: `New Expense: ${normalizedDescription}`,
+          body: `${submitterMember.user?.name || 'A member'} added ₹${(expense.amountPaise / 100).toFixed(2)} for ${normalizedDescription}.`,
+          data: { expenseId: expense.id, tripId },
+        }));
+
+      if (notificationRows.length > 0) {
+        await tx.notification.createMany({
+          data: notificationRows,
         });
       }
 
@@ -178,7 +226,7 @@ export class ExpenseService {
     return prisma.$transaction(async (tx) => {
       const expense = await tx.expense.findUnique({
         where: { id: expenseId },
-        include: { payerMember: true },
+        include: { payerMember: true, category: true },
       });
 
       if (!expense || expense.tripId !== tripId) {
@@ -214,6 +262,23 @@ export class ExpenseService {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
       }
 
+      // Category lookup
+      let categoryName = expense.category?.name;
+      if (input.categoryId !== expense.categoryId) {
+        const cat = await tx.expenseCategory.findUnique({
+          where: { id: input.categoryId },
+        });
+        if (!cat) throw new Error('Expense category not found');
+        categoryName = cat.name;
+      }
+
+      // Normalize description consistently at backend boundary
+      const normalizedDescription = normalizeExpenseDescription(
+        input.description,
+        categoryName,
+        expense.description
+      );
+
       // If receiptUrl was replaced, remove previously saved receipt media
       if (
         input.receiptUrl !== undefined &&
@@ -234,7 +299,7 @@ export class ExpenseService {
           amountPaise: input.amountPaise,
           payerMemberId: input.payerMemberId,
           categoryId: input.categoryId,
-          description: input.description,
+          description: normalizedDescription,
           note: input.note,
           location: input.location,
           receiptUrl: input.receiptUrl,
@@ -264,7 +329,7 @@ export class ExpenseService {
           payerMemberId: input.payerMemberId,
           amountPaise: input.amountPaise,
           categoryId: input.categoryId,
-          description: input.description,
+          description: normalizedDescription,
           note: input.note,
           location: input.location,
           receiptUrl: input.receiptUrl,
@@ -292,7 +357,7 @@ export class ExpenseService {
           debitPaise: 0,
           netChangePaise: input.amountPaise - expense.amountPaise,
           balanceAfterPaise: 0,
-          description: `Updated expense: ${input.description} (v${nextVersion})`,
+          description: `Updated expense: ${normalizedDescription} (v${nextVersion})`,
         },
       });
 
@@ -302,6 +367,7 @@ export class ExpenseService {
         tripId,
         newVersion: nextVersion,
         amountPaise: input.amountPaise,
+        description: normalizedDescription,
       });
 
       return updatedExpense;

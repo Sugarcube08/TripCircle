@@ -50,6 +50,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   const [settlement, setSettlement] = useState<any>(initialCachedSettlement);
   const [loading, setLoading] = useState(!initialCachedTrip);
   const [refreshing, setRefreshing] = useState(false);
+  const [sectionErrors, setSectionErrors] = useState({ expenses: false, payments: false, settlement: false });
   const [activeTab, setActiveTab] = useState<LedgerFilter>('LEDGER');
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
@@ -68,24 +69,49 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
     activeFetchPromiseRef.current = (async () => {
       try {
-        const [tripData, expensesData, paymentsData, settlementData] = await Promise.all([
+        const [tripResult, expensesResult, paymentsResult, settlementResult] = await Promise.allSettled([
           apiRequest(`/trips/${tripId}`),
-          apiRequest(`/trips/${tripId}/expenses`).catch(() => []),
-          apiRequest(`/trips/${tripId}/payments`).catch(() => []),
-          apiRequest(`/trips/${tripId}/settlement`).catch(() => null),
+          apiRequest(`/trips/${tripId}/expenses`),
+          apiRequest(`/trips/${tripId}/payments`),
+          apiRequest(`/trips/${tripId}/settlement`),
         ]);
 
         lastFetchTimeRef.current = Date.now();
-        setTrip(tripData);
-        setExpenses(expensesData || []);
-        setPayments(paymentsData || []);
-        setSettlement(settlementData);
 
-        LocalDatabase.saveTripDetail(tripId, tripData);
-        LocalDatabase.saveExpenses(tripId, expensesData || []);
-        LocalDatabase.savePayments(tripId, paymentsData || []);
-        if (settlementData) {
-          LocalDatabase.saveSettlementPlan(tripId, settlementData);
+        if (tripResult.status === 'fulfilled') {
+          setTrip(tripResult.value);
+          LocalDatabase.saveTripDetail(tripId, tripResult.value);
+        } else if (!trip) {
+          const cachedTrip = LocalDatabase.getTripDetail(tripId);
+          if (cachedTrip) setTrip(cachedTrip);
+        }
+
+        if (expensesResult.status === 'fulfilled') {
+          const data = Array.isArray(expensesResult.value) ? expensesResult.value : [];
+          setExpenses(data);
+          LocalDatabase.saveExpenses(tripId, data);
+          setSectionErrors((prev) => ({ ...prev, expenses: false }));
+        } else {
+          setSectionErrors((prev) => ({ ...prev, expenses: true }));
+        }
+
+        if (paymentsResult.status === 'fulfilled') {
+          const data = Array.isArray(paymentsResult.value) ? paymentsResult.value : [];
+          setPayments(data);
+          LocalDatabase.savePayments(tripId, data);
+          setSectionErrors((prev) => ({ ...prev, payments: false }));
+        } else {
+          setSectionErrors((prev) => ({ ...prev, payments: true }));
+        }
+
+        if (settlementResult.status === 'fulfilled') {
+          setSettlement(settlementResult.value);
+          if (settlementResult.value) {
+            LocalDatabase.saveSettlementPlan(tripId, settlementResult.value);
+          }
+          setSectionErrors((prev) => ({ ...prev, settlement: false }));
+        } else {
+          setSectionErrors((prev) => ({ ...prev, settlement: true }));
         }
       } catch {
         const cachedTrip = LocalDatabase.getTripDetail(tripId);
@@ -93,10 +119,10 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
         const cachedPayments = LocalDatabase.getPayments(tripId);
         const cachedSettlement = LocalDatabase.getSettlementPlan(tripId);
 
-        if (cachedTrip) setTrip(cachedTrip);
-        if (cachedExpenses) setExpenses(cachedExpenses);
-        if (cachedPayments) setPayments(cachedPayments);
-        if (cachedSettlement) setSettlement(cachedSettlement);
+        if (cachedTrip && !trip) setTrip(cachedTrip);
+        if (cachedExpenses.length > 0 && expenses.length === 0) setExpenses(cachedExpenses);
+        if (cachedPayments.length > 0 && payments.length === 0) setPayments(cachedPayments);
+        if (cachedSettlement && !settlement) setSettlement(cachedSettlement);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -307,6 +333,21 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             ) : null}
           </View>
         </View>
+
+        {/* Non-blocking sync warning banner */}
+        {sectionErrors.expenses || sectionErrors.payments || sectionErrors.settlement ? (
+          <TouchableOpacity
+            style={styles.syncWarningBanner}
+            onPress={onRefresh}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="alert-circle-outline" size={16} color="#F59E0B" style={{ marginRight: 6 }} />
+            <Text style={styles.syncWarningText}>
+              Showing cached ledger data. Tap to retry sync.
+            </Text>
+            <Ionicons name="refresh" size={14} color="#F59E0B" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        ) : null}
 
         {/* YOUR TRIP BALANCE HERO SECTION */}
         <View style={styles.balanceHeroCard}>
@@ -1207,5 +1248,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 400,
     borderRadius: THEME.borderRadius.md,
+  },
+  syncWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: THEME.borderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  syncWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#F59E0B',
+    fontWeight: '500',
   },
 });

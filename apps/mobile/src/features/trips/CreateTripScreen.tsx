@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { apiRequest, uploadImageFromUri, addDummyMember } from '../../services/api';
+import { apiRequest, uploadImageFromUri, addDummyMember, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { CalendarModal } from '../../components/CalendarModal';
 import { Badge } from '../../components/ui/Badge';
@@ -86,6 +86,15 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   };
 
   const searchTimerRef = React.useRef<any>(null);
+  const searchSequenceRef = React.useRef(0);
+
+  React.useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
@@ -100,14 +109,21 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
     }
 
     setSearching(true);
+    const seq = ++searchSequenceRef.current;
     searchTimerRef.current = setTimeout(async () => {
       try {
         const results = await apiRequest(`/users/search?q=${encodeURIComponent(text.trim())}`);
-        setSearchResults(results || []);
+        if (seq === searchSequenceRef.current) {
+          setSearchResults(results || []);
+        }
       } catch {
-        setSearchResults([]);
+        if (seq === searchSequenceRef.current) {
+          setSearchResults([]);
+        }
       } finally {
-        setSearching(false);
+        if (seq === searchSequenceRef.current) {
+          setSearching(false);
+        }
       }
     }, 250);
   };
@@ -141,6 +157,8 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   };
 
   const handleCreateTrip = async () => {
+    if (loading) return;
+
     if (!name.trim()) {
       dialog.alert('Required', 'Please enter a name for your trip.', 'warning');
       return;
@@ -163,31 +181,27 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
         finalCoverUrl = uploaded.publicUrl;
       }
 
+      const isoStart = startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`;
+      const isoEnd = endDate ? (endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`) : undefined;
+
       const trip = await apiRequest('/trips', {
         method: 'POST',
         body: JSON.stringify({
           name: name.trim(),
           destination: destination.trim() || undefined,
-          startDate: new Date(startDate).toISOString(),
-          endDate: endDate ? new Date(endDate).toISOString() : undefined,
+          startDate: isoStart,
+          endDate: isoEnd,
           coverImageUrl: finalCoverUrl,
           currency: 'INR',
           initialInvitedUserIds: invitedUsers.map((u) => u.id),
+          initialDummyMembers: offlineMembers.map((m) => ({ name: m.name })),
         }),
       });
 
-      // If offline members were added, create them concurrently
-      if (offlineMembers.length > 0) {
-        await Promise.all(
-          offlineMembers.map((m) =>
-            addDummyMember(trip.id, { name: m.name }).catch(() => null)
-          )
-        );
-      }
-
       navigation.replace('TripDashboard', { tripId: trip.id });
-    } catch (err) {
-      dialog.alert('Failed to Create Trip', (err as Error).message, 'error');
+    } catch (err: any) {
+      const msg = err instanceof ApiError ? err.formatUserMessage() : (err as Error).message;
+      dialog.alert('Failed to Create Trip', msg, 'error');
     } finally {
       setLoading(false);
       setUploadingCover(false);

@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { PAYMENT_METHODS } from '@tripcircle/contracts';
-import { apiRequest, getOnlineStatus, uploadImageFromUri } from '../../services/api';
+import { apiRequest, getOnlineStatus, uploadImageFromUri, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { dialog } from '../../components/ui';
@@ -44,6 +44,12 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const idempotencyKeyRef = React.useRef<string>(`pay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+
+  useEffect(() => {
+    // Refresh idempotency key only when core payment terms change
+    idempotencyKeyRef.current = `pay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }, [amountRupees, receiverMemberId, payerMemberId]);
 
   const pickReceipt = async () => {
     try {
@@ -96,6 +102,8 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
   }, [tripId, user?.id, defaultReceiverMemberId]);
 
   const handleSubmit = async () => {
+    if (submitting) return;
+
     if (!getOnlineStatus()) {
       dialog.alert('Offline Mode', 'Recording payments requires an active network connection.', 'warning');
       return;
@@ -133,7 +141,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
           paymentMethod,
           note: note.trim() || undefined,
           receiptUrl: uploadedReceiptUrl,
-          idempotencyKey: `pay-${Date.now()}-${payerMemberId}`,
+          idempotencyKey: idempotencyKeyRef.current,
         }),
       });
 
@@ -143,8 +151,9 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
         'success'
       );
       navigation.goBack();
-    } catch (err) {
-      dialog.alert('Payment Submission Failed', (err as Error).message, 'error');
+    } catch (err: any) {
+      const msg = err instanceof ApiError ? err.formatUserMessage() : (err as Error).message;
+      dialog.alert('Payment Submission Failed', msg, 'error');
     } finally {
       setSubmitting(false);
     }

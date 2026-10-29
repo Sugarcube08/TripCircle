@@ -53,8 +53,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
 
       const latestTrips = syncResult.trips || LocalDatabase.getTrips();
       setTrips(latestTrips);
-    } catch {
-      setIsOffline(true);
+    } catch (err: any) {
+      if (err?.name !== 'AbortError' && !err?.isTimeout) {
+        setIsOffline(true);
+      }
       setTrips(LocalDatabase.getTrips());
     } finally {
       setLoading(false);

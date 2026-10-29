@@ -18,6 +18,7 @@ import {
   addDummyMember,
   replaceDummyMember,
   searchRegisteredUsers,
+  ApiError,
 } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
@@ -121,6 +122,15 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
   };
 
   const replaceSearchTimerRef = React.useRef<any>(null);
+  const replaceSearchSequenceRef = React.useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (replaceSearchTimerRef.current) {
+        clearTimeout(replaceSearchTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSearchReplaceUsers = (text: string) => {
     setReplaceSearchQuery(text);
@@ -135,17 +145,24 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
     }
 
     setSearchingUsers(true);
+    const seq = ++replaceSearchSequenceRef.current;
     replaceSearchTimerRef.current = setTimeout(async () => {
       try {
         const results = await searchRegisteredUsers(text.trim());
-        // Filter out users already in the trip
-        const existingUserIds = new Set((trip?.members || []).map((m: any) => m.userId).filter(Boolean));
-        const filtered = (results || []).filter((u: any) => !existingUserIds.has(u.id));
-        setReplaceSearchResults(filtered);
+        if (seq === replaceSearchSequenceRef.current) {
+          // Filter out users already in the trip
+          const existingUserIds = new Set((trip?.members || []).map((m: any) => m.userId).filter(Boolean));
+          const filtered = (results || []).filter((u: any) => !existingUserIds.has(u.id));
+          setReplaceSearchResults(filtered);
+        }
       } catch {
-        setReplaceSearchResults([]);
+        if (seq === replaceSearchSequenceRef.current) {
+          setReplaceSearchResults([]);
+        }
       } finally {
-        setSearchingUsers(false);
+        if (seq === replaceSearchSequenceRef.current) {
+          setSearchingUsers(false);
+        }
       }
     }, 250);
   };

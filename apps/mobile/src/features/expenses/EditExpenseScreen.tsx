@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { apiRequest, uploadImageFromUri } from '../../services/api';
+import { apiRequest, uploadImageFromUri, ApiError } from '../../services/api';
 import { resolveMediaUrl } from '../../utils/media';
 import { calculateEqualSplit, validateUnequalSplit } from '@tripcircle/contracts';
 import { MemberAvatar } from '../../components/MemberAvatar';
@@ -120,12 +120,10 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   };
 
   const handleUpdate = async () => {
+    if (saving) return;
+
     if (!amountRupees || totalAmountPaise <= 0) {
       dialog.alert('Required', 'Please enter a valid amount.', 'warning');
-      return;
-    }
-    if (!description.trim()) {
-      dialog.alert('Required', 'Please enter description.', 'warning');
       return;
     }
 
@@ -165,7 +163,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
         method: 'PUT',
         body: JSON.stringify({
           payerMemberId: expense.payerMemberId,
-          description: description.trim(),
+          description: description.trim() || undefined,
           amountPaise: totalAmountPaise,
           categoryId: expense.categoryId,
           splitMethod,
@@ -178,8 +176,9 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
 
       await dialog.alert('Updated', 'Expense updated successfully.', 'success');
       navigation.goBack();
-    } catch (err) {
-      dialog.alert('Update Failed', (err as Error).message, 'error');
+    } catch (err: any) {
+      const msg = err instanceof ApiError ? err.formatUserMessage() : (err as Error).message;
+      dialog.alert('Update Failed', msg, 'error');
     } finally {
       setSaving(false);
     }
@@ -244,15 +243,16 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
           </View>
 
           {/* Description */}
-          <Text style={styles.sectionHeader}>DESCRIPTION</Text>
+          <Text style={styles.sectionHeader}>DESCRIPTION (OPTIONAL)</Text>
           <View style={styles.inputCard}>
             <Ionicons name="receipt-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
             <TextInput
               style={styles.inputField}
               value={description}
               onChangeText={setDescription}
-              placeholder="Description"
+              placeholder="e.g. Seafood Dinner, Taxi (optional)"
               placeholderTextColor={THEME.colors.textLight}
+              maxLength={200}
             />
           </View>
 

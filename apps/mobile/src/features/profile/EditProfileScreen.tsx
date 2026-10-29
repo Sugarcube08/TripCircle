@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { apiRequest, uploadImageFromUri } from '../../services/api';
+import { apiRequest, uploadImageFromUri, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { resolveMediaUrl } from '../../utils/media';
 import { dialog } from '../../components/ui';
@@ -95,8 +95,26 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
+    if (saving) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       dialog.alert('Required', 'Please enter your name.', 'warning');
+      return;
+    }
+
+    const trimmedPhone = phone.trim() || null;
+    const currentName = user?.name?.trim() || '';
+    const currentPhone = user?.phone?.trim() || null;
+
+    const hasNameChanged = trimmedName !== currentName;
+    const hasPhoneChanged = trimmedPhone !== currentPhone;
+    const hasAvatarChanged = !!avatarUri;
+    const hasQrChanged = !!qrUri;
+
+    if (!hasNameChanged && !hasPhoneChanged && !hasAvatarChanged && !hasQrChanged) {
+      dialog.alert('No Changes', 'No profile modifications were made.', 'info');
+      navigation.goBack();
       return;
     }
 
@@ -137,8 +155,8 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
       const updatedProfile = await apiRequest('/users/me', {
         method: 'PATCH',
         body: JSON.stringify({
-          name: name.trim(),
-          phone: phone.trim() || null,
+          name: trimmedName,
+          phone: trimmedPhone,
           avatarUrl: finalAvatarUrl,
           paymentQrUrl: finalQrUrl,
         }),
@@ -150,8 +168,9 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 
       await dialog.alert('Profile Saved', 'Your profile details have been updated.', 'success');
       navigation.goBack();
-    } catch (err) {
-      dialog.alert('Failed to Update Profile', (err as Error).message, 'error');
+    } catch (err: any) {
+      const msg = err instanceof ApiError ? err.formatUserMessage() : (err as Error).message;
+      dialog.alert('Failed to Update Profile', msg, 'error');
     } finally {
       setSaving(false);
       setSaveStatus('');

@@ -1,4 +1,4 @@
-import { apiRequest, setOnlineStatus } from './api';
+import { apiRequest, setOnlineStatus, getOnlineStatus } from './api';
 import { LocalDatabase } from '../storage/db';
 
 export interface SyncOptions {
@@ -89,14 +89,14 @@ export async function performSync(options: SyncOptions = {}): Promise<SyncResult
       };
     } catch (error: any) {
       const isAborted = error?.name === 'AbortError' || error?.code === 'ABORTED';
-      if (!isAborted) {
+      if (!isAborted && error?.isNetworkError) {
         setOnlineStatus(false);
       }
 
       const cache = LocalDatabase.getCache();
       return {
         success: false,
-        isOffline: true,
+        isOffline: !isAborted && (!getOnlineStatus() || !!error?.isNetworkError),
         lastSyncTimestamp: cache.lastSyncTimestamp,
         trips: cache.trips,
       };

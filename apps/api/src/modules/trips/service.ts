@@ -59,6 +59,27 @@ export class TripService {
         }
       }
 
+      // Handle initial offline / dummy members atomically within the transaction
+      if (input.initialDummyMembers && input.initialDummyMembers.length > 0) {
+        for (const dm of input.initialDummyMembers) {
+          const trimmedName = dm.name.trim();
+          if (!trimmedName) continue;
+          await tx.tripMember.create({
+            data: {
+              tripId: trip.id,
+              userId: null,
+              isDummy: true,
+              role: 'MEMBER',
+              status: 'ACTIVE',
+              displayName: trimmedName,
+              email: dm.email ? dm.email.toLowerCase().trim() : null,
+              phone: dm.phone ? dm.phone.trim() : null,
+              respondedAt: new Date(),
+            },
+          });
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           userId,
