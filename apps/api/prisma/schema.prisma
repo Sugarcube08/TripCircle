@@ -152,7 +152,11 @@ model Trip {
 model TripMember {
   id             String           @id @default(uuid())
   tripId         String
-  userId         String
+  userId         String?
+  isDummy        Boolean          @default(false)
+  displayName    String?          @db.VarChar(100)
+  email          String?          @db.VarChar(255)
+  phone          String?          @db.VarChar(50)
   role           TripRole         @default(MEMBER)
   status         MembershipStatus @default(INVITED)
   invitedAt      DateTime         @default(now())
@@ -162,7 +166,7 @@ model TripMember {
   updatedAt      DateTime         @updatedAt
 
   trip           Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   paidExpenses   Expense[]        @relation("ExpensePayer")
   allocations    ExpenseAllocation[]
   paidPayments   Payment[]        @relation("PaymentPayer")

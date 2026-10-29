@@ -118,9 +118,10 @@ export class ReportService {
       if (input.reportType === 'INDIVIDUAL') {
         const targetMemberId = input.memberId || currentMember.id;
         const targetMember = memberMap.get(targetMemberId) || currentMember;
+        const targetMemberName = targetMember.user?.name || targetMember.displayName || 'Offline Member';
         const state = netBalances.get(targetMember.id);
 
-        doc.fontSize(14).font('Helvetica-Bold').text(`Individual Statement: ${targetMember.user.name}`);
+        doc.fontSize(14).font('Helvetica-Bold').text(`Individual Statement: ${targetMemberName}`);
         doc.moveDown(0.5);
 
         const net = state?.netBalancePaise || 0;
@@ -142,6 +143,7 @@ export class ReportService {
 
         for (const [mId, b] of netBalances.entries()) {
           const m = memberMap.get(mId);
+          const mName = m?.user?.name || m?.displayName || 'Offline Member';
           const pos = b.netBalancePaise > 0
             ? `+₹${(b.netBalancePaise / 100).toFixed(2)} (Owed)`
             : b.netBalancePaise < 0
@@ -149,7 +151,7 @@ export class ReportService {
               : '₹0.00 (Settled)';
 
           doc.fontSize(10).font('Helvetica').text(
-            `• ${m?.user.name}: Paid ₹${(b.totalPaidPaise / 100).toFixed(2)} | Share ₹${(b.totalExpenseSharePaise / 100).toFixed(2)} | Net: ${pos}`
+            `• ${mName}: Paid ₹${(b.totalPaidPaise / 100).toFixed(2)} | Share ₹${(b.totalExpenseSharePaise / 100).toFixed(2)} | Net: ${pos}`
           );
         }
         doc.moveDown(1);
@@ -161,8 +163,8 @@ export class ReportService {
           doc.fontSize(10).font('Helvetica').text('All balances are fully settled! No transfers required.');
         } else {
           for (const t of settlementTransfers) {
-            const fromName = memberMap.get(t.fromMemberId)?.user.name;
-            const toName = memberMap.get(t.toMemberId)?.user.name;
+            const fromName = memberMap.get(t.fromMemberId)?.user?.name || memberMap.get(t.fromMemberId)?.displayName || 'Offline Member';
+            const toName = memberMap.get(t.toMemberId)?.user?.name || memberMap.get(t.toMemberId)?.displayName || 'Offline Member';
             doc.fontSize(10).font('Helvetica').text(`• ${fromName} should pay ${toName}: ₹${(t.amountPaise / 100).toFixed(2)}`);
           }
         }
@@ -175,11 +177,12 @@ export class ReportService {
 
       for (const e of trip.expenses) {
         const dateStr = new Date(e.expenseDate).toLocaleDateString();
+        const payerName = e.payerMember.user?.name || e.payerMember.displayName || 'Offline Member';
         doc.fontSize(10).font('Helvetica-Bold').text(
           `${dateStr} — ${e.description}: ₹${(e.amountPaise / 100).toFixed(2)} (${e.category.name})`
         );
-        doc.fontSize(9).font('Helvetica').text(`  Paid by: ${e.payerMember.user.name} | Method: ${e.splitMethod}`);
-        const shares = e.allocations.map((a: any) => `${a.member.user.name}: ₹${(a.sharePaise / 100).toFixed(2)}`).join(', ');
+        doc.fontSize(9).font('Helvetica').text(`  Paid by: ${payerName} | Method: ${e.splitMethod}`);
+        const shares = e.allocations.map((a: any) => `${a.member.user?.name || a.member.displayName || 'Offline Member'}: ₹${(a.sharePaise / 100).toFixed(2)}`).join(', ');
         doc.fontSize(9).font('Helvetica').text(`  Shares: ${shares}`);
         doc.moveDown(0.3);
       }
@@ -194,8 +197,10 @@ export class ReportService {
       } else {
         for (const p of trip.payments) {
           const statusText = p.status === 'CONFIRMED' ? '[CONFIRMED]' : p.status === 'DISPUTED' ? '[DISPUTED]' : '[PENDING]';
+          const payerName = p.payerMember.user?.name || p.payerMember.displayName || 'Offline Member';
+          const receiverName = p.receiverMember.user?.name || p.receiverMember.displayName || 'Offline Member';
           doc.fontSize(10).font('Helvetica').text(
-            `${statusText} ${p.payerMember.user.name} -> ${p.receiverMember.user.name}: ₹${(p.amountPaise / 100).toFixed(2)} (${p.paymentMethod})`
+            `${statusText} ${payerName} -> ${receiverName}: ₹${(p.amountPaise / 100).toFixed(2)} (${p.paymentMethod})`
           );
           if (p.disputeReason) {
             doc.fontSize(9).font('Helvetica-Oblique').text(`  Dispute reason: ${p.disputeReason}`);
@@ -237,8 +242,8 @@ export class ReportService {
     for (const [mId, b] of netBalances.entries()) {
       const m = memberMap.get(mId);
       summarySheet.addRow({
-        name: m?.user.name,
-        email: m?.user.email,
+        name: m?.user?.name || m?.displayName || 'Offline Member',
+        email: m?.user?.email || m?.email || 'N/A',
         totalPaid: (b.totalPaidPaise / 100).toFixed(2),
         share: (b.totalExpenseSharePaise / 100).toFixed(2),
         paymentsMade: (b.paymentsMadePaise / 100).toFixed(2),
@@ -268,7 +273,7 @@ export class ReportService {
         desc: e.description,
         category: e.category.name,
         amount: (e.amountPaise / 100).toFixed(2),
-        payer: e.payerMember.user.name,
+        payer: e.payerMember.user?.name || e.payerMember.displayName || 'Offline Member',
         method: e.splitMethod,
         location: e.location || 'N/A',
       });
@@ -288,8 +293,8 @@ export class ReportService {
 
     for (const p of trip.payments) {
       paymentSheet.addRow({
-        payer: p.payerMember.user.name,
-        receiver: p.receiverMember.user.name,
+        payer: p.payerMember.user?.name || p.payerMember.displayName || 'Offline Member',
+        receiver: p.receiverMember.user?.name || p.receiverMember.displayName || 'Offline Member',
         amount: (p.amountPaise / 100).toFixed(2),
         method: p.paymentMethod,
         status: p.status,
@@ -308,8 +313,8 @@ export class ReportService {
 
     for (const t of settlementTransfers) {
       settlementSheet.addRow({
-        from: memberMap.get(t.fromMemberId)?.user.name,
-        to: memberMap.get(t.toMemberId)?.user.name,
+        from: memberMap.get(t.fromMemberId)?.user?.name || memberMap.get(t.fromMemberId)?.displayName || 'Offline Member',
+        to: memberMap.get(t.toMemberId)?.user?.name || memberMap.get(t.toMemberId)?.displayName || 'Offline Member',
         amount: (t.amountPaise / 100).toFixed(2),
       });
     }

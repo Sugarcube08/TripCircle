@@ -26,7 +26,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       orderBy: { createdAt: 'asc' },
     });
 
-    return successResponse(members);
+    const mapped = members.map((m) => ({
+      ...m,
+      user: m.user || {
+        id: m.id,
+        name: m.displayName || 'Offline Member',
+        email: m.email || '',
+        phone: m.phone || null,
+        avatarUrl: null,
+        paymentQrUrl: null,
+      },
+    }));
+
+    return successResponse(mapped);
   } catch (err) {
     return handleApiError(err);
   }

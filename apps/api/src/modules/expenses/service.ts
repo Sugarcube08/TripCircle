@@ -138,7 +138,7 @@ export class ExpenseService {
         tripId,
         amountPaise: expense.amountPaise,
         description: expense.description,
-        payerName: expense.payerMember.user.name,
+        payerName: expense.payerMember.user?.name || expense.payerMember.displayName || 'Offline Member',
       });
 
       // 9. Create in-app notifications for other trip members
@@ -151,13 +151,14 @@ export class ExpenseService {
       });
 
       for (const m of otherMembers) {
+        if (!m.userId) continue;
         await tx.notification.create({
           data: {
             userId: m.userId,
             tripId,
             type: 'NEW_EXPENSE',
             title: `New Expense: ${expense.description}`,
-            body: `${submitterMember.user.name} added ₹${(expense.amountPaise / 100).toFixed(2)} for ${expense.description}.`,
+            body: `${submitterMember.user?.name || 'A member'} added ₹${(expense.amountPaise / 100).toFixed(2)} for ${expense.description}.`,
             data: { expenseId: expense.id, tripId },
           },
         });

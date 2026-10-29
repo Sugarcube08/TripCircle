@@ -77,11 +77,11 @@ export class SettlementService {
       const toM = memberObjMap.get(t.toMemberId);
       return {
         fromMemberId: t.fromMemberId,
-        fromUserId: fromM?.userId || '',
-        fromUserName: fromM?.user.name || 'Unknown',
+        fromUserId: fromM?.userId || null,
+        fromUserName: fromM?.user?.name || fromM?.displayName || 'Offline Member',
         toMemberId: t.toMemberId,
-        toUserId: toM?.userId || '',
-        toUserName: toM?.user.name || 'Unknown',
+        toUserId: toM?.userId || null,
+        toUserName: toM?.user?.name || toM?.displayName || 'Offline Member',
         amountPaise: t.amountPaise,
       };
     });
@@ -117,8 +117,8 @@ export class SettlementService {
       const otherM = memberObjMap.get(otherMemberId);
       return {
         otherMemberId,
-        otherUserId: otherM?.userId || '',
-        otherUserName: otherM?.user.name || 'Unknown',
+        otherUserId: otherM?.userId || null,
+        otherUserName: otherM?.user?.name || otherM?.displayName || 'Offline Member',
         amountPaise, // positive: they owe current user; negative: current user owes them
       };
     });
@@ -127,9 +127,10 @@ export class SettlementService {
       const m = memberObjMap.get(state.memberId);
       return {
         ...state,
-        userId: m?.userId || '',
-        userName: m?.user.name || '',
-        userAvatar: m?.user.avatarUrl,
+        userId: m?.userId || null,
+        userName: m?.user?.name || m?.displayName || 'Offline Member',
+        userAvatar: m?.user?.avatarUrl || null,
+        isDummy: m?.isDummy || false,
       };
     });
 
@@ -192,17 +193,22 @@ export class SettlementService {
         },
       });
 
-      // Notify toMember (the creditor who must accept the discount)
-      await tx.notification.create({
-        data: {
-          userId: toMember.userId,
-          tripId,
-          type: 'DISCOUNT_PROPOSED',
-          title: `Settlement Discount Proposal: ₹${(discount.waivedPaise / 100).toFixed(2)}`,
-          body: `${fromMember.user.name} proposed waiving ₹${(discount.waivedPaise / 100).toFixed(2)} for: "${discount.reason}". Please review and respond.`,
-          data: { discountId: discount.id, tripId },
-        },
-      });
+      // Notify toMember (the creditor who must accept the discount) if registered
+      const fromMemberName = fromMember.user?.name || fromMember.displayName || 'Offline Member';
+      const toMemberName = toMember.user?.name || toMember.displayName || 'Offline Member';
+
+      if (toMember.userId) {
+        await tx.notification.create({
+          data: {
+            userId: toMember.userId,
+            tripId,
+            type: 'DISCOUNT_PROPOSED',
+            title: `Settlement Discount Proposal: ₹${(discount.waivedPaise / 100).toFixed(2)}`,
+            body: `${fromMemberName} proposed waiving ₹${(discount.waivedPaise / 100).toFixed(2)} for: "${discount.reason}". Please review and respond.`,
+            data: { discountId: discount.id, tripId },
+          },
+        });
+      }
 
       await createOutboxEvent(tx, 'DISCOUNT', discount.id, 'DISCOUNT_PROPOSED', {
         discountId: discount.id,
@@ -256,6 +262,9 @@ export class SettlementService {
         },
       });
 
+      const fromMemberName = discount.fromMember.user?.name || discount.fromMember.displayName || 'Offline Member';
+      const toMemberName = discount.toMember.user?.name || discount.toMember.displayName || 'Offline Member';
+
       if (status === 'ACCEPTED') {
         // Record ledger entry
         await tx.ledgerEntry.create({
@@ -268,7 +277,7 @@ export class SettlementService {
             debitPaise: discount.waivedPaise,
             netChangePaise: -discount.waivedPaise,
             balanceAfterPaise: 0,
-            description: `Waived ₹${(discount.waivedPaise / 100).toFixed(2)} for ${discount.fromMember.user.name}: ${discount.reason}`,
+            description: `Waived ₹${(discount.waivedPaise / 100).toFixed(2)} for ${fromMemberName}: ${discount.reason}`,
           },
         });
 
@@ -282,22 +291,24 @@ export class SettlementService {
             debitPaise: 0,
             netChangePaise: discount.waivedPaise,
             balanceAfterPaise: 0,
-            description: `Discount of ₹${(discount.waivedPaise / 100).toFixed(2)} accepted by ${discount.toMember.user.name}`,
+            description: `Discount of ₹${(discount.waivedPaise / 100).toFixed(2)} accepted by ${toMemberName}`,
           },
         });
       }
 
-      // Notify fromMember
-      await tx.notification.create({
-        data: {
-          userId: discount.fromMember.userId,
-          tripId,
-          type: 'DISCOUNT_RESPONSE',
-          title: `Discount ${status.toLowerCase()}`,
-          body: `${discount.toMember.user.name} has ${status.toLowerCase()}ed the discount waiver of ₹${(discount.waivedPaise / 100).toFixed(2)}.`,
-          data: { discountId: discount.id, tripId },
-        },
-      });
+      // Notify fromMember if registered
+      if (discount.fromMember.userId) {
+        await tx.notification.create({
+          data: {
+            userId: discount.fromMember.userId,
+            tripId,
+            type: 'DISCOUNT_RESPONSE',
+            title: `Discount ${status.toLowerCase()}`,
+            body: `${toMemberName} has ${status.toLowerCase()}ed the discount waiver of ₹${(discount.waivedPaise / 100).toFixed(2)}.`,
+            data: { discountId: discount.id, tripId },
+          },
+        });
+      }
 
       await createOutboxEvent(tx, 'DISCOUNT', discount.id, `DISCOUNT_${status}`, {
         discountId: discount.id,

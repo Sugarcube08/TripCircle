@@ -236,3 +236,39 @@ export async function getAuthorizedFileUrl(storageKey: string): Promise<string> 
   );
   return result.downloadUrl;
 }
+
+/**
+ * Add an offline/dummy member to a trip
+ */
+export async function addDummyMember(
+  tripId: string,
+  input: { name: string; email?: string | null; phone?: string | null }
+) {
+  return apiRequest(`/trips/${tripId}/members/dummy`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Replace an offline/dummy member with a registered TripCircle user
+ */
+export async function replaceDummyMember(
+  tripId: string,
+  memberId: string,
+  input: { registeredUserId: string }
+) {
+  return apiRequest(`/trips/${tripId}/members/${memberId}/replace`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Search registered TripCircle users by name or email
+ */
+export async function searchRegisteredUsers(query: string) {
+  return apiRequest<Array<{ id: string; name: string; email: string; avatarUrl?: string | null }>>(
+    `/users/search?q=${encodeURIComponent(query)}`
+  );
+}

@@ -38,7 +38,7 @@ export class UserService {
   }
 
   static async updateProfile(userId: string, input: UpdateProfileInput) {
-    const user = await prisma.user.update({
+    await prisma.user.update({
       where: { id: userId },
       data: {
         ...(input.name ? { name: input.name } : {}),
@@ -46,18 +46,9 @@ export class UserService {
         ...(input.avatarUrl !== undefined ? { avatarUrl: input.avatarUrl } : {}),
         ...(input.paymentQrUrl !== undefined ? { paymentQrUrl: input.paymentQrUrl } : {}),
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        avatarUrl: true,
-        paymentQrUrl: true,
-        isEmailVerified: true,
-      },
     });
 
-    return user;
+    return this.getProfile(userId);
   }
 
   static async changePassword(userId: string, input: ChangePasswordInput) {

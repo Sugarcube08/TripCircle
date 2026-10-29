@@ -86,11 +86,12 @@ export class LedgerService {
     const activities: ActivityItem[] = [];
 
     for (const e of expenses) {
+      const payerName = e.payerMember.user?.name || e.payerMember.displayName || 'Offline Member';
       activities.push({
         id: `exp-${e.id}`,
         type: 'EXPENSE_ADDED',
         title: `Added expense: ${e.description}`,
-        description: `${e.payerMember.user.name} paid ₹${(e.amountPaise / 100).toFixed(2)} (${e.category.name})`,
+        description: `${payerName} paid ₹${(e.amountPaise / 100).toFixed(2)} (${e.category.name})`,
         actorName: e.submitter.name,
         actorAvatar: e.submitter.avatarUrl,
         timestamp: e.createdAt.toISOString(),
@@ -114,18 +115,20 @@ export class LedgerService {
     }
 
     for (const p of payments) {
+      const payerName = p.payerMember.user?.name || p.payerMember.displayName || 'Offline Member';
+      const receiverName = p.receiverMember.user?.name || p.receiverMember.displayName || 'Offline Member';
       let type: ActivityItem['type'] = 'PAYMENT_PENDING';
       let title = `Payment recorded: ₹${(p.amountPaise / 100).toFixed(2)}`;
-      let desc = `${p.payerMember.user.name} sent ₹${(p.amountPaise / 100).toFixed(2)} to ${p.receiverMember.user.name} (${p.status})`;
+      let desc = `${payerName} sent ₹${(p.amountPaise / 100).toFixed(2)} to ${receiverName} (${p.status})`;
 
       if (p.status === 'CONFIRMED') {
         type = 'PAYMENT_CONFIRMED';
         title = `Payment confirmed: ₹${(p.amountPaise / 100).toFixed(2)}`;
-        desc = `${p.receiverMember.user.name} confirmed receiving payment from ${p.payerMember.user.name}`;
+        desc = `${receiverName} confirmed receiving payment from ${payerName}`;
       } else if (p.status === 'DISPUTED') {
         type = 'PAYMENT_DISPUTED';
         title = `Payment disputed: ₹${(p.amountPaise / 100).toFixed(2)}`;
-        desc = `${p.receiverMember.user.name} disputed payment: "${p.disputeReason}"`;
+        desc = `${receiverName} disputed payment: "${p.disputeReason}"`;
       }
 
       activities.push({
@@ -133,8 +136,8 @@ export class LedgerService {
         type,
         title,
         description: desc,
-        actorName: p.payerMember.user.name,
-        actorAvatar: p.payerMember.user.avatarUrl,
+        actorName: payerName,
+        actorAvatar: p.payerMember.user?.avatarUrl || null,
         timestamp: p.updatedAt.toISOString(),
         amountPaise: p.amountPaise,
         metadata: { paymentId: p.id, status: p.status },
@@ -142,13 +145,15 @@ export class LedgerService {
     }
 
     for (const d of discounts) {
+      const toMemberName = d.toMember.user?.name || d.toMember.displayName || 'Offline Member';
+      const fromMemberName = d.fromMember.user?.name || d.fromMember.displayName || 'Offline Member';
       activities.push({
         id: `disc-${d.id}`,
         type: 'DISCOUNT',
         title: `Discount ${d.status.toLowerCase()}: ₹${(d.waivedPaise / 100).toFixed(2)}`,
-        description: `${d.toMember.user.name} waived ₹${(d.waivedPaise / 100).toFixed(2)} for ${d.fromMember.user.name}: ${d.reason}`,
-        actorName: d.toMember.user.name,
-        actorAvatar: d.toMember.user.avatarUrl,
+        description: `${toMemberName} waived ₹${(d.waivedPaise / 100).toFixed(2)} for ${fromMemberName}: ${d.reason}`,
+        actorName: toMemberName,
+        actorAvatar: d.toMember.user?.avatarUrl || null,
         timestamp: d.createdAt.toISOString(),
         amountPaise: d.waivedPaise,
         metadata: { discountId: d.id, status: d.status },

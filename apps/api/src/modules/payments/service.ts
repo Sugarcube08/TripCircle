@@ -62,23 +62,28 @@ export class PaymentService {
         },
       });
 
-      // 5. Notify receiver
-      await tx.notification.create({
-        data: {
-          userId: receiver.userId,
-          tripId,
-          type: 'PAYMENT_PENDING_CONFIRMATION',
-          title: `Payment Received: ₹${(payment.amountPaise / 100).toFixed(2)}`,
-          body: `${payer.user.name} reported sending you ₹${(payment.amountPaise / 100).toFixed(2)} via ${payment.paymentMethod}. Please confirm or dispute.`,
-          data: { paymentId: payment.id, tripId },
-        },
-      });
+      const payerName = payer.user?.name || payer.displayName || 'Offline Member';
+      const receiverName = receiver.user?.name || receiver.displayName || 'Offline Member';
+
+      // 5. Notify receiver if registered
+      if (receiver.userId) {
+        await tx.notification.create({
+          data: {
+            userId: receiver.userId,
+            tripId,
+            type: 'PAYMENT_PENDING_CONFIRMATION',
+            title: `Payment Received: ₹${(payment.amountPaise / 100).toFixed(2)}`,
+            body: `${payerName} reported sending you ₹${(payment.amountPaise / 100).toFixed(2)} via ${payment.paymentMethod}. Please confirm or dispute.`,
+            data: { paymentId: payment.id, tripId },
+          },
+        });
+      }
 
       await createOutboxEvent(tx, 'PAYMENT', payment.id, 'PAYMENT_CREATED', {
         paymentId: payment.id,
         tripId,
         amountPaise: payment.amountPaise,
-        receiverId: receiver.userId,
+        receiverId: receiver.userId || 'OFFLINE',
       });
 
       return payment;
@@ -127,6 +132,9 @@ export class PaymentService {
         },
       });
 
+      const payerName = payment.payerMember.user?.name || payment.payerMember.displayName || 'Offline Member';
+      const receiverName = payment.receiverMember.user?.name || payment.receiverMember.displayName || 'Offline Member';
+
       // Ledger entries for payment:
       // payer paid money -> payer's balance increases towards 0 (+ credit)
       // receiver received money -> receiver's balance decreases towards 0 (- debit)
@@ -140,7 +148,7 @@ export class PaymentService {
           debitPaise: 0,
           netChangePaise: payment.amountPaise,
           balanceAfterPaise: 0,
-          description: `Confirmed payment to ${payment.receiverMember.user.name}`,
+          description: `Confirmed payment to ${receiverName}`,
         },
       });
 
@@ -154,21 +162,23 @@ export class PaymentService {
           debitPaise: payment.amountPaise,
           netChangePaise: -payment.amountPaise,
           balanceAfterPaise: 0,
-          description: `Confirmed payment from ${payment.payerMember.user.name}`,
+          description: `Confirmed payment from ${payerName}`,
         },
       });
 
-      // Notify payer
-      await tx.notification.create({
-        data: {
-          userId: payment.payerMember.userId,
-          tripId,
-          type: 'PAYMENT_CONFIRMED',
-          title: `Payment Confirmed: ₹${(payment.amountPaise / 100).toFixed(2)}`,
-          body: `${payment.receiverMember.user.name} confirmed receiving your payment of ₹${(payment.amountPaise / 100).toFixed(2)}.`,
-          data: { paymentId: payment.id, tripId },
-        },
-      });
+      // Notify payer if registered
+      if (payment.payerMember.userId) {
+        await tx.notification.create({
+          data: {
+            userId: payment.payerMember.userId,
+            tripId,
+            type: 'PAYMENT_CONFIRMED',
+            title: `Payment Confirmed: ₹${(payment.amountPaise / 100).toFixed(2)}`,
+            body: `${receiverName} confirmed receiving your payment of ₹${(payment.amountPaise / 100).toFixed(2)}.`,
+            data: { paymentId: payment.id, tripId },
+          },
+        });
+      }
 
       await createOutboxEvent(tx, 'PAYMENT', payment.id, 'PAYMENT_CONFIRMED', {
         paymentId: payment.id,
@@ -221,17 +231,21 @@ export class PaymentService {
         },
       });
 
-      // Notify payer
-      await tx.notification.create({
-        data: {
-          userId: payment.payerMember.userId,
-          tripId,
-          type: 'PAYMENT_DISPUTED',
-          title: `Payment Disputed: ₹${(payment.amountPaise / 100).toFixed(2)}`,
-          body: `${payment.receiverMember.user.name} disputed your payment: "${input.reason}". Balances have not been updated.`,
-          data: { paymentId: payment.id, tripId },
-        },
-      });
+      const receiverName = payment.receiverMember.user?.name || payment.receiverMember.displayName || 'Offline Member';
+
+      // Notify payer if registered
+      if (payment.payerMember.userId) {
+        await tx.notification.create({
+          data: {
+            userId: payment.payerMember.userId,
+            tripId,
+            type: 'PAYMENT_DISPUTED',
+            title: `Payment Disputed: ₹${(payment.amountPaise / 100).toFixed(2)}`,
+            body: `${receiverName} disputed your payment: "${input.reason}". Balances have not been updated.`,
+            data: { paymentId: payment.id, tripId },
+          },
+        });
+      }
 
       await createOutboxEvent(tx, 'PAYMENT', payment.id, 'PAYMENT_DISPUTED', {
         paymentId: payment.id,

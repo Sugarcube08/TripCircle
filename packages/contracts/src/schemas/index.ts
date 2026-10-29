@@ -92,6 +92,18 @@ export const InviteMemberSchema = z.object({
 });
 export type InviteMemberInput = z.infer<typeof InviteMemberSchema>;
 
+export const AddDummyMemberSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email('Invalid email address').optional().nullable(),
+  phone: z.string().max(20).optional().nullable(),
+});
+export type AddDummyMemberInput = z.infer<typeof AddDummyMemberSchema>;
+
+export const ReplaceDummyMemberSchema = z.object({
+  registeredUserId: z.string().min(1, 'Registered user ID is required'),
+});
+export type ReplaceDummyMemberInput = z.infer<typeof ReplaceDummyMemberSchema>;
+
 export const RespondInviteSchema = z.object({
   action: z.enum(['ACCEPT', 'DECLINE']),
 });

@@ -29,11 +29,15 @@ export interface UserProfile extends UserSummary {
 
 export interface TripMemberSummary {
   id: string;
-  userId: string;
+  userId?: string | null;
   tripId: string;
   role: TripRoleType;
   status: MembershipStatusType;
-  user: UserSummary;
+  isDummy: boolean;
+  displayName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  user?: UserSummary | null;
   joinedAt?: string | null;
 }
 
@@ -124,9 +128,10 @@ export interface SettlementDiscountDetail {
 
 export interface MemberNetBalance {
   memberId: string;
-  userId: string;
+  userId?: string | null;
   userName: string;
   userAvatar?: string | null;
+  isDummy?: boolean;
   totalPaidPaise: Paise;
   totalExpenseSharePaise: Paise;
   paymentsMadePaise: Paise;
@@ -138,17 +143,17 @@ export interface MemberNetBalance {
 
 export interface SimplifiedTransfer {
   fromMemberId: string;
-  fromUserId: string;
+  fromUserId?: string | null;
   fromUserName: string;
   toMemberId: string;
-  toUserId: string;
+  toUserId?: string | null;
   toUserName: string;
   amountPaise: Paise;
 }
 
 export interface BilateralObligation {
   otherMemberId: string;
-  otherUserId: string;
+  otherUserId?: string | null;
   otherUserName: string;
   amountPaise: Paise; // positive = other owes current user, negative = current user owes other
 }

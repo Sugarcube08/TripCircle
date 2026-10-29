@@ -105,7 +105,7 @@ export async function processOutboxEvents(batchSize = 25) {
               await EmailService.sendPaymentConfirmationRequest(
                 receiver.email,
                 trip.name,
-                payer.user.name,
+                payer.user?.name || payer.displayName || 'Offline Member',
                 payload.amountPaise
               );
             }
@@ -128,11 +128,11 @@ export async function processOutboxEvents(batchSize = 25) {
                 })
               : null;
 
-            if (payer?.user.email && trip && receiver) {
+            if (payer?.user?.email && trip && receiver) {
               await EmailService.sendPaymentDisputed(
                 payer.user.email,
                 trip.name,
-                receiver.user.name,
+                receiver.user?.name || receiver.displayName || 'Offline Member',
                 payload.amountPaise,
                 payload.reason || 'Amount incorrect or not received'
               );
@@ -156,11 +156,11 @@ export async function processOutboxEvents(batchSize = 25) {
                 })
               : null;
 
-            if (toMember?.user.email && trip && fromMember) {
+            if (toMember?.user?.email && trip && fromMember) {
               await EmailService.sendDiscountProposal(
                 toMember.user.email,
                 trip.name,
-                fromMember.user.name,
+                fromMember.user?.name || fromMember.displayName || 'Offline Member',
                 payload.paidAmountPaise || 0,
                 payload.waivedPaise || 0
               );
