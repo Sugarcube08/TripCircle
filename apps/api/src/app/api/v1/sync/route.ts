@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
     const result = await SyncService.pullChanges(
       authUser.id,
       validated.lastSyncTimestamp,
-      validated.tripIds
+      validated.tripIds,
+      validated.includeTripDetails
     );
     return successResponse(result);
   } catch (err) {
