@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma';
 import { UpdateProfileInput, ChangePasswordInput } from '@tripcircle/contracts';
 import { StorageService } from '../../infrastructure/storage';
+import { TripService } from '../trips/service';
 
 export class UserService {
   static async getProfile(userId: string) {
@@ -31,12 +32,30 @@ export class UserService {
       },
     });
 
+    // Authoritative financial aggregate calculation
+    const myTripsResponse = await TripService.getMyTrips(userId);
+    const {
+      netOwedToUserPaise,
+      netUserOwesPaise,
+      overallNetBalancePaise,
+      activeTripsCount,
+    } = myTripsResponse.aggregateNetPosition;
+
     return {
       ...user,
       createdAt: user.createdAt.toISOString(),
       completedTripCount,
+      activeTripsCount,
+      netUnsettledPaise: overallNetBalancePaise,
+      aggregateNetPosition: {
+        netOwedToUserPaise,
+        netUserOwesPaise,
+        overallNetBalancePaise,
+        activeTripsCount,
+      },
     };
   }
+
 
   static async updateProfile(userId: string, input: UpdateProfileInput) {
     const existingUser = await prisma.user.findUnique({

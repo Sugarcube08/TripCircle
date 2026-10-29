@@ -1,9 +1,17 @@
 import * as FileSystem from 'expo-file-system';
 
+export interface AggregateNetPosition {
+  netOwedToUserPaise: number;
+  netUserOwesPaise: number;
+  overallNetBalancePaise: number;
+  activeTripsCount: number;
+}
+
 export interface LocalCacheState {
   version: number;
   lastSyncTimestamp: string | null;
   currentUserId?: string | null;
+  aggregateNetPosition?: AggregateNetPosition | null;
   trips: any[];
   tripDetails: Record<string, any>; // tripId -> detailed trip
   expenses: Record<string, any[]>; // tripId -> expenses
@@ -18,6 +26,7 @@ const DEFAULT_STATE: LocalCacheState = {
   version: CURRENT_CACHE_VERSION,
   lastSyncTimestamp: null,
   currentUserId: null,
+  aggregateNetPosition: null,
   trips: [],
   tripDetails: {},
   expenses: {},
@@ -120,6 +129,80 @@ export const LocalDatabase = {
 
   saveTrips(trips: any[]) {
     cache.trips = trips;
+    // Keep aggregate net position reconciled with trips
+    const activeTrips = trips.filter((t: any) => t.status !== 'CLOSED');
+    let owed = 0;
+    let owes = 0;
+    for (const t of activeTrips) {
+      const bal = t.userNetBalancePaise || 0;
+      if (bal > 0) owed += bal;
+      else if (bal < 0) owes += Math.abs(bal);
+    }
+    cache.aggregateNetPosition = {
+      netOwedToUserPaise: owed,
+      netUserOwesPaise: owes,
+      overallNetBalancePaise: owed - owes,
+      activeTripsCount: activeTrips.length,
+    };
+    schedulePersist();
+  },
+
+  saveAggregateNetPosition(pos: AggregateNetPosition) {
+    cache.aggregateNetPosition = pos;
+    schedulePersist();
+  },
+
+  getAggregateNetPosition(): AggregateNetPosition | null {
+    if (cache.aggregateNetPosition) return cache.aggregateNetPosition;
+    if (cache.trips && cache.trips.length > 0) {
+      const activeTrips = cache.trips.filter((t: any) => t.status !== 'CLOSED');
+      let owed = 0;
+      let owes = 0;
+      for (const t of activeTrips) {
+        const bal = t.userNetBalancePaise || 0;
+        if (bal > 0) owed += bal;
+        else if (bal < 0) owes += Math.abs(bal);
+      }
+      return {
+        netOwedToUserPaise: owed,
+        netUserOwesPaise: owes,
+        overallNetBalancePaise: owed - owes,
+        activeTripsCount: activeTrips.length,
+      };
+    }
+    return null;
+  },
+
+  updateTripNetBalance(tripId: string, balancePaise: number) {
+    let modified = false;
+    cache.trips = cache.trips.map((t: any) => {
+      if (t.id === tripId) {
+        modified = true;
+        return { ...t, userNetBalancePaise: balancePaise };
+      }
+      return t;
+    });
+
+    if (cache.tripDetails[tripId]) {
+      cache.tripDetails[tripId].userNetBalancePaise = balancePaise;
+    }
+
+    // Reconcile aggregate
+    const activeTrips = cache.trips.filter((t: any) => t.status !== 'CLOSED');
+    let owed = 0;
+    let owes = 0;
+    for (const t of activeTrips) {
+      const bal = t.userNetBalancePaise || 0;
+      if (bal > 0) owed += bal;
+      else if (bal < 0) owes += Math.abs(bal);
+    }
+    cache.aggregateNetPosition = {
+      netOwedToUserPaise: owed,
+      netUserOwesPaise: owes,
+      overallNetBalancePaise: owed - owes,
+      activeTripsCount: activeTrips.length,
+    };
+
     schedulePersist();
   },
 
@@ -129,6 +212,13 @@ export const LocalDatabase = {
 
   saveTripDetail(tripId: string, detail: any) {
     cache.tripDetails[tripId] = detail;
+    if (detail && typeof detail.userNetBalancePaise === 'number') {
+      const existing = cache.trips.find((t: any) => t.id === tripId);
+      if (existing && existing.userNetBalancePaise !== detail.userNetBalancePaise) {
+        this.updateTripNetBalance(tripId, detail.userNetBalancePaise);
+        return;
+      }
+    }
     schedulePersist();
   },
 

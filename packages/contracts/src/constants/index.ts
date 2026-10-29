@@ -45,7 +45,11 @@ export const FINANCIAL_LIMITS = {
   MIN_AMOUNT_PAISE: 1, // 1 paisa (₹0.01)
   MAX_AMOUNT_PAISE: 100_000_000, // ₹10,00,000.00 (10 lakh rupees)
   PAISE_PER_RUPEE: 100,
+  SUB_RUPEE_DISCOUNT_THRESHOLD_PAISE: 100, // Residual balances < 100 paise (< ₹1.00) qualify for waiver
 } as const;
+
+export const SUB_RUPEE_DISCOUNT_THRESHOLD_PAISE = 100;
+
 
 export const OTP_CONFIG = {
   LENGTH: 6,

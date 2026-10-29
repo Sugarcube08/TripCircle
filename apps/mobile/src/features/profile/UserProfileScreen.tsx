@@ -42,16 +42,24 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
-  // Compute verified live account metrics from cached trip ledgers
-  const cachedTrips = useMemo(() => LocalDatabase.getTrips(), []);
-  const activeTripsCount = useMemo(
-    () => cachedTrips.filter((t: any) => t.status !== 'CLOSED').length,
-    [cachedTrips]
-  );
-  const netUnsettledPaise = useMemo(
-    () => cachedTrips.reduce((sum: number, t: any) => sum + (t.userNetBalancePaise || 0), 0),
-    [cachedTrips]
-  );
+  // Compute verified live account metrics from local cache & authoritative backend service
+  const [financialMetrics, setFinancialMetrics] = useState(() => {
+    const agg = LocalDatabase.getAggregateNetPosition();
+    return {
+      activeTripsCount: agg?.activeTripsCount ?? 0,
+      netUnsettledPaise: agg?.overallNetBalancePaise ?? 0,
+    };
+  });
+
+  const refreshMetrics = useCallback(() => {
+    const agg = LocalDatabase.getAggregateNetPosition();
+    if (agg) {
+      setFinancialMetrics({
+        activeTripsCount: agg.activeTripsCount,
+        netUnsettledPaise: agg.overallNetBalancePaise,
+      });
+    }
+  }, []);
 
   // Sync with prop when parent updates
   useEffect(() => {
@@ -64,13 +72,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   const fetchMe = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastProfileFetchRef.current < 30000) {
+    if (!force && now - lastProfileFetchRef.current < 15000) {
       return;
     }
     try {
       const data = await apiRequest('/users/me');
       lastProfileFetchRef.current = Date.now();
       setProfile(data);
+      if (data.aggregateNetPosition) {
+        LocalDatabase.saveAggregateNetPosition(data.aggregateNetPosition);
+        setFinancialMetrics({
+          activeTripsCount: data.aggregateNetPosition.activeTripsCount,
+          netUnsettledPaise: data.aggregateNetPosition.overallNetBalancePaise,
+        });
+      }
       onUpdateUser?.(data);
     } catch {
       // Keep local state
@@ -78,10 +93,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   }, [onUpdateUser]);
 
   useEffect(() => {
+    refreshMetrics();
     fetchMe(false);
-    const unsubscribe = navigation.addListener('focus', () => fetchMe(false));
+    const unsubscribe = navigation.addListener('focus', () => {
+      refreshMetrics();
+      fetchMe(false);
+    });
     return unsubscribe;
-  }, [navigation, fetchMe]);
+  }, [navigation, fetchMe, refreshMetrics]);
 
   const handleManualUpdateCheck = async () => {
     setCheckingUpdate(true);
@@ -157,7 +176,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           {/* Verified Account Statistics Bar */}
           <View style={styles.statBox}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{activeTripsCount}</Text>
+              <Text style={styles.statNumber}>{financialMetrics.activeTripsCount}</Text>
               <Text style={styles.statLabel}>ACTIVE TRIPS</Text>
             </View>
             <View style={styles.statDivider} />
@@ -168,7 +187,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <AmountText
-                paise={netUnsettledPaise}
+                paise={financialMetrics.netUnsettledPaise}
                 size="medium"
                 colorType="auto"
                 style={styles.statAmountText}

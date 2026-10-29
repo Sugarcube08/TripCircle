@@ -68,6 +68,9 @@ export async function performSync(options: SyncOptions = {}): Promise<SyncResult
       if (result.trips && Array.isArray(result.trips)) {
         LocalDatabase.saveTrips(result.trips);
       }
+      if (result.aggregateNetPosition) {
+        LocalDatabase.saveAggregateNetPosition(result.aggregateNetPosition);
+      }
       if (result.notifications && Array.isArray(result.notifications)) {
         LocalDatabase.saveNotifications(result.notifications);
       }

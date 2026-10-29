@@ -4,10 +4,149 @@ import {
   calculateSettlementPlan,
   calculateBilateralObligations,
 } from '../financial/calculator';
-import { ProposeDiscountInput, RespondDiscountInput } from '@tripcircle/contracts';
+import {
+  ProposeDiscountInput,
+  RespondDiscountInput,
+  SUB_RUPEE_DISCOUNT_THRESHOLD_PAISE,
+} from '@tripcircle/contracts';
 import { createOutboxEvent } from '../../lib/outbox';
 
 export class SettlementService {
+  /**
+   * Idempotently auto-applies waivers for residual settlement balances below ₹1.00 (< 100 paise).
+   * Ensures that tiny indivisible balances are recorded as auditable accepted settlement adjustments
+   * rather than requiring friction-filled cash payments.
+   */
+  static async autoApplySubRupeeDiscounts(tripId: string) {
+    return prisma.$transaction(async (tx) => {
+      const trip = await tx.trip.findUnique({
+        where: { id: tripId },
+        include: {
+          members: { include: { user: true } },
+          expenses: { where: { isDeleted: false }, include: { allocations: true } },
+          payments: true,
+          discounts: true,
+        },
+      });
+
+      if (!trip) return [];
+
+      const hasPendingOrDisputed = trip.payments.some(
+        (p) => p.status === 'PENDING' || p.status === 'DISPUTED'
+      );
+      if (hasPendingOrDisputed) return [];
+
+      const allMemberIds = trip.members.map((m) => m.id);
+      const confirmedPayments = trip.payments.filter((p) => p.status === 'CONFIRMED');
+      const acceptedDiscounts = trip.discounts.filter((d) => d.status === 'ACCEPTED');
+
+      const netBalancesMap = calculateTripNetBalances(
+        allMemberIds,
+        trip.expenses.map((e) => ({
+          id: e.id,
+          payerMemberId: e.payerMemberId,
+          amountPaise: e.amountPaise,
+          allocations: e.allocations.map((a) => ({
+            memberId: a.memberId,
+            sharePaise: a.sharePaise,
+          })),
+        })),
+        confirmedPayments.map((p) => ({
+          id: p.id,
+          payerMemberId: p.payerMemberId,
+          receiverMemberId: p.receiverMemberId,
+          amountPaise: p.amountPaise,
+        })),
+        acceptedDiscounts.map((d) => ({
+          id: d.id,
+          fromMemberId: d.fromMemberId,
+          toMemberId: d.toMemberId,
+          waivedPaise: d.waivedPaise,
+        }))
+      );
+
+      const transfers = calculateSettlementPlan(netBalancesMap);
+      const eligibleTransfers = transfers.filter(
+        (t) => t.amountPaise > 0 && t.amountPaise < SUB_RUPEE_DISCOUNT_THRESHOLD_PAISE
+      );
+
+      if (eligibleTransfers.length === 0) return [];
+
+      const memberMap = new Map(trip.members.map((m) => [m.id, m]));
+      const createdDiscounts = [];
+
+      for (const t of eligibleTransfers) {
+        // Strict Idempotency: verify no existing waiver exists for this pair
+        const alreadyWaived = trip.discounts.some(
+          (d) =>
+            d.fromMemberId === t.fromMemberId &&
+            d.toMemberId === t.toMemberId &&
+            d.status === 'ACCEPTED' &&
+            d.waivedPaise === t.amountPaise
+        );
+        if (alreadyWaived) continue;
+
+        const fromMember = memberMap.get(t.fromMemberId);
+        const toMember = memberMap.get(t.toMemberId);
+        const fromName = fromMember?.user?.name || fromMember?.displayName || 'Offline Member';
+        const toName = toMember?.user?.name || toMember?.displayName || 'Offline Member';
+
+        const discount = await tx.settlementDiscount.create({
+          data: {
+            tripId,
+            fromMemberId: t.fromMemberId,
+            toMemberId: t.toMemberId,
+            originalDebtPaise: t.amountPaise,
+            paidAmountPaise: 0,
+            waivedPaise: t.amountPaise,
+            reason: 'Automatic waiver of sub-rupee residual balance (< ₹1.00)',
+            status: 'ACCEPTED',
+            respondedAt: new Date(),
+          },
+        });
+
+        // Dual ledger entries for complete auditability
+        await tx.ledgerEntry.create({
+          data: {
+            tripId,
+            eventType: 'SETTLEMENT_DISCOUNT',
+            referenceId: discount.id,
+            memberId: discount.toMemberId,
+            creditPaise: 0,
+            debitPaise: discount.waivedPaise,
+            netChangePaise: -discount.waivedPaise,
+            balanceAfterPaise: 0,
+            description: `Auto-waived sub-rupee residual ₹${(discount.waivedPaise / 100).toFixed(2)} for ${fromName}`,
+          },
+        });
+
+        await tx.ledgerEntry.create({
+          data: {
+            tripId,
+            eventType: 'SETTLEMENT_DISCOUNT',
+            referenceId: discount.id,
+            memberId: discount.fromMemberId,
+            creditPaise: discount.waivedPaise,
+            debitPaise: 0,
+            netChangePaise: discount.waivedPaise,
+            balanceAfterPaise: 0,
+            description: `Sub-rupee residual ₹${(discount.waivedPaise / 100).toFixed(2)} waived by ${toName}`,
+          },
+        });
+
+        await createOutboxEvent(tx, 'DISCOUNT', discount.id, 'DISCOUNT_AUTO_WAIVED', {
+          discountId: discount.id,
+          tripId,
+          waivedPaise: discount.waivedPaise,
+        });
+
+        createdDiscounts.push(discount);
+      }
+
+      return createdDiscounts;
+    });
+  }
+
   static async getSettlementPlan(tripId: string, currentUserId: string) {
     const trip = await prisma.trip.findUnique({
       where: { id: tripId },
@@ -44,6 +183,8 @@ export class SettlementService {
             toMemberId: true,
             waivedPaise: true,
             status: true,
+            reason: true,
+            createdAt: true,
           },
         },
       },
@@ -57,14 +198,14 @@ export class SettlementService {
     }
 
     const allMemberIds = trip.members.map((m) => m.id);
-    const confirmedPayments = trip.payments.filter((p) => p.status === 'CONFIRMED');
-    const acceptedDiscounts = trip.discounts.filter((d) => d.status === 'ACCEPTED');
+    let confirmedPayments = trip.payments.filter((p) => p.status === 'CONFIRMED');
+    let acceptedDiscounts = trip.discounts.filter((d) => d.status === 'ACCEPTED');
 
     const pendingPaymentsCount = trip.payments.filter((p) => p.status === 'PENDING').length;
     const disputedPaymentsCount = trip.payments.filter((p) => p.status === 'DISPUTED').length;
 
-    // Net balances calculation
-    const netBalancesMap = calculateTripNetBalances(
+    // Initial Net balances calculation
+    let netBalancesMap = calculateTripNetBalances(
       allMemberIds,
       trip.expenses.map((e) => ({
         id: e.id,
@@ -89,8 +230,72 @@ export class SettlementService {
       }))
     );
 
-    // Simplified transfers
-    const transfers = calculateSettlementPlan(netBalancesMap);
+    let transfers = calculateSettlementPlan(netBalancesMap);
+
+    // Auto-apply sub-rupee settlement discounts (< ₹1.00) when all transactions are settled
+    if (pendingPaymentsCount === 0 && disputedPaymentsCount === 0) {
+      const hasSubRupee = transfers.some(
+        (t) => t.amountPaise > 0 && t.amountPaise < SUB_RUPEE_DISCOUNT_THRESHOLD_PAISE
+      );
+      if (hasSubRupee) {
+        const createdWaivers = await SettlementService.autoApplySubRupeeDiscounts(tripId);
+        if (createdWaivers.length > 0) {
+          // Re-fetch accepted discounts and recompute
+          acceptedDiscounts = await prisma.settlementDiscount.findMany({
+            where: { tripId, status: 'ACCEPTED' },
+            select: {
+              id: true,
+              fromMemberId: true,
+              toMemberId: true,
+              waivedPaise: true,
+              status: true,
+              reason: true,
+              createdAt: true,
+            },
+          });
+          trip.discounts = await prisma.settlementDiscount.findMany({
+            where: { tripId },
+            select: {
+              id: true,
+              fromMemberId: true,
+              toMemberId: true,
+              waivedPaise: true,
+              status: true,
+              reason: true,
+              createdAt: true,
+            },
+          });
+
+          netBalancesMap = calculateTripNetBalances(
+            allMemberIds,
+            trip.expenses.map((e) => ({
+              id: e.id,
+              payerMemberId: e.payerMemberId,
+              amountPaise: e.amountPaise,
+              allocations: e.allocations.map((a) => ({
+                memberId: a.memberId,
+                sharePaise: a.sharePaise,
+              })),
+            })),
+            confirmedPayments.map((p) => ({
+              id: p.id,
+              payerMemberId: p.payerMemberId,
+              receiverMemberId: p.receiverMemberId,
+              amountPaise: p.amountPaise,
+            })),
+            acceptedDiscounts.map((d) => ({
+              id: d.id,
+              fromMemberId: d.fromMemberId,
+              toMemberId: d.toMemberId,
+              waivedPaise: d.waivedPaise,
+            }))
+          );
+
+          transfers = calculateSettlementPlan(netBalancesMap);
+        }
+      }
+    }
+
 
     // Member map for quick name resolution
     const memberObjMap = new Map(trip.members.map((m) => [m.id, m]));

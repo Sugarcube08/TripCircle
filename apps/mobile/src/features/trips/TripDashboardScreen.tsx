@@ -9,6 +9,7 @@ import {
   StatusBar,
   Modal,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,8 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   user,
 }) => {
   const { tripId } = route.params;
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 360;
 
   // Initialize immediately from persistent cache for 0ms initial render
   const initialCachedTrip = useMemo(() => LocalDatabase.getTripDetail(tripId), [tripId]);
@@ -422,9 +425,9 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
         </View>
 
         {/* Primary Action Buttons: Add Expense / Record Payment */}
-        <View style={styles.actionsRow}>
+        <View style={[styles.actionsRow, isNarrow && styles.actionsRowNarrow]}>
           <TouchableOpacity
-            style={[styles.actionBtn, styles.expenseBtn]}
+            style={[styles.actionBtn, styles.expenseBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => navigation.navigate('AddExpense', { tripId })}
             activeOpacity={0.85}
           >
@@ -433,7 +436,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, styles.paymentBtn]}
+            style={[styles.actionBtn, styles.paymentBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => navigation.navigate('AddPayment', { tripId })}
             activeOpacity={0.85}
           >
@@ -463,7 +466,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
           <TouchableOpacity
             style={styles.shortcutCard}
-            onPress={() => navigation.navigate('ExportReport', { tripId })}
+            onPress={() => navigation.navigate('ExportReport', { tripId, tripName: trip?.name })}
             activeOpacity={0.85}
           >
             <View style={[styles.shortcutIconBox, { backgroundColor: '#3B82F6' }]}>
@@ -666,10 +669,10 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
                           <Ionicons name="paper-plane-outline" size={18} color="#8B5CF6" />
                         </View>
                         <View style={styles.ledgerInfo}>
-                          <Text style={styles.ledgerTitle}>
+                          <Text style={styles.ledgerTitle} numberOfLines={1} ellipsizeMode="tail">
                             {payerName} → {receiverName}
                           </Text>
-                          <Text style={styles.ledgerSubtitle}>
+                          <Text style={styles.ledgerSubtitle} numberOfLines={1}>
                             Method: {p.paymentMethod || 'UPI'}
                           </Text>
                           <Text style={styles.dateText}>{formatDate(p.createdAt)}</Text>
@@ -929,6 +932,10 @@ const styles = StyleSheet.create({
     marginTop: THEME.spacing.xs,
     marginBottom: THEME.spacing.xs,
   },
+  actionsRowNarrow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -936,6 +943,9 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionBtnNarrow: {
+    width: '100%',
   },
   expenseBtn: {
     backgroundColor: THEME.colors.primary,
@@ -1118,6 +1128,7 @@ const styles = StyleSheet.create({
   },
   ledgerInfo: {
     flex: 1,
+    minWidth: 0,
   },
   ledgerTitle: {
     fontSize: 14,
@@ -1150,6 +1161,8 @@ const styles = StyleSheet.create({
   ledgerCardRight: {
     alignItems: 'flex-end',
     marginLeft: 8,
+    flexShrink: 0,
+    minWidth: 75,
   },
   badgeRow: {
     flexDirection: 'row',

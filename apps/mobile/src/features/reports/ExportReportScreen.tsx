@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { getApiBaseUrl } from '../../services/api';
 import { getAccessToken } from '../../storage/secureStore';
 import { ScreenHeader, SegmentedControl, dialog } from '../../components/ui';
@@ -24,36 +26,58 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { tripId } = route.params;
+  const { tripId, tripName } = route.params;
   const [reportType, setReportType] = useState<'TRIP_LEDGER' | 'INDIVIDUAL'>('TRIP_LEDGER');
   const [format, setFormat] = useState<'PDF' | 'XLSX'>('PDF');
   const [loading, setLoading] = useState(false);
 
   const handleExport = async () => {
+    if (loading) return;
     try {
       setLoading(true);
       const token = await getAccessToken();
       const baseUrl = getApiBaseUrl();
       const url = `${baseUrl}/trips/${tripId}/reports/export?reportType=${reportType}&format=${format}`;
 
-      const res = await fetch(url, {
+      const sanitizedName = (tripName || 'TripCircle').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const ext = format === 'PDF' ? 'pdf' : 'xlsx';
+      const filename = `${sanitizedName}_${reportType}_${Date.now()}.${ext}`;
+      const destinationUri = `${FileSystem.documentDirectory}${filename}`;
+
+      const downloadResult = await FileSystem.downloadAsync(url, destinationUri, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!res.ok) {
-        throw new Error(`Report export failed with status: ${res.status}`);
+      if (downloadResult.status !== 200) {
+        throw new Error(`Report download failed with status ${downloadResult.status}`);
+      }
+
+      const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+      if (!fileInfo.exists || !('size' in fileInfo) || fileInfo.size === 0) {
+        throw new Error('Downloaded report file is empty.');
+      }
+
+      const sizeKb = (fileInfo.size / 1024).toFixed(1);
+
+      // Trigger native share/open flow
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(downloadResult.uri, {
+          mimeType: format === 'PDF' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          dialogTitle: `Save or Share ${format} Report (${sizeKb} KB)`,
+          UTI: format === 'PDF' ? 'com.adobe.pdf' : 'org.openxmlformats.spreadsheetml.sheet',
+        });
       }
 
       await dialog.alert(
-        'Report Generated',
-        `Your ${format} report (${reportType === 'TRIP_LEDGER' ? 'Complete Trip Ledger' : 'Individual Statement'}) was generated successfully with full paise accounting.`,
+        'Report Saved',
+        `Your ${format} report (${sizeKb} KB) was generated and saved to your device with integer paise reconciliation.`,
         'success'
       );
-      navigation.goBack();
     } catch (err) {
-      dialog.alert('Export Error', (err as Error).message, 'error');
+      dialog.alert('Export Failed', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

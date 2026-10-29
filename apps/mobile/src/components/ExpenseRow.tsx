@@ -53,13 +53,13 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
       <View style={styles.amounts}>
         <AmountText paise={expense.amountPaise} size="medium" colorType="neutral" />
         {myAllocation ? (
-          <Text style={[styles.shareText, isPayer && styles.shareCredit]}>
+          <Text style={[styles.shareText, isPayer && styles.shareCredit]} numberOfLines={1} ellipsizeMode="tail">
             {isPayer
               ? `You lent ₹${((expense.amountPaise - myAllocation.sharePaise) / 100).toFixed(2)}`
               : `Your share: ₹${(myAllocation.sharePaise / 100).toFixed(2)}`}
           </Text>
         ) : (
-          <Text style={styles.notInvolvedText}>Not involved</Text>
+          <Text style={styles.notInvolvedText} numberOfLines={1}>Not involved</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
   },
   details: {
     flex: 1,
+    minWidth: 0,
     marginRight: THEME.spacing.sm,
   },
   description: {
@@ -118,6 +119,8 @@ const styles = StyleSheet.create({
   },
   amounts: {
     alignItems: 'flex-end',
+    flexShrink: 0,
+    minWidth: 70,
   },
   shareText: {
     fontSize: 12,

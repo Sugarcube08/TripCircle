@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,8 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
   user,
 }) => {
   const { tripId } = route.params;
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 360;
   const initialPlan = useMemo(() => LocalDatabase.getSettlementPlan(tripId), [tripId]);
   const [plan, setPlan] = useState<any>(initialPlan);
   const [loading, setLoading] = useState(!initialPlan);
@@ -302,9 +305,9 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
         </View>
 
         {/* Secondary Actions */}
-        <View style={styles.btnRow}>
+        <View style={[styles.btnRow, isNarrow && styles.btnRowNarrow]}>
           <TouchableOpacity
-            style={styles.discountBtn}
+            style={[styles.discountBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => setDiscountModalVisible(true)}
             activeOpacity={0.85}
             accessibilityRole="button"
@@ -315,8 +318,8 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.exportBtn}
-            onPress={() => navigation.navigate('ExportReport', { tripId })}
+            style={[styles.exportBtn, isNarrow && styles.actionBtnNarrow]}
+            onPress={() => navigation.navigate('ExportReport', { tripId, tripName: plan?.tripName || 'Trip' })}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Export Report"
@@ -608,6 +611,13 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: THEME.spacing.xs,
     marginBottom: THEME.spacing.lg,
+  },
+  btnRowNarrow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  actionBtnNarrow: {
+    width: '100%',
   },
   discountBtn: {
     flex: 1,

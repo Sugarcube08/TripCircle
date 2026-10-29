@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { CreatePaymentInput, ConfirmPaymentInput, DisputePaymentInput } from '@tripcircle/contracts';
 import { createOutboxEvent } from '../../lib/outbox';
+import { SettlementService } from '../settlements/service';
 
 export class PaymentService {
   static async createPayment(tripId: string, currentUserId: string, input: CreatePaymentInput) {
@@ -177,7 +178,7 @@ export class PaymentService {
     currentUserId: string,
     input?: ConfirmPaymentInput
   ) {
-    return prisma.$transaction(async (tx) => {
+    const confirmedResult = await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({
         where: { id: paymentId },
         include: {
@@ -275,6 +276,11 @@ export class PaymentService {
 
       return confirmed;
     });
+
+    // Auto-apply sub-rupee residual waivers (< ₹1.00) if payment resolved obligations
+    await SettlementService.autoApplySubRupeeDiscounts(tripId).catch(() => []);
+
+    return confirmedResult;
   }
 
   static async disputePayment(
