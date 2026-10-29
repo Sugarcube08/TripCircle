@@ -255,6 +255,18 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
               <Text style={styles.disputeNoticeDate}>Disputed on {formatDateTime(payment.disputedAt)}</Text>
             </View>
           ) : null}
+
+          {payment.status === 'CANCELLED' ? (
+            <View style={styles.cancelledNotice}>
+              <View style={styles.cancelledNoticeHeader}>
+                <Ionicons name="close-circle" size={18} color={THEME.colors.textMuted} style={{ marginRight: 6 }} />
+                <Text style={styles.cancelledNoticeTitle}>Payment Cancelled</Text>
+              </View>
+              <Text style={styles.cancelledNoticeText}>
+                This pending payment was cancelled by the payer. Group balances remain unaltered.
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Action Controls for Receiver */}
@@ -509,6 +521,29 @@ const styles = StyleSheet.create({
   disputeNoticeDate: {
     fontSize: 11,
     color: THEME.colors.textMuted,
+  },
+  cancelledNotice: {
+    backgroundColor: THEME.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderLight,
+    borderRadius: THEME.borderRadius.md,
+    padding: 12,
+    marginTop: 10,
+  },
+  cancelledNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  cancelledNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: THEME.colors.textMuted,
+  },
+  cancelledNoticeText: {
+    fontSize: 13,
+    color: THEME.colors.textSecondary,
+    lineHeight: 18,
   },
   actionsContainer: {
     gap: 10,

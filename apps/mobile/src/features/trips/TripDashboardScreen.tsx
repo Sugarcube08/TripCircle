@@ -602,7 +602,13 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
                       <AmountText
                         paise={item.amountPaise}
                         size="medium"
-                        colorType={item.itemType === 'EXPENSE' ? 'neutral' : 'credit'}
+                        colorType={
+                          item.itemType === 'EXPENSE'
+                            ? 'neutral'
+                            : item.paymentStatus === 'CONFIRMED'
+                              ? 'credit'
+                              : 'neutral'
+                        }
                       />
 
                       <View style={styles.badgeRow}>
