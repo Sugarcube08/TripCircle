@@ -67,3 +67,20 @@
 - Individual Member Financial Statement (PDF and XLSX).
 - Complete Trip Ledger Report (PDF and XLSX).
 - Local disk & S3-compatible object storage with MIME and 10MB size validation.
+
+---
+
+## 4. User Interface & Screen Architecture
+
+For an exhaustive anatomical breakdown and live screenshots from the Android client, see **[`docs/VISUAL_GUIDE.md`](VISUAL_GUIDE.md)**.
+
+| View | Screenshot | Core Responsibility |
+| :--- | :--- | :--- |
+| **Trips Directory** | `screenshots/Home.jpg` | High-level portfolio of active trips and overall net debtor/creditor position. |
+| **Trip Dashboard** | `screenshots/Trip_View.jpg` | Real-time trip balance, creditor status, member roster, and settlement actions. |
+| **Financial Ledger** | `screenshots/Trip_Ledger.jpg` | Immutable chronological stream of expenses and confirmed UPI settlements. |
+| **Expense Capture** | `screenshots/Expense_Form_1.jpg` & `screenshots/Expense_Form_2.jpg` | Paise-perfect expense allocation with dynamic quick chips and receipt attachments. |
+| **Payment Reporting** | `screenshots/Payment_Reporting_Form.jpg` & `screenshots/Payment_Detail.jpg` | Bilateral transfer logging and two-step receiver verification audit log. |
+| **Member Profile** | `screenshots/Individual_Trip_Balance_Profile.jpg` | Person-to-person bilateral obligations and comprehensive out-of-pocket statistics. |
+| **User Profile** | `screenshots/Profile.jpg` | Personal account credentials, UPI payment QR code configuration, and version verification. |
+

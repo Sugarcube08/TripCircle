@@ -97,5 +97,31 @@ An explicit settlement discount represents a formal waiver of debt:
 - Example: Debt is ₹1,586.65 (`158665` paise).
 - Debtor pays ₹1,586.00 (`158600` paise).
 - Creditor accepts waiving ₹0.65 (`65` paise).
-- `paidAmountPaise` = 158600, `waivedPaise` = 65.
-- Both records are preserved in financial history. Both parties reach net balance 0.
+---
+
+## 7. Financial Model In Practice: Live UI Mapping
+
+The exact integer paise model is visually surfaced to users on mobile without exposing raw internal integer representation:
+
+<div align="center">
+  <img src="../screenshots/Individual_Trip_Balance_Profile.jpg" width="300" alt="Member Financial Profile" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../screenshots/Trip_Ledger.jpg" width="300" alt="Chronological Ledger" />
+</div>
+
+1. **Member Ledger Breakdown (`Individual_Trip_Balance_Profile.jpg`)**:
+   - Direct inspection of Alice Sharma's financial standing:
+     - **Net Balance:** `-₹195.34` (Owes money to the group).
+     - **Direct Bilateral Debt:** Alice Sharma owes you `₹150.00`.
+     - **Total Expenses Paid:** `₹1,220.00`
+     - **Total Expense Share:** `₹1,289.66`
+     - **Confirmed Payments Made:** `₹224.00`
+   - Notice that the difference between her out-of-pocket expenses and her liability share is exactly:
+     $$₹1,220.00 - ₹1,289.66 = -₹69.66$$
+     Factoring in confirmed payments made (`₹224.00`) and received yields her exact net balance of `-₹195.34`.
+
+2. **Chronological Ledger Integrity (`Trip_Ledger.jpg`)**:
+   - The ledger presents all 16 transactions chronologically.
+   - Verified payments (`UPI · CONFIRMED`) are badged distinctly from category expenses (*Activities & Entertainment: ₹250.00*, *Accommodation: ₹500.00*, *Fuel: ₹250.00*).
+   - Direct transfers strictly update balances only after transitioning to `CONFIRMED`. Unconfirmed or disputed payments never affect ledger sums.
+
