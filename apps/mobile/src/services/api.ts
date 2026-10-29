@@ -4,6 +4,8 @@ import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../stor
  * Resolves the API base URL strictly from environment variables.
  * The API endpoint is NEVER hardcoded and is always fetched from .env.
  */
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
+
 export function getApiBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (!envUrl || envUrl.trim() === '') {
@@ -215,14 +217,30 @@ export async function apiRequest<T = any>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Request-ID': correlationId,
+    Accept: 'application/json',
     ...(options.headers as Record<string, string>),
   };
+
+  // Only pass custom header if explicitly requested to avoid browser CORS preflight rejections
+  if (options.correlationId) {
+    headers['X-Request-ID'] = options.correlationId;
+  }
 
   if (requiresAuth) {
     const token = await getAccessToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
+  if (isDev) {
+    try {
+      console.log(`🌐 [API ${options.method || 'GET'}] ${endpoint}`, {
+        url,
+        body: options.body,
+      });
+    } catch {
+      // safe fallback
     }
   }
 
@@ -502,7 +520,6 @@ export async function uploadImageFromUri(
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         Accept: 'application/json',
-        'X-Request-ID': correlationId,
       },
       body: formData,
       signal: controller.signal,
