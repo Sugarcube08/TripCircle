@@ -20,7 +20,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { resolveMediaUrl } from '../../utils/media';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface MemberProfileScreenProps {
@@ -105,18 +105,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{memberName}</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title={memberName} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
@@ -349,7 +338,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   profileCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.xl,
     alignItems: 'center',
@@ -361,6 +350,7 @@ const styles = StyleSheet.create({
   name: {
     ...THEME.typography.h2,
     marginTop: THEME.spacing.sm,
+    color: THEME.colors.textPrimary,
   },
   email: {
     ...THEME.typography.bodySmall,
@@ -385,7 +375,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.md,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.35)',
+    borderColor: 'rgba(0, 245, 160, 0.25)',
   },
   dummyNoticeText: {
     fontSize: 12,
@@ -394,7 +384,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     marginBottom: THEME.spacing.md,
@@ -405,7 +395,7 @@ const styles = StyleSheet.create({
   cardHeaderTitle: {
     fontSize: 11,
     fontWeight: '800',
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.textMuted,
     letterSpacing: 0.8,
     marginBottom: THEME.spacing.sm,
   },
@@ -417,12 +407,12 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSecondary,
   },
   obligationCard: {
-    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+    backgroundColor: THEME.colors.primaryLight,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     marginBottom: THEME.spacing.md,
     borderWidth: 1,
-    borderColor: THEME.colors.primary,
+    borderColor: 'rgba(0, 245, 160, 0.3)',
   },
   obligationHeader: {
     fontSize: 11,
@@ -446,12 +436,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: THEME.colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: THEME.borderRadius.full,
+    minHeight: 40,
+    borderRadius: THEME.borderRadius.md,
     marginLeft: 12,
+    justifyContent: 'center',
   },
   payBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -459,7 +450,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.borderLight,
   },
@@ -472,20 +463,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.lg,
     marginTop: 4,
     ...THEME.shadows.sm,
   },
   qrBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontWeight: '700',
     fontSize: 15,
   },
   noQrNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     padding: 12,
     gap: 8,

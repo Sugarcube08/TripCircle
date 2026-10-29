@@ -21,35 +21,12 @@ import { apiRequest, getOnlineStatus, uploadImageFromUri, ApiError } from '../..
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { dialog } from '../../components/ui';
-import { THEME } from '../../theme';
+import { THEME, getCategoryConfig } from '../../theme';
 
 interface AddExpenseScreenProps {
   route: any;
   navigation: any;
   user: any;
-}
-
-function getCategoryConfig(key: string) {
-  const k = (key || '').toLowerCase();
-  if (k.includes('food') || k.includes('dinner') || k.includes('meal')) {
-    return { icon: 'restaurant-outline' as const, color: '#F97316', bg: '#FFF7ED' };
-  }
-  if (k.includes('stay') || k.includes('hotel') || k.includes('resort')) {
-    return { icon: 'bed-outline' as const, color: '#8B5CF6', bg: '#F5F3FF' };
-  }
-  if (k.includes('travel') || k.includes('transport') || k.includes('cab')) {
-    return { icon: 'car-outline' as const, color: '#3B82F6', bg: '#EFF6FF' };
-  }
-  if (k.includes('drink') || k.includes('beverage') || k.includes('bar')) {
-    return { icon: 'cafe-outline' as const, color: '#EC4899', bg: '#FDF2F8' };
-  }
-  if (k.includes('activity') || k.includes('entertainment')) {
-    return { icon: 'ticket-outline' as const, color: '#10B981', bg: '#ECFDF5' };
-  }
-  if (k.includes('shopping')) {
-    return { icon: 'bag-handle-outline' as const, color: '#F59E0B', bg: '#FFFBEB' };
-  }
-  return { icon: 'receipt-outline' as const, color: '#0D9488', bg: '#F0FDFA' };
 }
 
 export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({

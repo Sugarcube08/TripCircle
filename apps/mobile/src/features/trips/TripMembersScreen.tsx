@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   TextInput,
   ActivityIndicator,
   StatusBar,
@@ -24,7 +23,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Badge } from '../../components/ui/Badge';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, SegmentedControl, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface TripMembersScreenProps {
@@ -205,65 +204,28 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Trip Members</Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{members.length}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Trip Members"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>{members.length}</Text>
+          </View>
+        }
+      />
 
       {/* Add Member Container */}
       <View style={styles.inviteContainer}>
         {/* Tab Switcher */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'REGISTERED' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('REGISTERED')}
-          >
-            <Ionicons
-              name="person-add-outline"
-              size={15}
-              color={activeTab === 'REGISTERED' ? THEME.colors.primary : THEME.colors.textMuted}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.tabBtnText,
-                activeTab === 'REGISTERED' && styles.tabBtnTextActive,
-              ]}
-            >
-              Invite User
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'OFFLINE' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('OFFLINE')}
-          >
-            <Ionicons
-              name="people-outline"
-              size={15}
-              color={activeTab === 'OFFLINE' ? THEME.colors.primary : THEME.colors.textMuted}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.tabBtnText,
-                activeTab === 'OFFLINE' && styles.tabBtnTextActive,
-              ]}
-            >
-              Add Offline Member
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedControl
+          options={[
+            { id: 'REGISTERED', label: 'Invite User', icon: 'person-add-outline' },
+            { id: 'OFFLINE', label: 'Add Offline', icon: 'people-outline' },
+          ]}
+          selectedId={activeTab}
+          onSelect={(id) => setActiveTab(id as any)}
+          style={{ marginBottom: 12 }}
+        />
 
         {activeTab === 'REGISTERED' ? (
           <View style={styles.inviteInputRow}>
@@ -283,7 +245,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
               activeOpacity={0.8}
             >
               {inviting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color="#0B0F19" />
               ) : (
                 <Text style={styles.inviteBtnText}>Invite</Text>
               )}
@@ -315,7 +277,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
               activeOpacity={0.8}
             >
               {addingOffline ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color="#0B0F19" />
               ) : (
                 <Text style={styles.inviteBtnText}>+ Add Offline Member</Text>
               )}
@@ -490,81 +452,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   countBadge: {
     backgroundColor: THEME.colors.primaryLight,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
   },
   countBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.mint,
+    color: THEME.colors.primary,
   },
   inviteContainer: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     padding: THEME.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: THEME.colors.cardAlt,
-    borderRadius: THEME.borderRadius.md,
-    padding: 3,
-    marginBottom: 12,
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: THEME.borderRadius.sm,
-  },
-  tabBtnActive: {
-    backgroundColor: THEME.colors.card,
-  },
-  tabBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: THEME.colors.textMuted,
-  },
-  tabBtnTextActive: {
-    color: THEME.colors.primary,
-  },
   inviteInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
     paddingLeft: 12,
     paddingRight: 4,
-    height: 46,
+    minHeight: 48,
   },
   inputIcon: {
     marginRight: 8,
@@ -573,12 +489,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: THEME.colors.textPrimary,
+    minHeight: 44,
   },
   inviteBtn: {
     backgroundColor: THEME.colors.primary,
     paddingHorizontal: 16,
-    height: 38,
-    borderRadius: THEME.borderRadius.sm,
+    minHeight: 40,
+    borderRadius: THEME.borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -587,11 +504,12 @@ const styles = StyleSheet.create({
   },
   offlineInputsRow: {
     flexDirection: 'row',
+    gap: 8,
   },
   addOfflineBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 10,
-    borderRadius: THEME.borderRadius.sm,
+    minHeight: 44,
+    borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -599,7 +517,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   inviteBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -608,7 +526,7 @@ const styles = StyleSheet.create({
     paddingBottom: THEME.spacing.xxl,
   },
   memberCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.sm,
@@ -616,6 +534,7 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 64,
     ...THEME.shadows.sm,
   },
   memberInfo: {
@@ -649,11 +568,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME.colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: THEME.borderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.4)',
+    borderColor: 'rgba(0, 245, 160, 0.3)',
+    minHeight: 32,
   },
   linkAccountBtnText: {
     fontSize: 11,
@@ -670,13 +590,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surfaceElevated,
     borderTopLeftRadius: THEME.borderRadius.xl,
     borderTopRightRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     maxHeight: '80%',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.borderLight,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -697,25 +617,27 @@ const styles = StyleSheet.create({
   modalSearchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     paddingHorizontal: 12,
-    height: 44,
+    minHeight: 44,
     marginBottom: THEME.spacing.md,
   },
   modalSearchInput: {
     flex: 1,
     fontSize: 14,
     color: THEME.colors.textPrimary,
+    minHeight: 44,
   },
   userResultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.divider,
+    borderBottomColor: THEME.colors.borderLight,
+    minHeight: 52,
   },
   userResultInfo: {
     flex: 1,
@@ -732,14 +654,16 @@ const styles = StyleSheet.create({
   },
   linkSelectBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: THEME.borderRadius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.md,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   linkSelectBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0B0F19',
   },
   noResultsBox: {
     alignItems: 'center',
@@ -755,8 +679,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderLight,
     marginVertical: 12,
   },
   modalHelpText: {

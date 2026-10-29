@@ -17,8 +17,10 @@ import { LocalDatabase } from '../../storage/db';
 import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { ExpenseRow } from '../../components/ExpenseRow';
+import { PaymentStatusBadge } from '../../components/PaymentStatusBadge';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { formatDate } from '../../utils/formatters';
 import { resolveMediaUrl } from '../../utils/media';
 import { THEME } from '../../theme';
@@ -364,14 +366,14 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
               <Ionicons
                 name={isNetOwed ? 'arrow-down' : isNetOwing ? 'arrow-up' : 'checkmark'}
                 size={12}
-                color={isNetOwed ? '#00F5A0' : isNetOwing ? '#EF4444' : '#94A3B8'}
+                color={isNetOwed ? THEME.colors.credit : isNetOwing ? THEME.colors.debt : THEME.colors.textMuted}
                 style={{ marginRight: 3 }}
               />
               <Text
                 style={[
                   styles.balanceBadgeText,
-                  isNetOwed && { color: '#00F5A0' },
-                  isNetOwing && { color: '#EF4444' },
+                  isNetOwed && { color: THEME.colors.credit },
+                  isNetOwing && { color: THEME.colors.debt },
                 ]}
               >
                 {isNetOwed ? 'Net Creditor' : isNetOwing ? 'Net Debtor' : 'All Settled'}
@@ -398,14 +400,14 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           <View style={styles.breakdownRow}>
             <View style={styles.breakdownCol}>
               <Text style={styles.breakdownLabel}>YOU ARE OWED</Text>
-              <Text style={[styles.breakdownValue, { color: '#00F5A0' }]}>
+              <Text style={[styles.breakdownValue, { color: THEME.colors.credit }]}>
                 ₹{(totalYouAreOwed / 100).toFixed(2)}
               </Text>
             </View>
             <View style={styles.breakdownDivider} />
             <View style={styles.breakdownCol}>
               <Text style={styles.breakdownLabel}>YOU OWE</Text>
-              <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>
+              <Text style={[styles.breakdownValue, { color: THEME.colors.debt }]}>
                 ₹{(totalYouOwe / 100).toFixed(2)}
               </Text>
             </View>
@@ -527,33 +529,16 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           </View>
 
           {/* Segmented Filter Control */}
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'LEDGER' && styles.activeTabItem]}
-              onPress={() => setActiveTab('LEDGER')}
-            >
-              <Text style={[styles.tabText, activeTab === 'LEDGER' && styles.activeTabText]}>
-                All Ledger ({unifiedLedger.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'EXPENSES' && styles.activeTabItem]}
-              onPress={() => setActiveTab('EXPENSES')}
-            >
-              <Text style={[styles.tabText, activeTab === 'EXPENSES' && styles.activeTabText]}>
-                Expenses ({expenses.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'PAYMENTS' && styles.activeTabItem]}
-              onPress={() => setActiveTab('PAYMENTS')}
-            >
-              <Text style={[styles.tabText, activeTab === 'PAYMENTS' && styles.activeTabText]}>
-                Payments ({payments.length})
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.tabContainer}>
+            <SegmentedControl
+              options={[
+                { id: 'LEDGER', label: 'All', count: unifiedLedger.length },
+                { id: 'EXPENSES', label: 'Expenses', count: expenses.length },
+                { id: 'PAYMENTS', label: 'Payments', count: payments.length },
+              ]}
+              selectedId={activeTab}
+              onSelect={(id) => setActiveTab(id as LedgerFilter)}
+            />
           </View>
 
           {/* Ledger Content List */}
@@ -619,25 +604,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
                       <View style={styles.badgeRow}>
                         {item.paymentStatus ? (
-                          <View
-                            style={[
-                              styles.statusBadgeSmall,
-                              item.paymentStatus === 'CONFIRMED' && styles.statusBadgeConfirmed,
-                              item.paymentStatus === 'PENDING' && styles.statusBadgePending,
-                              item.paymentStatus === 'DISPUTED' && styles.statusBadgeDisputed,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusBadgeSmallText,
-                                item.paymentStatus === 'CONFIRMED' && { color: '#059669' },
-                                item.paymentStatus === 'PENDING' && { color: '#D97706' },
-                                item.paymentStatus === 'DISPUTED' && { color: '#DC2626' },
-                              ]}
-                            >
-                              {item.paymentStatus}
-                            </Text>
-                          </View>
+                          <PaymentStatusBadge status={item.paymentStatus} size="small" />
                         ) : null}
 
                         {item.receiptUrl ? (
@@ -711,24 +678,8 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
                       <View style={styles.ledgerCardRight}>
                         <AmountText paise={p.amountPaise} size="medium" colorType="neutral" />
-                        <View
-                          style={[
-                            styles.statusBadgeSmall,
-                            p.status === 'CONFIRMED' && styles.statusBadgeConfirmed,
-                            p.status === 'PENDING' && styles.statusBadgePending,
-                            p.status === 'DISPUTED' && styles.statusBadgeDisputed,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.statusBadgeSmallText,
-                              p.status === 'CONFIRMED' && { color: '#059669' },
-                              p.status === 'PENDING' && { color: '#D97706' },
-                              p.status === 'DISPUTED' && { color: '#DC2626' },
-                            ]}
-                          >
-                            {p.status}
-                          </Text>
+                        <View style={{ marginTop: 4 }}>
+                          <PaymentStatusBadge status={p.status} size="small" />
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -834,38 +785,46 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: THEME.colors.textPrimary,
   },
+  tabContainer: {
+    paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.sm,
+  },
   closedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: THEME.colors.surfaceAlt,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   closedPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: THEME.colors.textMuted,
   },
   activePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: THEME.colors.confirmedBg,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: THEME.colors.confirmedBorder,
     gap: 4,
   },
   activeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10B981',
+    backgroundColor: THEME.colors.emerald,
   },
   activePillText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#059669',
+    fontWeight: '700',
+    color: THEME.colors.emerald,
   },
   metaInfoRow: {
     flexDirection: 'row',
@@ -883,11 +842,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   balanceHeroCard: {
-    backgroundColor: THEME.colors.darkCanvas,
+    backgroundColor: THEME.colors.surfaceElevated,
     borderRadius: THEME.borderRadius.xl,
     marginHorizontal: THEME.spacing.md,
     marginVertical: THEME.spacing.sm,
     padding: THEME.spacing.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderLight,
     ...THEME.shadows.md,
   },
   balanceHeroTop: {

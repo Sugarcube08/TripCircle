@@ -146,9 +146,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Log In"
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#0B0F19" />
               ) : (
                 <Text style={styles.primaryBtnText}>Log In</Text>
               )}
@@ -221,12 +223,12 @@ const styles = StyleSheet.create({
     marginTop: THEME.spacing.xs,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    ...THEME.shadows.md,
+    ...THEME.shadows.sm,
   },
   welcomeText: {
     ...THEME.typography.h2,
@@ -250,12 +252,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     paddingHorizontal: THEME.spacing.md,
-    height: 48,
+    minHeight: 48,
   },
   inputIcon: {
     marginRight: THEME.spacing.sm,
@@ -264,15 +266,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
+    minHeight: 44,
     paddingVertical: 0,
   },
   eyeBtn: {
     padding: THEME.spacing.xs,
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   forgotBtn: {
     alignSelf: 'flex-end',
-    marginBottom: THEME.spacing.lg,
-    marginTop: -4,
+    marginBottom: THEME.spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
   forgotText: {
     fontSize: 13,
@@ -281,7 +290,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     backgroundColor: THEME.colors.primary,
-    height: 48,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -291,8 +300,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
   footer: {

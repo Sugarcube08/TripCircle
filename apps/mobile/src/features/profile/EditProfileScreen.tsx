@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiRequest, uploadImageFromUri, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { resolveMediaUrl } from '../../utils/media';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface EditProfileScreenProps {
@@ -180,28 +180,24 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity
-          style={[styles.saveHeaderBtn, saving && { opacity: 0.5 }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={THEME.colors.primary} />
-          ) : (
-            <Text style={styles.saveHeaderText}>Save</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Edit Profile"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.saveHeaderBtn, saving && { opacity: 0.5 }]}
+            onPress={handleSave}
+            disabled={saving}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={THEME.colors.primary} />
+            ) : (
+              <Text style={styles.saveHeaderText}>Save</Text>
+            )}
+          </TouchableOpacity>
+        }
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -396,7 +392,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: THEME.colors.surface,
   },
   changePhotoText: {
     fontSize: 13,
@@ -413,7 +409,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -435,6 +431,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
     fontWeight: '500',
     padding: 0,
+    minHeight: 36,
   },
   rowDivider: {
     height: 1,
@@ -445,6 +442,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 36,
   },
   emailReadonly: {
     fontSize: 15,
@@ -453,15 +451,17 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: THEME.colors.confirmedBg,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: THEME.colors.confirmedBorder,
   },
   verifiedText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: THEME.colors.confirmed,
   },
   qrDescription: {
     fontSize: 13,
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   newBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.primary,
   },
   activeBadgeText: {
     fontSize: 11,
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: THEME.colors.borderDark,
+    borderColor: THEME.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -514,17 +514,18 @@ const styles = StyleSheet.create({
   replaceQrBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+    backgroundColor: THEME.colors.primaryLight,
     borderWidth: 1,
-    borderColor: THEME.colors.primary,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: THEME.borderRadius.md,
+    minHeight: 44,
   },
   replaceQrText: {
     fontSize: 13,
     fontWeight: '700',
-    color: THEME.colors.mint,
+    color: THEME.colors.primary,
   },
   saveBtn: {
     flexDirection: 'row',
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.md,
-    paddingVertical: 15,
+    minHeight: 48,
     marginTop: THEME.spacing.sm,
     ...THEME.shadows.md,
   },
@@ -540,8 +541,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

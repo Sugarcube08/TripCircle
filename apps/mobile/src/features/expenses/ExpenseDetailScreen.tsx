@@ -20,35 +20,12 @@ import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDateTime } from '../../utils/formatters';
 import { resolveMediaUrl } from '../../utils/media';
 import { dialog } from '../../components/ui';
-import { THEME } from '../../theme';
+import { THEME, getCategoryConfig } from '../../theme';
 
 interface ExpenseDetailScreenProps {
   route: any;
   navigation: any;
   user: any;
-}
-
-function getCategoryIcon(name: string): { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string } {
-  const lower = (name || '').toLowerCase();
-  if (lower.includes('food') || lower.includes('dinner') || lower.includes('lunch') || lower.includes('meal')) {
-    return { icon: 'restaurant-outline', color: '#F97316', bg: '#FFF7ED' };
-  }
-  if (lower.includes('stay') || lower.includes('hotel') || lower.includes('airbnb') || lower.includes('resort')) {
-    return { icon: 'bed-outline', color: '#8B5CF6', bg: '#F5F3FF' };
-  }
-  if (lower.includes('travel') || lower.includes('cab') || lower.includes('taxi') || lower.includes('transport')) {
-    return { icon: 'car-outline', color: '#3B82F6', bg: '#EFF6FF' };
-  }
-  if (lower.includes('drink') || lower.includes('bar') || lower.includes('coffee')) {
-    return { icon: 'cafe-outline', color: '#EC4899', bg: '#FDF2F8' };
-  }
-  if (lower.includes('activity') || lower.includes('ticket') || lower.includes('tour')) {
-    return { icon: 'ticket-outline', color: '#10B981', bg: '#ECFDF5' };
-  }
-  if (lower.includes('shop') || lower.includes('grocery')) {
-    return { icon: 'bag-handle-outline', color: '#F59E0B', bg: '#FFFBEB' };
-  }
-  return { icon: 'receipt-outline', color: '#0D9488', bg: '#F0FDFA' };
 }
 
 export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
@@ -103,7 +80,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
   }
 
   const canEdit = expense.submitterId === user?.id;
-  const catConfig = getCategoryIcon(expense.category?.name || '');
+  const catConfig = getCategoryConfig(expense.category?.name || expense.category?.key);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>

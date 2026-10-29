@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -16,11 +15,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { apiRequest, uploadImageFromUri, addDummyMember, ApiError } from '../../services/api';
+import { apiRequest, uploadImageFromUri, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { CalendarModal } from '../../components/CalendarModal';
 import { Badge } from '../../components/ui/Badge';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface CreateTripScreenProps {
@@ -211,18 +210,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Trip</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Create Trip" onBack={() => navigation.goBack()} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -466,17 +454,19 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
             onPress={handleCreateTrip}
             disabled={loading}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Create Trip & Begin"
           >
             {loading ? (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <ActivityIndicator color="#FFFFFF" size="small" style={{ marginRight: 8 }} />
+                <ActivityIndicator color="#0B0F19" size="small" style={{ marginRight: 8 }} />
                 <Text style={styles.createBtnText}>
                   {uploadingCover ? 'Uploading Cover Photo...' : 'Creating Trip...'}
                 </Text>
               </View>
             ) : (
               <>
-                <Ionicons name="compass-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Ionicons name="compass-outline" size={20} color="#0B0F19" style={{ marginRight: 8 }} />
                 <Text style={styles.createBtnText}>Create Trip & Begin</Text>
               </>
             )}
@@ -517,28 +507,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
@@ -569,8 +537,9 @@ const styles = StyleSheet.create({
   addOfflineToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    minHeight: 44,
   },
   addOfflineToggleText: {
     fontSize: 12,
@@ -578,10 +547,10 @@ const styles = StyleSheet.create({
     color: THEME.colors.primary,
   },
   offlineInputCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.35)',
+    borderColor: 'rgba(0, 245, 160, 0.25)',
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
   },
@@ -603,12 +572,12 @@ const styles = StyleSheet.create({
   },
   offlineTextInput: {
     flex: 1,
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 44,
     fontSize: 14,
     color: THEME.colors.textPrimary,
   },
@@ -616,16 +585,17 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: 16,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   offlineAddBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontWeight: '700',
     fontSize: 13,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -636,13 +606,15 @@ const styles = StyleSheet.create({
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    minHeight: 52,
+    paddingVertical: 8,
   },
   datePickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    minHeight: 52,
+    paddingVertical: 8,
   },
   dateRowLeft: {
     flexDirection: 'row',
@@ -666,6 +638,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
+    minHeight: 44,
   },
   divider: {
     height: 1,
@@ -678,7 +651,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 160,
     borderRadius: THEME.borderRadius.md,
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surfaceSubtle,
   },
   coverActionRow: {
     flexDirection: 'row',
@@ -689,12 +662,13 @@ const styles = StyleSheet.create({
   coverActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 12,
+    minHeight: 40,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surfaceSubtle,
   },
   coverActionText: {
     fontSize: 12,
@@ -734,7 +708,8 @@ const styles = StyleSheet.create({
   searchItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 48,
   },
   searchItemInfo: {
     marginLeft: 10,
@@ -751,14 +726,16 @@ const styles = StyleSheet.create({
   },
   addBtnPill: {
     backgroundColor: THEME.colors.primaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
   },
   addBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.primary,
   },
   inviteesWrapper: {
     borderTopWidth: 1,
@@ -781,15 +758,16 @@ const styles = StyleSheet.create({
   userChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.full,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    minHeight: 36,
   },
   offlineChip: {
-    borderColor: 'rgba(13, 148, 136, 0.4)',
+    borderColor: 'rgba(0, 245, 160, 0.3)',
   },
   offlineAvatar: {
     width: 22,
@@ -816,7 +794,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.md,
-    paddingVertical: 15,
+    minHeight: 50,
     marginTop: THEME.spacing.sm,
     ...THEME.shadows.md,
   },
@@ -824,8 +802,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   createBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
   StatusBar,
@@ -13,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiBaseUrl } from '../../services/api';
 import { getAccessToken } from '../../storage/secureStore';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, SegmentedControl, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface ExportReportScreenProps {
@@ -49,7 +48,7 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
 
       await dialog.alert(
         'Report Generated',
-        `Your ${format} report (${reportType === 'TRIP_LEDGER' ? 'Complete Trip Ledger' : 'Individual Statement'}) was generated successfully and verified with exact paise accounting.`,
+        `Your ${format} report (${reportType === 'TRIP_LEDGER' ? 'Complete Trip Ledger' : 'Individual Statement'}) was generated successfully with full paise accounting.`,
         'success'
       );
       navigation.goBack();
@@ -63,27 +62,23 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Export Reports</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader
+        title="Export Reports"
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Intro Banner */}
+        {/* Intro Card */}
         <View style={styles.introCard}>
-          <Ionicons name="document-text" size={32} color={THEME.colors.primary} style={{ marginBottom: 8 }} />
-          <Text style={styles.introTitle}>Auditable Financial Statements</Text>
-          <Text style={styles.introText}>
-            Generate verified, zero-sum financial records for this trip with full paise precision.
-          </Text>
+          <View style={styles.introIconCircle}>
+            <Ionicons name="document-text-outline" size={24} color={THEME.colors.primary} />
+          </View>
+          <View style={styles.introTextCol}>
+            <Text style={styles.introTitle}>Auditable Statements</Text>
+            <Text style={styles.introText}>
+              Export verified, zero-sum financial records with integer paise precision.
+            </Text>
+          </View>
         </View>
 
         {/* Report Scope Selection */}
@@ -93,17 +88,19 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
             style={[styles.choiceCard, reportType === 'TRIP_LEDGER' && styles.selectedChoice]}
             onPress={() => setReportType('TRIP_LEDGER')}
             activeOpacity={0.8}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: reportType === 'TRIP_LEDGER' }}
           >
             <View style={styles.choiceHeader}>
               <View style={[styles.radioCircle, reportType === 'TRIP_LEDGER' && styles.radioCircleActive]}>
-                {reportType === 'TRIP_LEDGER' && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                {reportType === 'TRIP_LEDGER' && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
               </View>
               <Text style={[styles.choiceTitle, reportType === 'TRIP_LEDGER' && styles.selectedChoiceTitle]}>
                 Complete Trip Ledger
               </Text>
             </View>
             <Text style={styles.choiceSub}>
-              Includes all expenses, allocations, confirmed/disputed payments, member net balances, and simplified settlement transfers.
+              Includes all expenses, allocations, payments, member net balances, and simplified settlement transfers.
             </Text>
           </TouchableOpacity>
 
@@ -111,10 +108,12 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
             style={[styles.choiceCard, reportType === 'INDIVIDUAL' && styles.selectedChoice]}
             onPress={() => setReportType('INDIVIDUAL')}
             activeOpacity={0.8}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: reportType === 'INDIVIDUAL' }}
           >
             <View style={styles.choiceHeader}>
               <View style={[styles.radioCircle, reportType === 'INDIVIDUAL' && styles.radioCircleActive]}>
-                {reportType === 'INDIVIDUAL' && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                {reportType === 'INDIVIDUAL' && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
               </View>
               <Text style={[styles.choiceTitle, reportType === 'INDIVIDUAL' && styles.selectedChoiceTitle]}>
                 Individual Member Statement
@@ -126,45 +125,21 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Format Selection */}
+        {/* Format Selection via SegmentedControl */}
         <Text style={styles.sectionHeader}>FILE FORMAT</Text>
-        <View style={styles.formatRow}>
-          <TouchableOpacity
-            style={[styles.formatBtn, format === 'PDF' && styles.selectedFormatBtn]}
-            onPress={() => setFormat('PDF')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="document-text-outline"
-              size={22}
-              color={format === 'PDF' ? THEME.colors.primaryDark : THEME.colors.textMuted}
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={[styles.formatText, format === 'PDF' && styles.selectedFormatText]}>
-              PDF Document
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.formatBtn, format === 'XLSX' && styles.selectedFormatBtn]}
-            onPress={() => setFormat('XLSX')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="grid-outline"
-              size={22}
-              color={format === 'XLSX' ? THEME.colors.primaryDark : THEME.colors.textMuted}
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={[styles.formatText, format === 'XLSX' && styles.selectedFormatText]}>
-              Excel (.xlsx)
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SegmentedControl
+          options={[
+            { id: 'PDF', label: 'PDF Document', icon: 'document-text-outline' },
+            { id: 'XLSX', label: 'Excel (.xlsx)', icon: 'grid-outline' },
+          ]}
+          selectedId={format}
+          onSelect={(id) => setFormat(id as 'PDF' | 'XLSX')}
+          style={{ marginBottom: THEME.spacing.md }}
+        />
 
         {/* Security & Audit Note */}
         <View style={styles.securityNote}>
-          <Ionicons name="shield-checkmark-outline" size={18} color="#0D9488" style={{ marginRight: 8 }} />
+          <Ionicons name="shield-checkmark-outline" size={16} color={THEME.colors.primary} style={{ marginRight: 8 }} />
           <Text style={styles.securityText}>
             Exported reports are cryptographically verified against the double-entry integer ledger.
           </Text>
@@ -176,12 +151,14 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
           onPress={handleExport}
           disabled={loading}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Generate and download report"
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <>
-              <Ionicons name="download-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Ionicons name="download-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.exportBtnText}>Generate & Download Report</Text>
             </>
           )}
@@ -196,53 +173,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
   introCard: {
-    backgroundColor: THEME.colors.card,
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: THEME.spacing.md,
+    backgroundColor: THEME.colors.surface,
+    padding: 16,
+    borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    ...THEME.shadows.sm,
+    marginBottom: THEME.spacing.lg,
+    gap: 14,
+  },
+  introIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introTextCol: {
+    flex: 1,
   },
   introTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '700',
     color: THEME.colors.textPrimary,
-    marginBottom: 4,
-    textAlign: 'center',
+    marginBottom: 2,
   },
   introText: {
-    fontSize: 13,
+    fontSize: 12,
     color: THEME.colors.textSecondary,
-    textAlign: 'center',
     lineHeight: 18,
   },
   sectionHeader: {
@@ -251,39 +216,37 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: THEME.colors.textMuted,
     marginBottom: 8,
-    marginTop: 8,
     marginLeft: 4,
   },
   choiceGroup: {
     gap: 10,
-    marginBottom: THEME.spacing.md,
+    marginBottom: THEME.spacing.lg,
   },
   choiceCard: {
-    backgroundColor: THEME.colors.card,
-    borderWidth: 1.5,
-    borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.md,
-    ...THEME.shadows.sm,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    padding: 14,
   },
   selectedChoice: {
     borderColor: THEME.colors.primary,
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+    backgroundColor: 'rgba(13, 148, 136, 0.08)',
   },
   choiceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     marginBottom: 6,
   },
   radioCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: THEME.colors.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
   },
   radioCircleActive: {
     backgroundColor: THEME.colors.primary,
@@ -300,52 +263,24 @@ const styles = StyleSheet.create({
   choiceSub: {
     fontSize: 12,
     color: THEME.colors.textSecondary,
-    lineHeight: 17,
-    marginLeft: 32,
-  },
-  formatRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: THEME.spacing.md,
-  },
-  formatBtn: {
-    flex: 1,
-    backgroundColor: THEME.colors.card,
-    borderWidth: 1.5,
-    borderColor: THEME.colors.border,
-    borderRadius: THEME.borderRadius.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...THEME.shadows.sm,
-  },
-  selectedFormatBtn: {
-    borderColor: THEME.colors.primary,
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
-  },
-  formatText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.colors.textMuted,
-  },
-  selectedFormatText: {
-    color: THEME.colors.mint,
+    lineHeight: 18,
+    paddingLeft: 30,
   },
   securityNote: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.25)',
-    borderRadius: THEME.borderRadius.md,
+    borderColor: THEME.colors.border,
     padding: 12,
+    borderRadius: THEME.borderRadius.md,
     marginBottom: THEME.spacing.lg,
   },
   securityText: {
     fontSize: 12,
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.textMuted,
     flex: 1,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   exportBtn: {
     flexDirection: 'row',
@@ -353,15 +288,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.md,
-    paddingVertical: 15,
+    height: THEME.dimensions.buttonHeight,
     ...THEME.shadows.md,
   },
   btnDisabled: {
     opacity: 0.6,
   },
   exportBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

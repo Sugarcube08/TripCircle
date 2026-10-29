@@ -136,9 +136,11 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
               onPress={handleVerify}
               disabled={loading}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Verify and Proceed"
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#0B0F19" />
               ) : (
                 <Text style={styles.verifyBtnText}>Verify & Proceed</Text>
               )}
@@ -208,18 +210,18 @@ const styles = StyleSheet.create({
     marginBottom: THEME.spacing.xl,
   },
   otpCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    ...THEME.shadows.md,
+    ...THEME.shadows.sm,
   },
   otpInput: {
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     height: 56,
     fontSize: 28,
     fontWeight: '800',
@@ -227,10 +229,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 10,
     marginBottom: THEME.spacing.lg,
+    fontVariant: ['tabular-nums'],
   },
   verifyBtn: {
     backgroundColor: THEME.colors.primary,
-    height: 48,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -240,8 +243,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   verifyBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
   resendRow: {
@@ -249,6 +252,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: THEME.spacing.md,
+    minHeight: 44,
   },
   resendPrompt: {
     ...THEME.typography.bodySmall,

@@ -20,7 +20,7 @@ import { PAYMENT_METHODS } from '@tripcircle/contracts';
 import { apiRequest, getOnlineStatus, uploadImageFromUri, ApiError } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface AddPaymentScreenProps {
@@ -181,18 +181,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Branded Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Record Payment</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Record Payment" onBack={() => navigation.goBack()} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -406,12 +395,14 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
             onPress={handleSubmit}
             disabled={submitting}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Submit Payment"
           >
             {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#0B0F19" />
             ) : (
               <>
-                <Ionicons name="arrow-forward-circle-outline" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Ionicons name="arrow-forward-circle-outline" size={22} color="#0B0F19" style={{ marginRight: 8 }} />
                 <Text style={styles.submitBtnText}>Submit Payment</Text>
               </>
             )}
@@ -427,34 +418,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
   amountCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -501,11 +470,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
+    minHeight: 32,
+    justifyContent: 'center',
   },
   quickChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.primary,
   },
   sectionHeader: {
     fontSize: 11,
@@ -527,13 +500,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
     borderRadius: THEME.borderRadius.md,
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderWidth: 1.5,
     borderColor: THEME.colors.border,
   },
   selectedPayerCard: {
     borderColor: THEME.colors.primary,
-    backgroundColor: 'rgba(13, 148, 136, 0.08)',
+    backgroundColor: THEME.colors.primaryLight,
   },
   avatarWrapper: {
     position: 'relative',
@@ -549,7 +522,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: THEME.colors.surface,
   },
   payerName: {
     fontSize: 12,
@@ -563,7 +536,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -577,9 +550,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.borderLight,
+    minHeight: 56,
   },
   selectedMemberRow: {
-    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+    backgroundColor: THEME.colors.primaryLight,
   },
   memberInfo: {
     marginLeft: 12,
@@ -600,7 +574,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: THEME.colors.borderDark,
+    borderColor: THEME.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -623,16 +597,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
     paddingVertical: 12,
+    minHeight: 44,
     ...THEME.shadows.sm,
   },
   selectedMethodBtn: {
     borderColor: THEME.colors.primary,
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+    backgroundColor: THEME.colors.primaryLight,
     borderWidth: 1.5,
   },
   methodText: {
@@ -641,18 +616,18 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
   },
   selectedMethodText: {
-    color: THEME.colors.mint,
+    color: THEME.colors.primary,
     fontWeight: '700',
   },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
-    height: 52,
+    minHeight: 48,
     marginBottom: THEME.spacing.md,
     ...THEME.shadows.sm,
   },
@@ -663,9 +638,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
+    minHeight: 44,
   },
   receiptCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.md,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
@@ -677,7 +653,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    minHeight: 44,
   },
   attachReceiptText: {
     fontSize: 14,
@@ -692,7 +668,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: THEME.borderRadius.sm,
-    backgroundColor: THEME.colors.darkCard,
+    backgroundColor: THEME.colors.surfaceSubtle,
     marginRight: 14,
   },
   receiptActionsCol: {
@@ -702,7 +678,8 @@ const styles = StyleSheet.create({
   changeReceiptBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
+    minHeight: 36,
   },
   changeReceiptText: {
     fontSize: 13,
@@ -713,19 +690,20 @@ const styles = StyleSheet.create({
   removeReceiptBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
+    minHeight: 36,
   },
   removeReceiptText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#EF4444',
+    color: THEME.colors.debt,
     marginLeft: 6,
   },
   noticeBox: {
     flexDirection: 'row',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: THEME.colors.primaryLight,
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: 'rgba(0, 245, 160, 0.25)',
     borderRadius: THEME.borderRadius.md,
     padding: 14,
     marginBottom: THEME.spacing.lg,
@@ -733,12 +711,12 @@ const styles = StyleSheet.create({
   noticeTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F766E',
+    color: THEME.colors.primary,
     marginBottom: 2,
   },
   noticeText: {
     fontSize: 12,
-    color: '#115E59',
+    color: THEME.colors.textSecondary,
     lineHeight: 17,
   },
   submitBtn: {
@@ -747,15 +725,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.md,
-    paddingVertical: 15,
+    minHeight: 50,
     ...THEME.shadows.md,
   },
   btnDisabled: {
     opacity: 0.6,
   },
   submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

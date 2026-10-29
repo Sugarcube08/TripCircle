@@ -94,9 +94,11 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
               onPress={handleSubmit}
               disabled={loading}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Send Reset Code"
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#0B0F19" />
               ) : (
                 <Text style={styles.primaryBtnText}>Send Reset Code</Text>
               )}
@@ -154,12 +156,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
-    ...THEME.shadows.md,
+    ...THEME.shadows.sm,
   },
   inputLabel: {
     fontSize: 13,
@@ -170,10 +172,10 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     paddingHorizontal: THEME.spacing.md,
     height: 48,
     marginBottom: THEME.spacing.lg,
@@ -186,10 +188,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: THEME.colors.textPrimary,
     paddingVertical: 0,
+    minHeight: 44,
   },
   primaryBtn: {
     backgroundColor: THEME.colors.primary,
-    height: 48,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -199,8 +202,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

@@ -19,7 +19,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { PaymentStatusBadge } from '../../components/PaymentStatusBadge';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDateTime } from '../../utils/formatters';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface PaymentDetailScreenProps {
@@ -158,18 +158,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment Details</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Payment Details" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Main Status & Amount Card */}
@@ -362,34 +351,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
   heroCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -411,11 +378,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
   },
   methodBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.primaryDark,
+    color: THEME.colors.primary,
   },
   amountLabel: {
     fontSize: 11,
@@ -470,7 +439,7 @@ const styles = StyleSheet.create({
   arrowLine: {
     position: 'absolute',
     height: 1.5,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: THEME.colors.borderLight,
     width: 48,
   },
   arrowIconCircle: {
@@ -482,7 +451,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -514,9 +483,9 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
   },
   disputeNotice: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: THEME.colors.debtBg,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: THEME.colors.debtBorder,
     borderRadius: THEME.borderRadius.md,
     padding: 12,
     marginTop: 10,
@@ -533,13 +502,13 @@ const styles = StyleSheet.create({
   },
   disputeNoticeText: {
     fontSize: 13,
-    color: '#991B1B',
+    color: THEME.colors.textSecondary,
     fontStyle: 'italic',
     marginBottom: 4,
   },
   disputeNoticeDate: {
     fontSize: 11,
-    color: '#B91C1C',
+    color: THEME.colors.textMuted,
   },
   actionsContainer: {
     gap: 10,
@@ -549,7 +518,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.md,
   },
   confirmBtn: {
@@ -557,12 +526,12 @@ const styles = StyleSheet.create({
     ...THEME.shadows.sm,
   },
   confirmBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontSize: 15,
     fontWeight: '700',
   },
   disputeBtn: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderWidth: 1.5,
     borderColor: THEME.colors.debt,
   },
@@ -575,10 +544,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    paddingVertical: 12,
+    borderColor: THEME.colors.debtBorder,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.md,
     marginTop: 10,
   },
@@ -594,10 +563,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: THEME.colors.card,
-    borderRadius: THEME.borderRadius.lg,
+    backgroundColor: THEME.colors.surfaceElevated,
+    borderRadius: THEME.borderRadius.xl,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: THEME.colors.borderLight,
     padding: 20,
     ...THEME.shadows.lg,
   },
@@ -620,6 +589,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     padding: 12,
     fontSize: 14,
@@ -634,12 +604,15 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     flex: 1,
-    paddingVertical: 12,
+    minHeight: 44,
     borderRadius: THEME.borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelBtn: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
   },
   modalCancelText: {
     fontWeight: '600',
@@ -666,11 +639,13 @@ const styles = StyleSheet.create({
   backBtnSimple: {
     backgroundColor: THEME.colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: THEME.borderRadius.md,
   },
   backBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: '#0B0F19',
+    fontWeight: '700',
   },
 });

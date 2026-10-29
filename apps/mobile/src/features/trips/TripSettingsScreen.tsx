@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
@@ -14,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDate } from '../../utils/formatters';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface TripSettingsScreenProps {
@@ -121,18 +120,7 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Trip Settings</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Trip Settings" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Overview Info Card */}
@@ -175,17 +163,19 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
             style={styles.navRow}
             onPress={() => navigation.navigate('ExportReport', { tripId })}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Export Financial Reports"
           >
             <View style={styles.navLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: '#F0FDF4' }]}>
-                <Ionicons name="document-text-outline" size={18} color="#16A34A" />
+              <View style={[styles.iconCircle, { backgroundColor: THEME.colors.creditBg }]}>
+                <Ionicons name="document-text-outline" size={18} color={THEME.colors.credit} />
               </View>
               <View>
                 <Text style={styles.navText}>Export Financial Reports</Text>
                 <Text style={styles.navSub}>Download PDF Ledger or Excel Statement</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={THEME.colors.textLight} />
+            <Ionicons name="chevron-forward" size={18} color={THEME.colors.textMuted} />
           </TouchableOpacity>
 
           <View style={styles.rowDivider} />
@@ -194,17 +184,19 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
             style={styles.navRow}
             onPress={() => navigation.navigate('TripMembers', { tripId })}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Manage Trip Members"
           >
             <View style={styles.navLeft}>
               <View style={[styles.iconCircle, { backgroundColor: THEME.colors.primaryLight }]}>
-                <Ionicons name="people-outline" size={18} color={THEME.colors.primaryDark} />
+                <Ionicons name="people-outline" size={18} color={THEME.colors.primary} />
               </View>
               <View>
                 <Text style={styles.navText}>Manage Trip Members</Text>
                 <Text style={styles.navSub}>{trip.members?.length || 0} active members</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={THEME.colors.textLight} />
+            <Ionicons name="chevron-forward" size={18} color={THEME.colors.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -218,9 +210,11 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
                 onPress={handleReopenTrip}
                 disabled={actionLoading}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Reopen Trip"
               >
-                <Ionicons name="refresh-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.actionBtnText}>Reopen Trip</Text>
+                <Ionicons name="refresh-outline" size={18} color="#0B0F19" style={{ marginRight: 6 }} />
+                <Text style={styles.reopenBtnText}>Reopen Trip</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -228,6 +222,8 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
                 onPress={handleCloseTrip}
                 disabled={actionLoading}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Close Trip for Everyone"
               >
                 <Ionicons name="lock-closed-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnText}>Close Trip for Everyone</Text>
@@ -239,8 +235,10 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
               onPress={handleLeaveTrip}
               disabled={actionLoading}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Leave Trip"
             >
-              <Ionicons name="log-out-outline" size={18} color="#DC2626" style={{ marginRight: 6 }} />
+              <Ionicons name="log-out-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
               <Text style={styles.leaveBtnText}>Leave Trip</Text>
             </TouchableOpacity>
           )}
@@ -257,28 +255,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   scrollContent: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
@@ -293,7 +269,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.md,
     borderWidth: 1,
@@ -337,13 +313,13 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: THEME.colors.creditBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: THEME.borderRadius.full,
   },
   closedBadge: {
-    backgroundColor: 'rgba(100, 116, 139, 0.2)',
+    backgroundColor: THEME.colors.cancelledBg,
   },
   statusDot: {
     width: 6,
@@ -352,10 +328,10 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusDotActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: THEME.colors.credit,
   },
   statusDotClosed: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: THEME.colors.cancelled,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -363,10 +339,10 @@ const styles = StyleSheet.create({
     color: THEME.colors.credit,
   },
   closedBadgeText: {
-    color: THEME.colors.textMuted,
+    color: THEME.colors.cancelled,
   },
   navCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -378,6 +354,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: THEME.spacing.md,
+    minHeight: 56,
   },
   navLeft: {
     flexDirection: 'row',
@@ -385,9 +362,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -405,13 +382,13 @@ const styles = StyleSheet.create({
   rowDivider: {
     height: 1,
     backgroundColor: THEME.colors.borderLight,
-    marginLeft: 62,
+    marginLeft: 64,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    minHeight: 48,
     borderRadius: THEME.borderRadius.md,
   },
   closeBtn: {
@@ -425,15 +402,20 @@ const styles = StyleSheet.create({
   leaveBtn: {
     borderWidth: 1.5,
     borderColor: THEME.colors.debt,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: THEME.colors.debtBg,
   },
   actionBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
+  reopenBtnText: {
+    color: '#0B0F19',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   leaveBtnText: {
-    color: '#F87171',
+    color: THEME.colors.debt,
     fontSize: 15,
     fontWeight: '700',
   },

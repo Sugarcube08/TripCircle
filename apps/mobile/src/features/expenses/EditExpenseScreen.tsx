@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -21,7 +20,7 @@ import { resolveMediaUrl } from '../../utils/media';
 import { calculateEqualSplit, validateUnequalSplit } from '@tripcircle/contracts';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, SegmentedControl, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface EditExpenseScreenProps {
@@ -195,20 +194,15 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Branded Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Expense</Text>
-        <View style={styles.versionBadge}>
-          <Text style={styles.versionBadgeText}>v{expense?.version}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Edit Expense"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <View style={styles.versionBadge}>
+            <Text style={styles.versionBadgeText}>v{expense?.version}</Text>
+          </View>
+        }
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -220,7 +214,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
         >
           {/* Audit Notice */}
           <View style={styles.noticeBanner}>
-            <Ionicons name="information-circle-outline" size={18} color="#0369A1" style={{ marginRight: 8 }} />
+            <Ionicons name="information-circle-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 8 }} />
             <Text style={styles.noticeText}>
               Editing will create version {expense?.version + 1} with an immutable audit log.
             </Text>
@@ -271,37 +265,15 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
 
           {/* Split Method Toggle */}
           <Text style={styles.sectionHeader}>SPLIT METHOD</Text>
-          <View style={styles.methodToggleCard}>
-            <TouchableOpacity
-              style={[styles.toggleBtn, splitMethod === 'EQUAL' && styles.activeToggleBtn]}
-              onPress={() => setSplitMethod('EQUAL')}
-            >
-              <Ionicons
-                name="pie-chart-outline"
-                size={16}
-                color={splitMethod === 'EQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.toggleText, splitMethod === 'EQUAL' && styles.activeToggleText]}>
-                Equal Split
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.toggleBtn, splitMethod === 'UNEQUAL' && styles.activeToggleBtn]}
-              onPress={() => setSplitMethod('UNEQUAL')}
-            >
-              <Ionicons
-                name="options-outline"
-                size={16}
-                color={splitMethod === 'UNEQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[styles.toggleText, splitMethod === 'UNEQUAL' && styles.activeToggleText]}>
-                Unequal Split
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <SegmentedControl
+            options={[
+              { id: 'EQUAL', label: 'Equal Split', icon: 'pie-chart-outline' },
+              { id: 'UNEQUAL', label: 'Unequal Split', icon: 'options-outline' },
+            ]}
+            selectedId={splitMethod}
+            onSelect={(id) => setSplitMethod(id as 'EQUAL' | 'UNEQUAL')}
+            style={{ marginBottom: THEME.spacing.md }}
+          />
 
           {/* Beneficiaries List */}
           <Text style={styles.sectionHeader}>BENEFICIARIES</Text>
@@ -426,38 +398,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 12,
-    backgroundColor: THEME.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...THEME.typography.h2,
-    fontSize: 18,
-    color: THEME.colors.textPrimary,
-  },
   versionBadge: {
     backgroundColor: THEME.colors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
   },
   versionBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.colors.mint,
+    color: THEME.colors.primary,
   },
   scrollContent: {
     padding: THEME.spacing.md,
@@ -466,8 +418,8 @@ const styles = StyleSheet.create({
   noticeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 165, 233, 0.12)',
-    borderColor: 'rgba(14, 165, 233, 0.3)',
+    backgroundColor: 'rgba(0, 245, 160, 0.08)',
+    borderColor: 'rgba(0, 245, 160, 0.25)',
     borderWidth: 1,
     borderRadius: THEME.borderRadius.md,
     padding: 12,
@@ -475,12 +427,12 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     fontSize: 13,
-    color: THEME.colors.cyan,
+    color: THEME.colors.textSecondary,
     flexShrink: 1,
     lineHeight: 18,
   },
   amountCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.lg,
     alignItems: 'center',
@@ -522,12 +474,12 @@ const styles = StyleSheet.create({
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.md,
     paddingHorizontal: THEME.spacing.md,
-    height: 52,
+    minHeight: 48,
     marginBottom: 8,
     ...THEME.shadows.sm,
   },
@@ -538,39 +490,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
-  },
-  methodToggleCard: {
-    flexDirection: 'row',
-    backgroundColor: THEME.colors.inputBg,
-    borderRadius: THEME.borderRadius.md,
-    padding: 4,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-  },
-  toggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: THEME.borderRadius.sm,
-  },
-  activeToggleBtn: {
-    backgroundColor: THEME.colors.cardAlt,
-    ...THEME.shadows.sm,
-  },
-  toggleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: THEME.colors.textMuted,
-  },
-  activeToggleText: {
-    color: THEME.colors.mint,
-    fontWeight: '700',
+    minHeight: 44,
   },
   beneficiariesCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -585,18 +508,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.borderLight,
+    minHeight: 52,
   },
   beneficiaryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minHeight: 44,
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: THEME.colors.borderDark,
+    borderColor: THEME.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -623,12 +548,12 @@ const styles = StyleSheet.create({
   unequalInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     borderRadius: THEME.borderRadius.sm,
     paddingHorizontal: 8,
-    height: 36,
+    height: 38,
   },
   rupeeInputPrefix: {
     fontSize: 14,
@@ -646,7 +571,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   receiptCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.md,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
@@ -657,7 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    minHeight: 44,
   },
   attachReceiptText: {
     fontSize: 14,
@@ -672,7 +597,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: THEME.borderRadius.sm,
-    backgroundColor: THEME.colors.darkCard,
+    backgroundColor: THEME.colors.surfaceSubtle,
     marginRight: 14,
   },
   receiptActionsCol: {
@@ -682,7 +607,8 @@ const styles = StyleSheet.create({
   changeReceiptBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
+    minHeight: 36,
   },
   changeReceiptText: {
     fontSize: 13,
@@ -693,12 +619,13 @@ const styles = StyleSheet.create({
   removeReceiptBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
+    minHeight: 36,
   },
   removeReceiptText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#EF4444',
+    color: THEME.colors.debt,
     marginLeft: 6,
   },
   saveBtn: {
@@ -707,15 +634,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.md,
-    paddingVertical: 15,
+    minHeight: 48,
     ...THEME.shadows.md,
   },
   btnDisabled: {
     opacity: 0.6,
   },
   saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F19',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

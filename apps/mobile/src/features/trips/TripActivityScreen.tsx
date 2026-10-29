@@ -15,31 +15,11 @@ import { LocalDatabase } from '../../storage/db';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
 import { formatDateTime } from '../../utils/formatters';
-import { THEME } from '../../theme';
+import { THEME, getActivityConfig } from '../../theme';
 
 interface TripActivityScreenProps {
   route?: any;
   navigation?: any;
-}
-
-function getActivityIcon(type?: string, title?: string): { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string } {
-  const t = ((type || '') + ' ' + (title || '')).toLowerCase();
-  if (t.includes('payment') || t.includes('confirm') || t.includes('transfer')) {
-    return { icon: 'arrow-forward-circle-outline', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
-  }
-  if (t.includes('expense') || t.includes('spent') || t.includes('paid')) {
-    return { icon: 'receipt-outline', color: '#00F5A0', bg: 'rgba(0, 245, 160, 0.15)' };
-  }
-  if (t.includes('member') || t.includes('invite') || t.includes('join')) {
-    return { icon: 'person-add-outline', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
-  }
-  if (t.includes('dispute') || t.includes('reject')) {
-    return { icon: 'alert-circle-outline', color: '#F87171', bg: 'rgba(239, 68, 68, 0.15)' };
-  }
-  if (t.includes('close') || t.includes('lock')) {
-    return { icon: 'lock-closed-outline', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.15)' };
-  }
-  return { icon: 'notifications-outline', color: '#A78BFA', bg: 'rgba(167, 139, 250, 0.15)' };
 }
 
 export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, navigation }) => {
@@ -111,11 +91,11 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
         data={activities}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const act = getActivityIcon(item.type, item.title);
+          const act = getActivityConfig(item.type, item.title);
 
           return (
             <View style={styles.activityCard}>
-              <View style={[styles.iconCircle, { backgroundColor: act.bg }]}>
+              <View style={[styles.iconCircle, { backgroundColor: act.bg, borderColor: act.border }]}>
                 <Ionicons name={act.icon} size={20} color={act.color} />
               </View>
 

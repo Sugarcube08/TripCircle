@@ -16,7 +16,7 @@ import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
 import { formatDate } from '../../utils/formatters';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface InvitationsScreenProps {
@@ -73,18 +73,7 @@ export const InvitationsScreen: React.FC<InvitationsScreenProps> = ({ navigation
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Trip Invitations</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <ScreenHeader title="Trip Invitations" onBack={() => navigation.goBack()} />
 
       <FlatList
         data={invitations}
@@ -230,7 +219,7 @@ const styles = StyleSheet.create({
   emblemText: {
     fontSize: 15,
     fontWeight: '800',
-    color: THEME.colors.mint,
+    color: THEME.colors.primary,
   },
   headerText: {
     flex: 1,
@@ -273,7 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
+    minHeight: 44,
     borderRadius: THEME.borderRadius.md,
   },
   btnDisabled: {
@@ -283,12 +272,12 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.primary,
   },
   acceptBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontWeight: '700',
     fontSize: 14,
   },
   declineBtn: {
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: THEME.colors.border,
   },

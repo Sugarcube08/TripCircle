@@ -8,7 +8,6 @@ import {
   RefreshControl,
   Modal,
   TextInput,
-  Alert,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +17,7 @@ import { LocalDatabase } from '../../storage/db';
 import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
-import { dialog } from '../../components/ui';
+import { ScreenHeader, SectionHeader, dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface SettlementDashboardScreenProps {
@@ -122,14 +121,11 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
   if (!plan) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.navBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.navTitle}>Settlement Plan</Text>
-          <View style={{ width: 40 }} />
+        <ScreenHeader title="Settlement Plan" onBack={() => navigation.goBack()} />
+        <View style={styles.emptyContainer}>
+          <Ionicons name="calculator-outline" size={48} color={THEME.colors.textMuted} />
+          <Text style={styles.errorText}>Could not calculate settlement recommendations.</Text>
         </View>
-        <Text style={styles.errorText}>Could not calculate settlement recommendations.</Text>
       </SafeAreaView>
     );
   }
@@ -143,23 +139,29 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
 
-      {/* Top Header */}
-      <View style={styles.navBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.navTitle}>Settlement Plan</Text>
-        <TouchableOpacity
-          style={styles.exportNavBtn}
-          onPress={() => navigation.navigate('ExportReport', { tripId })}
-        >
-          <Ionicons name="document-text-outline" size={22} color={THEME.colors.primary} />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Settlement Plan"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ExportReport', { tripId })}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Export Report"
+          >
+            <Ionicons name="document-text-outline" size={22} color={THEME.colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME.colors.primary]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={THEME.colors.primary}
+            colors={[THEME.colors.primary]}
+          />
         }
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -203,7 +205,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
         {plan.disputedPaymentsCount > 0 ? (
           <View style={[styles.warningBox, styles.disputeBox]}>
             <Ionicons name="alert-circle-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 8 }} />
-            <Text style={[styles.warningText, { color: '#F87171' }]}>
+            <Text style={[styles.warningText, { color: THEME.colors.debt }]}>
               {plan.disputedPaymentsCount} payment dispute{plan.disputedPaymentsCount > 1 ? 's' : ''} require attention.
             </Text>
           </View>
@@ -211,14 +213,10 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
         {/* Transfers To Receive */}
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>YOU RECEIVE</Text>
-            <View style={[styles.badgePill, { backgroundColor: THEME.colors.creditBg }]}>
-              <Text style={[styles.badgeText, { color: THEME.colors.credit }]}>
-                {transfersToReceive.length}
-              </Text>
-            </View>
-          </View>
+          <SectionHeader
+            title="YOU RECEIVE"
+            count={transfersToReceive.length}
+          />
 
           {transfersToReceive.length > 0 ? (
             transfersToReceive.map((t: any, idx: number) => (
@@ -240,14 +238,10 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
         {/* Transfers To Pay */}
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>YOU NEED TO PAY</Text>
-            <View style={[styles.badgePill, { backgroundColor: THEME.colors.debtBg }]}>
-              <Text style={[styles.badgeText, { color: THEME.colors.debt }]}>
-                {transfersToPay.length}
-              </Text>
-            </View>
-          </View>
+          <SectionHeader
+            title="YOU NEED TO PAY"
+            count={transfersToPay.length}
+          />
 
           {transfersToPay.length > 0 ? (
             transfersToPay.map((t: any, idx: number) => (
@@ -268,6 +262,9 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
                       })
                     }
                     activeOpacity={0.85}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pay ${t.toUserName}`}
                   >
                     <Text style={styles.payBtnText}>Pay Now</Text>
                   </TouchableOpacity>
@@ -283,13 +280,16 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
 
         {/* All Group Transfers Summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ALL GROUP TRANSFERS ({plan.simplifiedTransfers.length})</Text>
+          <SectionHeader
+            title="ALL GROUP TRANSFERS"
+            count={plan.simplifiedTransfers.length}
+          />
           <View style={styles.allTransfersCard}>
             {plan.simplifiedTransfers.map((t: any, idx: number) => (
               <View key={idx} style={[styles.allTransferRow, idx > 0 && styles.rowBorderTop]}>
                 <View style={styles.allTransferNames}>
                   <Text style={styles.nameFrom}>{t.fromUserName}</Text>
-                  <Ionicons name="arrow-forward" size={14} color={THEME.colors.textMuted} style={{ marginHorizontal: 6 }} />
+                  <Ionicons name="arrow-forward" size={14} color={THEME.colors.textMuted} style={{ marginHorizontal: 8 }} />
                   <Text style={styles.nameTo}>{t.toUserName}</Text>
                 </View>
                 <AmountText paise={t.amountPaise} size="small" colorType="neutral" />
@@ -307,6 +307,8 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
             style={styles.discountBtn}
             onPress={() => setDiscountModalVisible(true)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Settlement Discount"
           >
             <Ionicons name="pricetag-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
             <Text style={styles.discountBtnText}>Settlement Discount</Text>
@@ -316,8 +318,10 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
             style={styles.exportBtn}
             onPress={() => navigation.navigate('ExportReport', { tripId })}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Export Report"
           >
-            <Ionicons name="download-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Ionicons name="download-outline" size={18} color="#0B0F19" style={{ marginRight: 6 }} />
             <Text style={styles.exportBtnText}>Export Report</Text>
           </TouchableOpacity>
         </View>
@@ -325,19 +329,28 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
         {/* Settlement Discount Modal */}
         <Modal
           visible={discountModalVisible}
-          animationType="slide"
+          animationType="fade"
           transparent
           onRequestClose={() => setDiscountModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Propose Settlement Discount</Text>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Propose Settlement Discount</Text>
+                <TouchableOpacity
+                  onPress={() => setDiscountModalVisible(false)}
+                  style={styles.modalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={20} color={THEME.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
               <Text style={styles.modalSub}>
                 Explicitly record an agreed waiver or rounding adjustment (e.g. waiving fractional coins).
               </Text>
 
               <Text style={styles.inputLabel}>Creditor Member</Text>
-              <ScrollView style={{ maxHeight: 120 }}>
+              <ScrollView style={{ maxHeight: 130 }} showsVerticalScrollIndicator={false}>
                 {plan.memberBalances
                   .filter((b: any) => b.userId !== user?.id && b.netBalancePaise > 0)
                   .map((m: any) => (
@@ -429,45 +442,24 @@ const styles = StyleSheet.create({
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
   },
-  navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: THEME.spacing.sm,
-    backgroundColor: THEME.colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.borderLight,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  emptyContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  exportNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navTitle: {
-    ...THEME.typography.h3,
-    fontSize: 17,
+    padding: THEME.spacing.xl,
   },
   errorText: {
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: 16,
     ...THEME.typography.bodySmall,
+    color: THEME.colors.textMuted,
   },
   balanceCard: {
-    backgroundColor: THEME.colors.darkCanvas,
+    backgroundColor: THEME.colors.surfaceElevated,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: THEME.colors.borderLight,
     marginBottom: THEME.spacing.md,
     ...THEME.shadows.md,
   },
@@ -482,13 +474,13 @@ const styles = StyleSheet.create({
   },
   balanceSub: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: THEME.colors.textSecondary,
     marginBottom: 4,
   },
   settledBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: THEME.colors.creditBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: THEME.borderRadius.full,
@@ -498,57 +490,35 @@ const styles = StyleSheet.create({
   settledText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#10B981',
+    color: THEME.colors.credit,
   },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: THEME.colors.pendingBg,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: THEME.colors.pendingBorder,
     borderRadius: THEME.borderRadius.md,
     padding: THEME.spacing.md,
     marginBottom: THEME.spacing.md,
   },
   disputeBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    backgroundColor: THEME.colors.debtBg,
+    borderColor: THEME.colors.debtBorder,
   },
   warningText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#FCD34D',
+    color: THEME.colors.pending,
     flex: 1,
   },
   section: {
     marginBottom: THEME.spacing.lg,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: THEME.spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: THEME.colors.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: THEME.spacing.xs,
-  },
-  badgePill: {
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    borderRadius: THEME.borderRadius.full,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
   transferCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     padding: THEME.spacing.md,
     borderWidth: 1,
@@ -571,21 +541,24 @@ const styles = StyleSheet.create({
   },
   transferActionCol: {
     alignItems: 'flex-end',
-    gap: 6,
+    gap: 8,
   },
   payBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: THEME.borderRadius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.md,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   payBtnText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontSize: 12,
     fontWeight: '700',
   },
   emptyCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderRadius: THEME.borderRadius.md,
     padding: THEME.spacing.md,
     borderWidth: 1,
@@ -595,9 +568,10 @@ const styles = StyleSheet.create({
     ...THEME.typography.bodySmall,
     color: THEME.colors.textMuted,
     textAlign: 'center',
+    paddingVertical: 8,
   },
   allTransfersCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     paddingHorizontal: THEME.spacing.md,
     borderWidth: 1,
@@ -608,7 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   rowBorderTop: {
     borderTopWidth: 1,
@@ -642,7 +616,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.md,
     borderWidth: 1.5,
     borderColor: THEME.colors.primary,
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -664,23 +638,34 @@ const styles = StyleSheet.create({
   exportBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0B0F19',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     padding: THEME.spacing.lg,
   },
   modalCard: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surfaceElevated,
     borderRadius: THEME.borderRadius.xl,
     padding: THEME.spacing.xl,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderLight,
     ...THEME.shadows.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalCloseBtn: {
+    padding: 4,
   },
   modalTitle: {
     ...THEME.typography.h2,
-    marginBottom: 4,
+    fontSize: 18,
   },
   modalSub: {
     ...THEME.typography.bodySmall,
@@ -691,17 +676,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: THEME.colors.textSecondary,
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 6,
   },
   creditorChoice: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 10,
+    padding: 12,
     borderRadius: THEME.borderRadius.sm,
-    backgroundColor: THEME.colors.cardAlt,
-    marginBottom: 4,
+    backgroundColor: THEME.colors.surface,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderLight,
   },
   selectedCreditor: {
     backgroundColor: THEME.colors.primaryLight,
@@ -714,12 +701,12 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
   },
   modalInput: {
-    backgroundColor: THEME.colors.inputBg,
-    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: THEME.colors.surfaceSubtle,
+    borderRadius: THEME.borderRadius.md,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     paddingHorizontal: 12,
-    height: 42,
+    height: 44,
     fontSize: 14,
     color: THEME.colors.textPrimary,
   },
@@ -730,9 +717,11 @@ const styles = StyleSheet.create({
     marginTop: THEME.spacing.lg,
   },
   modalCancel: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: THEME.borderRadius.sm,
+    borderRadius: THEME.borderRadius.md,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   modalCancelText: {
     fontSize: 14,
@@ -741,13 +730,16 @@ const styles = StyleSheet.create({
   },
   modalSubmit: {
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: THEME.borderRadius.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: THEME.borderRadius.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalSubmitText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0B0F19',
   },
 });

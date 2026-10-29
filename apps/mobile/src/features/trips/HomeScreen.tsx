@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { THEME } from '../../theme';
 
 interface HomeScreenProps {
@@ -39,9 +40,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
   const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('ALL');
 
+  const lastFetchTimeRef = useRef<number>(0);
+
   const loadData = useCallback(async (force = false) => {
+    const now = Date.now();
+    // Prevent redundant sync execution if focused recently unless forced via pull-to-refresh
+    if (!force && now - lastFetchTimeRef.current < 15000 && trips.length > 0) {
+      return;
+    }
+
     try {
-      // Execute incremental sync and pending invitations concurrently
+      lastFetchTimeRef.current = now;
       const [syncResult, invites] = await Promise.all([
         performSync({ force }),
         apiRequest('/invitations').catch(() => []),
@@ -62,7 +71,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [trips.length]);
 
   useEffect(() => {
     loadData(false);
@@ -124,9 +133,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
         <TouchableOpacity
           onPress={() => navigation.navigate('Main', { screen: 'ProfileTab' })}
           style={styles.avatarButton}
+          accessibilityRole="button"
+          accessibilityLabel="Open user profile"
           activeOpacity={0.8}
         >
-          <MemberAvatar name={user?.name || 'You'} avatarUrl={user?.avatarUrl} size={40} />
+          <MemberAvatar name={user?.name || 'You'} avatarUrl={user?.avatarUrl} size={38} />
         </TouchableOpacity>
       </View>
 
@@ -136,18 +147,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
           style={styles.inviteBanner}
           onPress={() => navigation.navigate('Invitations')}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`You have ${pendingInvitesCount} pending trip invitations`}
         >
           <View style={styles.inviteBannerLeft}>
             <View style={styles.inviteIconCircle}>
-              <Ionicons name="mail" size={16} color="#FFFFFF" />
+              <Ionicons name="mail" size={14} color="#FFFFFF" />
             </View>
             <Text style={styles.inviteText}>
-              You have {pendingInvitesCount} pending trip invitation{pendingInvitesCount > 1 ? 's' : ''}
+              You have {pendingInvitesCount} pending invitation{pendingInvitesCount > 1 ? 's' : ''}
             </Text>
           </View>
           <View style={styles.inviteActionBadge}>
             <Text style={styles.inviteAction}>Review</Text>
-            <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+            <Ionicons name="chevron-forward" size={12} color="#FFFFFF" />
           </View>
         </TouchableOpacity>
       ) : null}
@@ -163,6 +176,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
           style={[styles.newTripBtn, isOffline && styles.newTripBtnDisabled]}
           onPress={() => navigation.navigate('CreateTrip')}
           disabled={isOffline}
+          accessibilityRole="button"
+          accessibilityLabel="Create a new trip"
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
@@ -170,44 +185,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterChip, selectedFilter === 'ALL' && styles.filterChipActive]}
-          onPress={() => setSelectedFilter('ALL')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.filterChipText, selectedFilter === 'ALL' && styles.filterChipTextActive]}>
-            All ({trips.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, selectedFilter === 'ACTIVE' && styles.filterChipActive]}
-          onPress={() => setSelectedFilter('ACTIVE')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.activeDotSmall} />
-          <Text style={[styles.filterChipText, selectedFilter === 'ACTIVE' && styles.filterChipTextActive]}>
-            Active ({activeCount})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, selectedFilter === 'CLOSED' && styles.filterChipActive]}
-          onPress={() => setSelectedFilter('CLOSED')}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="lock-closed"
-            size={11}
-            color={selectedFilter === 'CLOSED' ? '#FFFFFF' : THEME.colors.textSecondary}
-            style={{ marginRight: 3 }}
-          />
-          <Text style={[styles.filterChipText, selectedFilter === 'CLOSED' && styles.filterChipTextActive]}>
-            Closed ({closedCount})
-          </Text>
-        </TouchableOpacity>
+      {/* Standardized Filter Segmented Control */}
+      <View style={styles.filterContainer}>
+        <SegmentedControl
+          options={[
+            { id: 'ALL', label: 'All', count: trips.length },
+            { id: 'ACTIVE', label: 'Active', count: activeCount },
+            { id: 'CLOSED', label: 'Closed', count: closedCount, icon: 'lock-closed' },
+          ]}
+          selectedId={selectedFilter}
+          onSelect={(id) => setSelectedFilter(id as FilterStatus)}
+        />
       </View>
     </View>
   );
@@ -265,7 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: THEME.spacing.md,
-    paddingTop: THEME.spacing.md,
+    paddingTop: THEME.spacing.sm,
     paddingBottom: THEME.spacing.sm,
   },
   brandLockup: {
@@ -274,9 +262,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   brandIconSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: THEME.borderRadius.sm,
   },
   brandTitleRow: {
     flexDirection: 'row',
@@ -300,124 +288,100 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   avatarButton: {
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    borderRadius: 22,
-    ...THEME.shadows.sm,
+    width: THEME.dimensions.minTouchTarget,
+    height: THEME.dimensions.minTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inviteBanner: {
-    marginHorizontal: THEME.spacing.md,
-    marginVertical: THEME.spacing.xs,
-    backgroundColor: THEME.colors.darkCanvas,
-    borderRadius: THEME.borderRadius.lg,
-    paddingHorizontal: THEME.spacing.md,
-    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    ...THEME.shadows.sm,
+    backgroundColor: THEME.colors.primaryDark,
+    marginHorizontal: THEME.spacing.md,
+    marginTop: THEME.spacing.xs,
+    marginBottom: THEME.spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   inviteBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flex: 1,
   },
   inviteIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: THEME.colors.primary,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 8,
   },
   inviteText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+    color: '#FFFFFF',
+    flex: 1,
   },
   inviteActionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: THEME.borderRadius.full,
-    gap: 2,
+    borderRadius: THEME.borderRadius.sm,
+    marginLeft: 8,
   },
   inviteAction: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
+    color: '#FFFFFF',
+    marginRight: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: THEME.spacing.md,
-    paddingTop: THEME.spacing.sm,
-    paddingBottom: THEME.spacing.xs,
+    marginTop: THEME.spacing.md,
+    marginBottom: THEME.spacing.sm,
   },
   directoryTitle: {
-    ...THEME.typography.h2,
     fontSize: 18,
+    fontWeight: '700',
     color: THEME.colors.textPrimary,
+    letterSpacing: -0.3,
   },
   directorySubtitle: {
     fontSize: 12,
-    color: THEME.colors.textMuted,
+    color: THEME.colors.textSecondary,
     marginTop: 1,
   },
   newTripBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: THEME.colors.primary,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: THEME.borderRadius.full,
+    height: 38,
+    borderRadius: THEME.borderRadius.md,
     ...THEME.shadows.sm,
   },
   newTripBtnDisabled: {
     opacity: 0.5,
   },
   newTripBtnText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: THEME.spacing.md,
-    gap: 8,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.colors.card,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: THEME.borderRadius.full,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: THEME.colors.primary,
-    borderColor: THEME.colors.primary,
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: THEME.colors.textSecondary,
-  },
-  filterChipTextActive: {
     color: '#FFFFFF',
   },
-  activeDotSmall: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10B981',
-    marginRight: 5,
+  filterContainer: {
+    paddingHorizontal: THEME.spacing.md,
+    marginTop: 6,
+    marginBottom: THEME.spacing.sm,
   },
 });

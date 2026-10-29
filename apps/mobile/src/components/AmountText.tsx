@@ -18,7 +18,7 @@ export const AmountText: React.FC<AmountTextProps> = ({
   colorType = 'auto',
   style,
 }) => {
-  let textColor = THEME.colors.textPrimary;
+  let textColor: string = THEME.colors.textPrimary;
 
   if (colorType === 'credit') {
     textColor = THEME.colors.credit;

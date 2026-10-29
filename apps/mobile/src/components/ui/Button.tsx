@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: THEME.borderRadius.md,
+    minHeight: THEME.dimensions.minTouchTarget,
   },
   variantDefault: {
     backgroundColor: THEME.colors.primary,

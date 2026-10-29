@@ -312,9 +312,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
               onPress={handleRegister}
               disabled={loading || uploadingQr}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Create Account"
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#0B0F19" />
               ) : (
                 <Text style={styles.registerButtonText}>Create Account</Text>
               )}
@@ -399,7 +401,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   card: {
-    backgroundColor: THEME.colors.card,
+    backgroundColor: THEME.colors.surface,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
@@ -418,9 +420,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.inputBg,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: THEME.colors.inputBorder,
+    borderColor: THEME.colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 48,
@@ -435,11 +437,15 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   qrSection: {
-    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+    backgroundColor: THEME.colors.primaryLight,
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.3)',
+    borderColor: 'rgba(0, 245, 160, 0.25)',
     borderRadius: 14,
     padding: 14,
     marginBottom: 18,
@@ -458,7 +464,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   requiredBadgeText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -472,12 +478,13 @@ const styles = StyleSheet.create({
   qrPickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: THEME.colors.primary,
     borderRadius: 12,
     padding: 12,
+    minHeight: 52,
   },
   qrPickerBtnDisabled: {
     opacity: 0.6,
@@ -486,7 +493,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(13, 148, 136, 0.25)',
+    backgroundColor: 'rgba(0, 245, 160, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -507,7 +514,7 @@ const styles = StyleSheet.create({
   qrPreviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.cardAlt,
+    backgroundColor: THEME.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     borderRadius: 12,
@@ -549,21 +556,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: THEME.colors.primaryLight,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 6,
+    minHeight: 32,
   },
   qrRemoveBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: THEME.colors.debtBg,
   },
   qrActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: THEME.colors.mint,
+    color: THEME.colors.primary,
   },
   registerButton: {
     backgroundColor: THEME.colors.primary,
     borderRadius: 12,
-    height: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     ...THEME.shadows.sm,
@@ -572,7 +580,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   registerButtonText: {
-    color: '#FFFFFF',
+    color: '#0B0F19',
     fontSize: 15,
     fontWeight: '700',
   },

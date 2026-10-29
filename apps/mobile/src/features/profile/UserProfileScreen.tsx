@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { clearTokens } from '../../storage/secureStore';
 import { LocalDatabase } from '../../storage/db';
 import { checkForAppUpdate } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
+import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { resolveMediaUrl } from '../../utils/media';
 import { dialog } from '../../components/ui';
@@ -40,6 +41,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  // Compute verified live account metrics from cached trip ledgers
+  const cachedTrips = useMemo(() => LocalDatabase.getTrips(), []);
+  const activeTripsCount = useMemo(
+    () => cachedTrips.filter((t: any) => t.status !== 'CLOSED').length,
+    [cachedTrips]
+  );
+  const netUnsettledPaise = useMemo(
+    () => cachedTrips.reduce((sum: number, t: any) => sum + (t.userNetBalancePaise || 0), 0),
+    [cachedTrips]
+  );
 
   // Sync with prop when parent updates
   useEffect(() => {
@@ -142,15 +154,25 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <Text style={styles.editProfileBtnText}>Edit Profile & Payment QR</Text>
           </TouchableOpacity>
 
-          {/* Stats Bar */}
+          {/* Verified Account Statistics Bar */}
           <View style={styles.statBox}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{profile?.completedTripCount || 0}</Text>
-              <Text style={styles.statLabel}>COMPLETED TRIPS</Text>
+              <Text style={styles.statNumber}>{activeTripsCount}</Text>
+              <Text style={styles.statLabel}>ACTIVE TRIPS</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: '#00F5A0' }]}>0.00</Text>
+              <Text style={styles.statNumber}>{profile?.completedTripCount || 0}</Text>
+              <Text style={styles.statLabel}>COMPLETED</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <AmountText
+                paise={netUnsettledPaise}
+                size="medium"
+                colorType="auto"
+                style={styles.statAmountText}
+              />
               <Text style={styles.statLabel}>NET UNSETTLED</Text>
             </View>
           </View>
@@ -164,7 +186,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
-              <View style={[styles.optionIconBox, { backgroundColor: '#F0FDFA' }]}>
+              <View style={[styles.optionIconBox, { backgroundColor: THEME.colors.primaryLight }]}>
                 <Ionicons name="mail-outline" size={20} color={THEME.colors.primary} />
               </View>
               <Text style={styles.optionText}>Trip Invitations</Text>
@@ -191,7 +213,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
-              <View style={[styles.optionIconBox, { backgroundColor: '#F5F3FF' }]}>
+              <View style={[styles.optionIconBox, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
                 <Ionicons name="qr-code-outline" size={20} color="#8B5CF6" />
               </View>
               <View>
@@ -211,8 +233,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
-              <View style={[styles.optionIconBox, { backgroundColor: '#ECFDF5' }]}>
-                <Ionicons name="cloud-download-outline" size={20} color="#059669" />
+              <View style={[styles.optionIconBox, { backgroundColor: THEME.colors.confirmedBg }]}>
+                <Ionicons name="cloud-download-outline" size={20} color={THEME.colors.confirmed} />
               </View>
               <View>
                 <Text style={styles.optionText}>Check for Updates</Text>
@@ -231,15 +253,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             onPress={() =>
               dialog.alert(
                 'About TripCircle',
-                'TripCircle v1.0.0\n\nExact Paise Integer Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture',
+                'TripCircle v1.0.0\n\nExact Integer Paise Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture',
                 'info'
               )
             }
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
-              <View style={[styles.optionIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="information-circle-outline" size={20} color="#3B82F6" />
+              <View style={[styles.optionIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                <Ionicons name="information-circle-outline" size={20} color="#38BDF8" />
               </View>
               <Text style={styles.optionText}>About TripCircle</Text>
             </View>
@@ -395,9 +417,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
+  },
+  statAmountText: {
+    fontSize: 15,
+    fontWeight: '800',
   },
   statLabel: {
     fontSize: 10,
