@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface ForgotPasswordScreenProps {
@@ -26,7 +27,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      Alert.alert('Required Field', 'Please enter your email address.');
+      dialog.alert('Required Field', 'Please enter your email address.', 'warning');
       return;
     }
 
@@ -40,7 +41,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navi
 
       navigation.navigate('ResetPassword', { email: email.trim() });
     } catch (err) {
-      Alert.alert('Recovery Request Failed', (err as Error).message);
+      dialog.alert('Recovery Request Failed', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

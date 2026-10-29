@@ -18,6 +18,7 @@ import { LocalDatabase } from '../../storage/db';
 import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface SettlementDashboardScreenProps {
@@ -74,19 +75,19 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
     const waivedPaise = Math.round((parseFloat(waivedRupees) || 0) * 100);
 
     if (!creditorMemberId) {
-      Alert.alert('Required', 'Please select the creditor member');
+      dialog.alert('Required', 'Please select the creditor member', 'warning');
       return;
     }
     if (origPaise <= 0 || waivedPaise <= 0) {
-      Alert.alert('Invalid', 'Original debt and waived amount must be positive');
+      dialog.alert('Invalid', 'Original debt and waived amount must be positive', 'warning');
       return;
     }
     if (paidPaise + waivedPaise !== origPaise) {
-      Alert.alert('Mismatch', 'Paid amount + waived amount must equal original debt exactly');
+      dialog.alert('Mismatch', 'Paid amount + waived amount must equal original debt exactly', 'warning');
       return;
     }
     if (!discountReason.trim()) {
-      Alert.alert('Required', 'Please enter a reason for the discount');
+      dialog.alert('Required', 'Please enter a reason for the discount', 'warning');
       return;
     }
 
@@ -103,11 +104,11 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
         }),
       });
 
-      Alert.alert('Discount Recorded', 'Settlement discount recorded successfully.');
+      await dialog.alert('Discount Recorded', 'Settlement discount recorded successfully.', 'success');
       setDiscountModalVisible(false);
       loadSettlement();
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setSubmittingDiscount(false);
     }

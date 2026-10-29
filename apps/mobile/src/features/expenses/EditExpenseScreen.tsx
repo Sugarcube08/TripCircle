@@ -18,6 +18,7 @@ import { apiRequest } from '../../services/api';
 import { calculateEqualSplit, validateUnequalSplit } from '@tripcircle/contracts';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface EditExpenseScreenProps {
@@ -64,7 +65,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
         }
         setUnequalShares(sharesMap);
       } catch (err) {
-        Alert.alert('Error', (err as Error).message);
+        dialog.alert('Error', (err as Error).message, 'error');
       } finally {
         setLoading(false);
       }
@@ -77,7 +78,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   const toggleBeneficiary = (memberId: string) => {
     if (selectedBeneficiaryIds.includes(memberId)) {
       if (selectedBeneficiaryIds.length === 1) {
-        Alert.alert('Selection Required', 'At least one beneficiary must be included.');
+        dialog.alert('Selection Required', 'At least one beneficiary must be included.', 'warning');
         return;
       }
       setSelectedBeneficiaryIds(selectedBeneficiaryIds.filter((id) => id !== memberId));
@@ -88,11 +89,11 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
 
   const handleUpdate = async () => {
     if (!amountRupees || totalAmountPaise <= 0) {
-      Alert.alert('Required', 'Please enter a valid amount.');
+      dialog.alert('Required', 'Please enter a valid amount.', 'warning');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Required', 'Please enter description.');
+      dialog.alert('Required', 'Please enter description.', 'warning');
       return;
     }
 
@@ -109,7 +110,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
       try {
         validateUnequalSplit(totalAmountPaise, allocations);
       } catch (err) {
-        Alert.alert('Allocation Mismatch', (err as Error).message);
+        dialog.alert('Allocation Mismatch', (err as Error).message, 'warning');
         return;
       }
     }
@@ -130,11 +131,10 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
         }),
       });
 
-      Alert.alert('Updated', 'Expense updated successfully.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      await dialog.alert('Updated', 'Expense updated successfully.', 'success');
+      navigation.goBack();
     } catch (err) {
-      Alert.alert('Update Failed', (err as Error).message);
+      dialog.alert('Update Failed', (err as Error).message, 'error');
     } finally {
       setSaving(false);
     }

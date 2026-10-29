@@ -57,16 +57,19 @@ export function generateStorageKey(params: {
       key = `users/${user}/payment-qr/${fileId}${ext}`;
       break;
     case 'EXPENSE_RECEIPT':
-      if (!trip) throw new Error('tripId is required for expense receipts');
-      key = `trips/${trip}/expenses/${expense}/${fileId}${ext}`;
+      key = trip
+        ? `trips/${trip}/expenses/${expense}/${fileId}${ext}`
+        : `users/${user}/receipts/${fileId}${ext}`;
       break;
     case 'PAYMENT_RECEIPT':
-      if (!trip) throw new Error('tripId is required for payment receipts');
-      key = `trips/${trip}/payments/${payment}/${fileId}${ext}`;
+      key = trip
+        ? `trips/${trip}/payments/${payment}/${fileId}${ext}`
+        : `users/${user}/receipts/${fileId}${ext}`;
       break;
     case 'TRIP_COVER':
-      if (!trip) throw new Error('tripId is required for trip covers');
-      key = `trips/${trip}/covers/${fileId}${ext}`;
+      key = trip
+        ? `trips/${trip}/covers/${fileId}${ext}`
+        : `users/${user}/covers/${fileId}${ext}`;
       break;
     default:
       key = `uploads/${user}/${fileId}${ext}`;

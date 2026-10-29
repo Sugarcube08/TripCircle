@@ -12,6 +12,8 @@ interface TripCardProps {
 }
 
 export const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
+  const [coverError, setCoverError] = React.useState(false);
+  const coverUrl = resolveMediaUrl(trip.coverImageUrl);
   const isSettled = trip.userNetBalancePaise === 0;
   const isOwed = trip.userNetBalancePaise > 0;
   const owes = trip.userNetBalancePaise < 0;
@@ -23,8 +25,12 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
       onPress={onPress}
     >
       {/* Cover Header */}
-      {resolveMediaUrl(trip.coverImageUrl) ? (
-        <Image source={{ uri: resolveMediaUrl(trip.coverImageUrl)! }} style={styles.coverImage} />
+      {coverUrl && !coverError ? (
+        <Image
+          source={{ uri: coverUrl }}
+          style={styles.coverImage}
+          onError={() => setCoverError(true)}
+        />
       ) : (
         <View style={styles.placeholderCover}>
           <View style={styles.placeholderEmblem}>

@@ -1,8 +1,8 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { FileService } from '@/modules/files/service';
 import { successResponse, handleApiError } from '@/lib/api-response';
-import { FileCategory } from '@/infrastructure/storage';
+import { FileCategory, getStorageDriver } from '@/infrastructure/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +49,23 @@ export async function POST(req: NextRequest) {
     );
 
     return successResponse(metadata, 201);
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const storageKey = url.searchParams.get('storageKey');
+    if (!storageKey) {
+      return NextResponse.json({ error: 'Missing storageKey in query parameter' }, { status: 400 });
+    }
+    const buffer = Buffer.from(await req.arrayBuffer());
+    const contentType = req.headers.get('content-type') || 'application/octet-stream';
+    const driver = getStorageDriver();
+    await driver.saveDirect(storageKey, buffer, contentType);
+    return new NextResponse(null, { status: 200 });
   } catch (err) {
     return handleApiError(err);
   }

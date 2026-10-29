@@ -221,6 +221,17 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Trip Cover Banner */}
+        {resolveMediaUrl(trip.coverImageUrl) ? (
+          <View style={styles.coverBannerContainer}>
+            <Image
+              source={{ uri: resolveMediaUrl(trip.coverImageUrl)! }}
+              style={styles.coverBannerImage}
+              resizeMode="cover"
+            />
+          </View>
+        ) : null}
+
         {/* Trip Title & Metadata */}
         <View style={styles.titleSection}>
           <View style={styles.titleRow}>
@@ -711,6 +722,20 @@ const styles = StyleSheet.create({
     ...THEME.typography.h3,
     fontSize: 17,
     maxWidth: '55%',
+  },
+  coverBannerContainer: {
+    marginHorizontal: THEME.spacing.md,
+    marginTop: THEME.spacing.xs,
+    borderRadius: THEME.borderRadius.lg,
+    overflow: 'hidden',
+    height: 140,
+    backgroundColor: THEME.colors.card,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  coverBannerImage: {
+    width: '100%',
+    height: '100%',
   },
   titleSection: {
     paddingHorizontal: THEME.spacing.md,

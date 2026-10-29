@@ -19,6 +19,7 @@ import { checkForAppUpdate } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { resolveMediaUrl } from '../../utils/media';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface UserProfileScreenProps {
@@ -67,27 +68,24 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     try {
       const update = await checkForAppUpdate();
       if (!update) {
-        Alert.alert('TripCircle is Up to Date', 'You are running the latest version with the latest security and financial engine updates.');
+        dialog.alert('TripCircle is Up to Date', 'You are running the latest version with the latest security and financial engine updates.', 'success');
       }
     } catch (err) {
-      Alert.alert('Check Failed', (err as Error).message);
+      dialog.alert('Check Failed', (err as Error).message, 'error');
     } finally {
       setCheckingUpdate(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out of TripCircle?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await clearTokens();
-          onLogout();
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    const confirmed = await dialog.confirm('Log Out', 'Are you sure you want to log out of TripCircle?', {
+      confirmText: 'Log Out',
+      destructive: true,
+    });
+    if (confirmed) {
+      await clearTokens();
+      onLogout();
+    }
   };
 
   if (loading && !profile) {
@@ -167,18 +165,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => {
+            onPress={async () => {
               if (profile?.paymentQrUrl) {
                 setQrModalVisible(true);
               } else {
-                Alert.alert(
+                const setup = await dialog.confirm(
                   'No Payment QR Code',
                   'You have not configured a payment QR code yet. Would you like to set it up now?',
-                  [
-                    { text: 'Later', style: 'cancel' },
-                    { text: 'Set Up Now', onPress: () => navigation.navigate('EditProfile') },
-                  ]
+                  { confirmText: 'Set Up Now', cancelText: 'Later' }
                 );
+                if (setup) {
+                  navigation.navigate('EditProfile');
+                }
               }
             }}
             activeOpacity={0.7}
@@ -222,9 +220,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <TouchableOpacity
             style={[styles.optionRow, styles.lastOptionRow]}
             onPress={() =>
-              Alert.alert(
+              dialog.alert(
                 'About TripCircle',
-                'TripCircle v1.0.0\n\nExact Paise Integer Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture'
+                'TripCircle v1.0.0\n\nExact Paise Integer Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture',
+                'info'
               )
             }
             activeOpacity={0.7}

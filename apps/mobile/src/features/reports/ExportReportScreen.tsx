@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiBaseUrl } from '../../services/api';
 import { getAccessToken } from '../../storage/secureStore';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface ExportReportScreenProps {
@@ -46,13 +47,14 @@ export const ExportReportScreen: React.FC<ExportReportScreenProps> = ({
         throw new Error(`Report export failed with status: ${res.status}`);
       }
 
-      Alert.alert(
+      await dialog.alert(
         'Report Generated',
         `Your ${format} report (${reportType === 'TRIP_LEDGER' ? 'Complete Trip Ledger' : 'Individual Statement'}) was generated successfully and verified with exact paise accounting.`,
-        [{ text: 'Done', onPress: () => navigation.goBack() }]
+        'success'
       );
+      navigation.goBack();
     } catch (err) {
-      Alert.alert('Export Error', (err as Error).message);
+      dialog.alert('Export Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

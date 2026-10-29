@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiRequest, uploadImageFromUri } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { resolveMediaUrl } from '../../utils/media';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface EditProfileScreenProps {
@@ -51,7 +52,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission Required', 'Permission to access photos is needed to set your avatar.');
+        dialog.alert('Permission Required', 'Permission to access photos is needed to set your avatar.', 'warning');
         return;
       }
 
@@ -66,7 +67,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
         setAvatarUri(res.assets[0].uri);
       }
     } catch (err) {
-      Alert.alert('Photo Selection Failed', (err as Error).message);
+      dialog.alert('Photo Selection Failed', (err as Error).message, 'error');
     }
   };
 
@@ -74,7 +75,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission Required', 'Permission to access photos is needed to select your payment QR.');
+        dialog.alert('Permission Required', 'Permission to access photos is needed to select your payment QR.', 'warning');
         return;
       }
 
@@ -89,13 +90,13 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
         setQrUri(res.assets[0].uri);
       }
     } catch (err) {
-      Alert.alert('QR Selection Failed', (err as Error).message);
+      dialog.alert('QR Selection Failed', (err as Error).message, 'error');
     }
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Please enter your name.');
+      dialog.alert('Required', 'Please enter your name.', 'warning');
       return;
     }
 
@@ -147,11 +148,10 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
         onUpdateUser(updatedProfile);
       }
 
-      Alert.alert('Profile Saved', 'Your profile details have been updated.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      await dialog.alert('Profile Saved', 'Your profile details have been updated.', 'success');
+      navigation.goBack();
     } catch (err) {
-      Alert.alert('Failed to Update Profile', (err as Error).message);
+      dialog.alert('Failed to Update Profile', (err as Error).message, 'error');
     } finally {
       setSaving(false);
       setSaveStatus('');

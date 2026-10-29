@@ -18,6 +18,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDateTime } from '../../utils/formatters';
 import { resolveMediaUrl } from '../../utils/media';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface ExpenseDetailScreenProps {
@@ -64,7 +65,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
       const data = await apiRequest(`/trips/${tripId}/expenses/${expenseId}`);
       setExpense(data);
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

@@ -18,6 +18,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { PaymentStatusBadge } from '../../components/PaymentStatusBadge';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDateTime } from '../../utils/formatters';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface PaymentDetailScreenProps {
@@ -45,7 +46,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
       const data = await apiRequest(`/trips/${tripId}/payments/${paymentId}`);
       setPayment(data);
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }
@@ -79,36 +80,32 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
 
   const handleConfirm = async () => {
-    Alert.alert(
+    const confirmed = await dialog.confirm(
       'Confirm Payment Received',
       `Did you receive ₹${(payment.amountPaise / 100).toFixed(2)} from ${payerName}? This will immediately update your balance and settle this transfer.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm Received',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              const confirmed = await apiRequest(
-                `/trips/${tripId}/payments/${paymentId}/confirm`,
-                { method: 'POST' }
-              );
-              setPayment(confirmed);
-              Alert.alert('Payment Confirmed', 'The payment has been confirmed and ledger balances updated.');
-            } catch (err) {
-              Alert.alert('Confirmation Failed', (err as Error).message);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
+      { confirmText: 'Confirm Received', type: 'success' }
     );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(true);
+      const res = await apiRequest(
+        `/trips/${tripId}/payments/${paymentId}/confirm`,
+        { method: 'POST' }
+      );
+      setPayment(res);
+      await dialog.alert('Payment Confirmed', 'The payment has been confirmed and ledger balances updated.', 'success');
+    } catch (err) {
+      dialog.alert('Confirmation Failed', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleDispute = async () => {
     if (!disputeReason.trim()) {
-      Alert.alert('Required', 'Please enter a reason for disputing this payment.');
+      dialog.alert('Required', 'Please enter a reason for disputing this payment.', 'warning');
       return;
     }
 
@@ -120,36 +117,35 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
       });
       setPayment(disputed);
       setDisputeModalVisible(false);
-      Alert.alert('Payment Disputed', 'Payment has been disputed. Group balances remain unaltered.');
+      await dialog.alert('Payment Disputed', 'Payment has been disputed. Group balances remain unaltered.', 'info');
     } catch (err) {
-      Alert.alert('Dispute Failed', (err as Error).message);
+      dialog.alert('Dispute Failed', (err as Error).message, 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleCancel = async () => {
-    Alert.alert('Cancel Payment', 'Are you sure you want to cancel this pending payment submission?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Yes, Cancel',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setActionLoading(true);
-            const cancelled = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
-              method: 'DELETE',
-            });
-            setPayment(cancelled);
-            Alert.alert('Payment Cancelled', 'The pending payment was cancelled.');
-          } catch (err) {
-            Alert.alert('Cancellation Failed', (err as Error).message);
-          } finally {
-            setActionLoading(false);
-          }
-        },
-      },
-    ]);
+    const confirmed = await dialog.confirm(
+      'Cancel Payment',
+      'Are you sure you want to cancel this pending payment submission?',
+      { confirmText: 'Yes, Cancel', destructive: true }
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(true);
+      const cancelled = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
+        method: 'DELETE',
+      });
+      setPayment(cancelled);
+      await dialog.alert('Payment Cancelled', 'The pending payment was cancelled.', 'info');
+    } catch (err) {
+      dialog.alert('Cancellation Failed', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (

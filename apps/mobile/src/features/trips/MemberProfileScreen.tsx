@@ -20,6 +20,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { resolveMediaUrl } from '../../utils/media';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface MemberProfileScreenProps {
@@ -48,7 +49,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         setTrip(tripData);
         setPlan(planData);
       } catch (err) {
-        Alert.alert('Error', (err as Error).message);
+        dialog.alert('Error', (err as Error).message, 'error');
       } finally {
         setLoading(false);
       }
@@ -89,13 +90,13 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             dialogTitle: `Save or Share ${memberName}'s QR Code`,
           });
         } else {
-          Alert.alert('QR Saved', `Payment QR code saved to temporary cache: ${result.uri}`);
+          dialog.alert('QR Saved', `Payment QR code saved to temporary cache: ${result.uri}`, 'success');
         }
       } else {
         throw new Error(`Failed to download QR code (status ${result.status})`);
       }
     } catch (err) {
-      Alert.alert('Error Saving QR', (err as Error).message);
+      dialog.alert('Error Saving QR', (err as Error).message, 'error');
     } finally {
       setDownloadingQr(false);
     }

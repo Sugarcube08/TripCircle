@@ -66,6 +66,17 @@ describe('Cloudflare R2 & Storage Infrastructure Tests', () => {
       expect(storageKey).toBe(`trips/trip-999/covers/${fileId}.jpg`);
     });
 
+    it('gracefully handles draft trip cover when tripId is not yet created', () => {
+      const { storageKey, fileId } = generateStorageKey({
+        category: 'TRIP_COVER',
+        userId: 'user-123',
+        originalName: 'draft_cover.jpg',
+        mimeType: 'image/jpeg',
+      });
+
+      expect(storageKey).toBe(`users/user-123/covers/${fileId}.jpg`);
+    });
+
     it('prevents path traversal attempts in identifiers', () => {
       const { storageKey } = generateStorageKey({
         category: 'AVATAR',

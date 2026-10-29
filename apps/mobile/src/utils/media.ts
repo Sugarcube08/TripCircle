@@ -10,10 +10,8 @@ export function resolveMediaUrl(url?: string | null): string | undefined {
   const trimmed = url.trim();
   if (!trimmed) return undefined;
 
-  // If already an absolute HTTP/HTTPS URL, data URL, or file/content URI
+  // Local device URIs (from camera/gallery or local cache)
   if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
     trimmed.startsWith('file://') ||
     trimmed.startsWith('content://') ||
     trimmed.startsWith('data:')
@@ -21,12 +19,49 @@ export function resolveMediaUrl(url?: string | null): string | undefined {
     return trimmed;
   }
 
-  // Prepend API Base URL
+  let baseUrl = '';
+  let origin = '';
   try {
-    const baseUrl = getApiBaseUrl();
-    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${baseUrl}${cleanPath}`;
+    baseUrl = getApiBaseUrl(); // e.g. "https://api-eta-liard-50.vercel.app/api/v1"
+    const parsed = new URL(baseUrl);
+    origin = parsed.origin; // e.g. "https://api-eta-liard-50.vercel.app"
   } catch {
-    return undefined;
+    baseUrl = '';
+    origin = '';
   }
+
+  // Handle loopback URLs created in local dev environments (localhost / 127.0.0.1 / 10.0.2.2)
+  if (
+    origin &&
+    (trimmed.includes('localhost:') ||
+      trimmed.includes('127.0.0.1:') ||
+      trimmed.includes('10.0.2.2:'))
+  ) {
+    try {
+      const parsedUrl = new URL(trimmed);
+      return `${origin}${parsedUrl.pathname}${parsedUrl.search}`;
+    } catch {
+      const pathOnly = trimmed.replace(/^https?:\/\/[^/]+/, '');
+      return `${origin}${pathOnly}`;
+    }
+  }
+
+  // Absolute external URLs (e.g. S3 / R2 direct public URLs or DiceBear)
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  // Relative URLs
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+
+  // If path already starts with /api/, append to origin to avoid /api/v1/api/v1 duplication
+  if (cleanPath.startsWith('/api/') && origin) {
+    return `${origin}${cleanPath}`;
+  }
+
+  if (baseUrl) {
+    return `${baseUrl.replace(/\/$/, '')}${cleanPath}`;
+  }
+
+  return cleanPath;
 }

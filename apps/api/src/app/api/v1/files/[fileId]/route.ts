@@ -13,34 +13,7 @@ export async function GET(
   try {
     const rawFileId = decodeURIComponent(params.fileId);
 
-    // 1. Authenticate user from header or query param
-    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
-    const urlObj = new URL(req.url);
-    const tokenQuery = urlObj.searchParams.get('token');
-
-    let token = '';
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7).trim();
-    } else if (tokenQuery) {
-      token = tokenQuery;
-    }
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Authentication required to access private file' },
-        { status: 401 }
-      );
-    }
-
-    const payload = verifyAccessToken(token);
-    if (!payload?.userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // 2. Locate FileMetadata record
+    // 1. Locate FileMetadata record
     const file = await prisma.fileMetadata.findFirst({
       where: {
         OR: [
@@ -55,10 +28,42 @@ export async function GET(
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    // 3. Authorize access
+    // 2. Determine if file is a public media asset (avatars, trip covers, payment QRs)
+    const isPublicMedia =
+      file.storageKey.includes('/avatars/') ||
+      file.storageKey.includes('/covers/') ||
+      file.storageKey.includes('/payment-qr/');
+
+    // 3. Authenticate user from header or query param
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+    const urlObj = new URL(req.url);
+    const tokenQuery = urlObj.searchParams.get('token');
+
+    let token = '';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    } else if (tokenQuery) {
+      token = tokenQuery;
+    }
+
+    let requestingUserId = file.userId || 'public';
+
+    if (token) {
+      const payload = verifyAccessToken(token);
+      if (payload?.userId) {
+        requestingUserId = payload.userId;
+      }
+    } else if (!isPublicMedia) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required to access private file' },
+        { status: 401 }
+      );
+    }
+
+    // 4. Authorize access
     const { downloadUrl, mimeType, fileName } = await StorageService.getAuthorizedDownloadUrl(
       file.storageKey,
-      payload.userId
+      requestingUserId
     );
 
     // If client requested URL format or JSON

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface VerifyOtpScreenProps {
@@ -42,7 +43,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
 
   const handleVerify = async () => {
     if (otp.trim().length !== 6) {
-      Alert.alert('Incomplete Code', 'Please enter all 6 digits of the verification code.');
+      dialog.alert('Incomplete Code', 'Please enter all 6 digits of the verification code.', 'warning');
       return;
     }
 
@@ -67,7 +68,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
         navigation.navigate('ResetPassword', { email, otp: otp.trim() });
       }
     } catch (err) {
-      Alert.alert('Verification Failed', (err as Error).message);
+      dialog.alert('Verification Failed', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }
@@ -84,9 +85,9 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
         requiresAuth: false,
       });
       setCooldown(60);
-      Alert.alert('Code Sent', `A new verification code was delivered to ${email}.`);
+      dialog.alert('Code Sent', `A new verification code was delivered to ${email}.`, 'success');
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

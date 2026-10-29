@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface ResetPasswordScreenProps {
@@ -34,12 +35,12 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
 
   const handleReset = async () => {
     if (!otp.trim() || !newPassword) {
-      Alert.alert('Required Fields', 'Please enter the verification code and your new password.');
+      dialog.alert('Required Fields', 'Please enter the verification code and your new password.', 'warning');
       return;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert('Weak Password', 'Password must be at least 8 characters long.');
+      dialog.alert('Weak Password', 'Password must be at least 8 characters long.', 'warning');
       return;
     }
 
@@ -55,13 +56,14 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({
         requiresAuth: false,
       });
 
-      Alert.alert(
+      await dialog.alert(
         'Password Reset Successful',
         'Your password has been updated. You can now log in with your new credentials.',
-        [{ text: 'Log In Now', onPress: () => navigation.navigate('Login') }]
+        'success'
       );
+      navigation.navigate('Login');
     } catch (err) {
-      Alert.alert('Reset Failed', (err as Error).message);
+      dialog.alert('Reset Failed', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

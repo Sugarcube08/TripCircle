@@ -18,6 +18,7 @@ import { EXPENSE_CATEGORIES, calculateEqualSplit } from '@tripcircle/contracts';
 import { apiRequest, getOnlineStatus } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface AddExpenseScreenProps {
@@ -92,7 +93,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
         // Default beneficiaries: all active members
         setSelectedBeneficiaryIds(activeMembers.map((m: any) => m.id));
       } catch (err) {
-        Alert.alert('Error', (err as Error).message);
+        dialog.alert('Error', (err as Error).message, 'error');
       } finally {
         setLoadingInitial(false);
       }
@@ -105,7 +106,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const toggleBeneficiary = (memberId: string) => {
     if (selectedBeneficiaryIds.includes(memberId)) {
       if (selectedBeneficiaryIds.length === 1) {
-        Alert.alert('Selection Required', 'At least one beneficiary must be included.');
+        dialog.alert('Selection Required', 'At least one beneficiary must be included.', 'warning');
         return;
       }
       setSelectedBeneficiaryIds(selectedBeneficiaryIds.filter((id) => id !== memberId));
@@ -135,24 +136,24 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
   const handleSave = async () => {
     if (!getOnlineStatus()) {
-      Alert.alert('Offline Mode', 'Transaction submission requires active network connectivity.');
+      dialog.alert('Offline Mode', 'Transaction submission requires active network connectivity.', 'warning');
       return;
     }
 
     if (!amountRupees || totalAmountPaise <= 0) {
-      Alert.alert('Amount Required', 'Please enter a valid expense amount in rupees.');
+      dialog.alert('Amount Required', 'Please enter a valid expense amount in rupees.', 'warning');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Description Required', 'Please enter a description for this expense.');
+      dialog.alert('Description Required', 'Please enter a description for this expense.', 'warning');
       return;
     }
     if (!payerMemberId) {
-      Alert.alert('Payer Required', 'Please select who paid for this expense.');
+      dialog.alert('Payer Required', 'Please select who paid for this expense.', 'warning');
       return;
     }
     if (selectedBeneficiaryIds.length === 0) {
-      Alert.alert('Beneficiaries Required', 'Please select at least one person sharing this expense.');
+      dialog.alert('Beneficiaries Required', 'Please select at least one person sharing this expense.', 'warning');
       return;
     }
 
@@ -162,14 +163,15 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       try {
         allocations = calculateEqualSplit(totalAmountPaise, selectedBeneficiaryIds);
       } catch (err) {
-        Alert.alert('Calculation Error', (err as Error).message);
+        dialog.alert('Calculation Error', (err as Error).message, 'error');
         return;
       }
     } else {
       if (unallocatedPaise !== 0) {
-        Alert.alert(
+        dialog.alert(
           'Allocation Mismatch',
-          `The sum of all member shares must exactly equal ₹${(totalAmountPaise / 100).toFixed(2)}. Currently ${unallocatedPaise > 0 ? `remaining: ₹${(unallocatedPaise / 100).toFixed(2)}` : `exceeded by ₹${(Math.abs(unallocatedPaise) / 100).toFixed(2)}`}.`
+          `The sum of all member shares must exactly equal ₹${(totalAmountPaise / 100).toFixed(2)}. Currently ${unallocatedPaise > 0 ? `remaining: ₹${(unallocatedPaise / 100).toFixed(2)}` : `exceeded by ₹${(Math.abs(unallocatedPaise) / 100).toFixed(2)}`}.`,
+          'warning'
         );
         return;
       }
@@ -200,7 +202,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Failed to Save Expense', (err as Error).message);
+      dialog.alert('Failed to Save Expense', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

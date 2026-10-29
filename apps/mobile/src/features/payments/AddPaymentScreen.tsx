@@ -18,6 +18,7 @@ import { PAYMENT_METHODS } from '@tripcircle/contracts';
 import { apiRequest, getOnlineStatus } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface AddPaymentScreenProps {
@@ -61,7 +62,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
           }
         }
       } catch (err) {
-        Alert.alert('Error', (err as Error).message);
+        dialog.alert('Error', (err as Error).message, 'error');
       } finally {
         setLoading(false);
       }
@@ -71,21 +72,21 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
 
   const handleSubmit = async () => {
     if (!getOnlineStatus()) {
-      Alert.alert('Offline Mode', 'Recording payments requires an active network connection.');
+      dialog.alert('Offline Mode', 'Recording payments requires an active network connection.', 'warning');
       return;
     }
 
     const amountPaise = Math.round((parseFloat(amountRupees) || 0) * 100);
     if (amountPaise <= 0) {
-      Alert.alert('Amount Required', 'Please enter a valid payment amount');
+      dialog.alert('Amount Required', 'Please enter a valid payment amount', 'warning');
       return;
     }
     if (!receiverMemberId) {
-      Alert.alert('Receiver Required', 'Please select who received this payment');
+      dialog.alert('Receiver Required', 'Please select who received this payment', 'warning');
       return;
     }
     if (receiverMemberId === payerMemberId) {
-      Alert.alert('Invalid Selection', 'Payer and receiver cannot be the same member');
+      dialog.alert('Invalid Selection', 'Payer and receiver cannot be the same member', 'warning');
       return;
     }
 
@@ -103,13 +104,14 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
         }),
       });
 
-      Alert.alert(
+      await dialog.alert(
         'Payment Submitted',
         'Your payment has been recorded as Pending. Group balances will update once the receiver confirms receipt.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        'success'
       );
+      navigation.goBack();
     } catch (err) {
-      Alert.alert('Payment Submission Failed', (err as Error).message);
+      dialog.alert('Payment Submission Failed', (err as Error).message, 'error');
     } finally {
       setSubmitting(false);
     }

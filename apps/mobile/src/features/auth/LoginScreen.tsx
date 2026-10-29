@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface LoginScreenProps {
@@ -32,7 +33,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Required Fields', 'Please enter your email and password.');
+      dialog.alert('Required Fields', 'Please enter your email and password.', 'warning');
       return;
     }
 
@@ -47,7 +48,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       await setTokens(data.accessToken, data.refreshToken);
       onLoginSuccess(data.user);
     } catch (err) {
-      Alert.alert('Login Failed', (err as Error).message);
+      dialog.alert('Login Failed', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

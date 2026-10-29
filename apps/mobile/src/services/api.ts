@@ -206,25 +206,45 @@ export async function uploadFileToR2(params: {
 
 /**
  * Upload image from local file URI (for Avatar, Payment QR, Receipt)
+ * Uses high-performance native multipart form upload directly to TripCircle API.
  */
 export async function uploadImageFromUri(
   imageUri: string,
   category: 'AVATAR' | 'PAYMENT_QR' | 'EXPENSE_RECEIPT' | 'PAYMENT_RECEIPT' | 'TRIP_COVER',
   options: { tripId?: string; mimeType?: string } = {}
-) {
+): Promise<{ id: string; storageKey: string; publicUrl: string; fileName: string }> {
+  const baseUrl = getApiBaseUrl();
+  const token = await getAccessToken();
+  const formData = new FormData();
   const mimeType = options.mimeType || 'image/jpeg';
   const fileName = imageUri.split('/').pop() || `${category.toLowerCase()}.jpg`;
 
-  const response = await fetch(imageUri);
-  const blob = await response.blob();
+  formData.append('file', {
+    uri: imageUri,
+    name: fileName,
+    type: mimeType,
+  } as any);
+  formData.append('category', category);
+  if (options.tripId) {
+    formData.append('tripId', options.tripId);
+  }
 
-  return uploadFileToR2({
-    blob,
-    fileName,
-    mimeType,
-    category,
-    tripId: options.tripId,
+  const response = await fetch(`${baseUrl}/files/upload`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Accept: 'application/json',
+    },
+    body: formData,
   });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const errorMsg = data.error?.message || data.error || 'Failed to upload image';
+    throw new Error(errorMsg);
+  }
+
+  return data.data || data;
 }
 
 /**

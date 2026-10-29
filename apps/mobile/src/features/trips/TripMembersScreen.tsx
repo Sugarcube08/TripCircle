@@ -23,6 +23,7 @@ import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { Badge } from '../../components/ui/Badge';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface TripMembersScreenProps {
@@ -64,7 +65,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
       const data = await apiRequest(`/trips/${tripId}`);
       setTrip(data);
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }
@@ -76,7 +77,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
 
   const handleInvite = async () => {
     if (!inviteEmailOrId.trim()) {
-      Alert.alert('Required', 'Please enter an email or username to invite.');
+      dialog.alert('Required', 'Please enter an email or username to invite.', 'warning');
       return;
     }
 
@@ -87,10 +88,10 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
         body: JSON.stringify({ userIdOrEmail: inviteEmailOrId.trim() }),
       });
       setInviteEmailOrId('');
-      Alert.alert('Success', 'Invitation sent successfully!');
+      dialog.alert('Success', 'Invitation sent successfully!', 'success');
       loadTrip();
     } catch (err) {
-      Alert.alert('Invite Failed', (err as Error).message);
+      dialog.alert('Invite Failed', (err as Error).message, 'error');
     } finally {
       setInviting(false);
     }
@@ -98,7 +99,7 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
 
   const handleAddOffline = async () => {
     if (!offlineName.trim()) {
-      Alert.alert('Required', 'Please enter a name for the offline member.');
+      dialog.alert('Required', 'Please enter a name for the offline member.', 'warning');
       return;
     }
 
@@ -110,10 +111,10 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
       });
       setOfflineName('');
       setOfflinePhone('');
-      Alert.alert('Member Added', 'Offline member added to the trip. They can now participate in expenses.');
+      dialog.alert('Member Added', 'Offline member added to the trip. They can now participate in expenses.', 'success');
       loadTrip();
     } catch (err) {
-      Alert.alert('Failed to Add Member', (err as Error).message);
+      dialog.alert('Failed to Add Member', (err as Error).message, 'error');
     } finally {
       setAddingOffline(false);
     }
@@ -140,36 +141,32 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
     }
   };
 
-  const handleConfirmReplace = (targetUser: any) => {
+  const handleConfirmReplace = async (targetUser: any) => {
     if (!selectedDummyMember) return;
 
-    Alert.alert(
+    const confirmed = await dialog.confirm(
       'Link Registered Account',
       `Are you sure you want to link ${targetUser.name} (${targetUser.email}) to "${selectedDummyMember.displayName || 'Offline Member'}"?\n\n100% of expenses, splits, and balances will be securely attached to this user account without creating duplicates.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm & Link',
-          onPress: async () => {
-            try {
-              setReplacing(true);
-              await replaceDummyMember(tripId, selectedDummyMember.id, {
-                registeredUserId: targetUser.id,
-              });
-              Alert.alert('Account Linked', `Successfully linked ${targetUser.name} to this trip.`);
-              setSelectedDummyMember(null);
-              setReplaceSearchQuery('');
-              setReplaceSearchResults([]);
-              loadTrip();
-            } catch (err) {
-              Alert.alert('Replacement Failed', (err as Error).message);
-            } finally {
-              setReplacing(false);
-            }
-          },
-        },
-      ]
+      { confirmText: 'Confirm & Link', type: 'info' }
     );
+
+    if (!confirmed) return;
+
+    try {
+      setReplacing(true);
+      await replaceDummyMember(tripId, selectedDummyMember.id, {
+        registeredUserId: targetUser.id,
+      });
+      await dialog.alert('Account Linked', `Successfully linked ${targetUser.name} to this trip.`, 'success');
+      setSelectedDummyMember(null);
+      setReplaceSearchQuery('');
+      setReplaceSearchResults([]);
+      loadTrip();
+    } catch (err) {
+      dialog.alert('Replacement Failed', (err as Error).message, 'error');
+    } finally {
+      setReplacing(false);
+    }
   };
 
   if (loading) {

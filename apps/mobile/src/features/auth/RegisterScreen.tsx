@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { apiRequest, uploadRegistrationQr } from '../../services/api';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface RegisterScreenProps {
@@ -41,9 +42,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert(
+        dialog.alert(
           'Permission Required',
-          'Photos permission is needed to select your personal payment QR code.'
+          'Photos permission is needed to select your personal payment QR code.',
+          'warning'
         );
         return;
       }
@@ -65,7 +67,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
         setQrToken(uploadRes.token);
       }
     } catch (err) {
-      Alert.alert('QR Upload Failed', (err as Error).message);
+      dialog.alert('QR Upload Failed', (err as Error).message, 'error');
       setQrUri(null);
       setQrToken(null);
     } finally {
@@ -80,19 +82,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
-      Alert.alert('Required Fields', 'Please enter your name, email, and password.');
+      dialog.alert('Required Fields', 'Please enter your name, email, and password.', 'warning');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Weak Password', 'Password must be at least 8 characters long.');
+      dialog.alert('Weak Password', 'Password must be at least 8 characters long.', 'warning');
       return;
     }
 
     if (!qrToken) {
-      Alert.alert(
+      dialog.alert(
         'Payment QR Required',
-        'TripCircle requires a valid payment QR code so trip members can settle debts with you seamlessly. Please select and upload your QR code.'
+        'TripCircle requires a valid payment QR code so trip members can settle debts with you seamlessly. Please select and upload your QR code.',
+        'warning'
       );
       return;
     }
@@ -117,7 +120,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
         purpose: 'EMAIL_VERIFY',
       });
     } catch (err) {
-      Alert.alert('Registration Failed', (err as Error).message);
+      dialog.alert('Registration Failed', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }

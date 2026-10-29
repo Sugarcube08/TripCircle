@@ -16,6 +16,7 @@ import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
 import { formatDate } from '../../utils/formatters';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface InvitationsScreenProps {
@@ -33,7 +34,7 @@ export const InvitationsScreen: React.FC<InvitationsScreenProps> = ({ navigation
       const data = await apiRequest('/invitations');
       setInvitations(data || []);
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -52,13 +53,14 @@ export const InvitationsScreen: React.FC<InvitationsScreenProps> = ({ navigation
         body: JSON.stringify({ action }),
       });
 
-      Alert.alert(
+      await dialog.alert(
         action === 'ACCEPT' ? 'Invitation Accepted' : 'Invitation Declined',
-        `You have ${action.toLowerCase()}ed the invitation.`
+        `You have ${action.toLowerCase()}ed the invitation.`,
+        action === 'ACCEPT' ? 'success' : 'info'
       );
       loadInvitations();
     } catch (err) {
-      Alert.alert('Response Failed', (err as Error).message);
+      dialog.alert('Response Failed', (err as Error).message, 'error');
     } finally {
       setActionLoading(null);
     }

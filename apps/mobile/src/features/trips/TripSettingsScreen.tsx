@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { formatDate } from '../../utils/formatters';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface TripSettingsScreenProps {
@@ -37,7 +38,7 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
       const data = await apiRequest(`/trips/${tripId}`);
       setTrip(data);
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      dialog.alert('Error', (err as Error).message, 'error');
     } finally {
       setLoading(false);
     }
@@ -54,78 +55,67 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
   const isCreator = trip?.creatorId === user?.id;
   const isClosed = trip?.status === 'CLOSED';
 
-  const handleCloseTrip = () => {
-    Alert.alert(
+  const handleCloseTrip = async () => {
+    const confirmed = await dialog.confirm(
       'Close Trip',
       'Closing the trip prevents any new expenses from being recorded. Outstanding balances remain intact and settlement payments can still be confirmed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Close Trip',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              await apiRequest(`/trips/${tripId}/close`, { method: 'POST' });
-              Alert.alert('Trip Closed', 'This trip has been closed.');
-              loadTrip();
-            } catch (err) {
-              Alert.alert('Error', (err as Error).message);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
+      { confirmText: 'Close Trip', destructive: true }
     );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(true);
+      await apiRequest(`/trips/${tripId}/close`, { method: 'POST' });
+      await dialog.alert('Trip Closed', 'This trip has been closed.', 'success');
+      loadTrip();
+    } catch (err) {
+      dialog.alert('Error', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleReopenTrip = () => {
-    Alert.alert('Reopen Trip', 'Reopen this trip to allow new expenses again?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reopen',
-        onPress: async () => {
-          try {
-            setActionLoading(true);
-            await apiRequest(`/trips/${tripId}/reopen`, { method: 'POST' });
-            Alert.alert('Trip Reopened', 'This trip is active again.');
-            loadTrip();
-          } catch (err) {
-            Alert.alert('Error', (err as Error).message);
-          } finally {
-            setActionLoading(false);
-          }
-        },
-      },
-    ]);
+  const handleReopenTrip = async () => {
+    const confirmed = await dialog.confirm(
+      'Reopen Trip',
+      'Reopen this trip to allow new expenses again?',
+      { confirmText: 'Reopen', type: 'info' }
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(true);
+      await apiRequest(`/trips/${tripId}/reopen`, { method: 'POST' });
+      await dialog.alert('Trip Reopened', 'This trip is active again.', 'success');
+      loadTrip();
+    } catch (err) {
+      dialog.alert('Error', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleLeaveTrip = () => {
-    Alert.alert(
+  const handleLeaveTrip = async () => {
+    const confirmed = await dialog.confirm(
       'Leave Trip',
       'Leaving this trip disables creating new expenses by you. Any existing debts or credits remain valid.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave Trip',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              await apiRequest(`/trips/${tripId}/leave`, { method: 'POST' });
-              Alert.alert('Left Trip', 'You have left this trip.', [
-                { text: 'OK', onPress: () => navigation.navigate('Main') },
-              ]);
-            } catch (err) {
-              Alert.alert('Error', (err as Error).message);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
+      { confirmText: 'Leave Trip', destructive: true }
     );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(true);
+      await apiRequest(`/trips/${tripId}/leave`, { method: 'POST' });
+      await dialog.alert('Left Trip', 'You have left this trip.', 'info');
+      navigation.navigate('Main');
+    } catch (err) {
+      dialog.alert('Error', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (

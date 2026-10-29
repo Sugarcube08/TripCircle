@@ -20,6 +20,7 @@ import { apiRequest, uploadImageFromUri, addDummyMember } from '../../services/a
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { CalendarModal } from '../../components/CalendarModal';
 import { Badge } from '../../components/ui/Badge';
+import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
 interface CreateTripScreenProps {
@@ -65,7 +66,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission Required', 'Permission to access photos is needed to choose a cover image.');
+        dialog.alert('Permission Required', 'Permission to access photos is needed to choose a cover image.', 'warning');
         return;
       }
 
@@ -80,7 +81,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
         setCoverImageUri(res.assets[0].uri);
       }
     } catch (err) {
-      Alert.alert('Image Picker Error', (err as Error).message);
+      dialog.alert('Image Picker Error', (err as Error).message, 'error');
     }
   };
 
@@ -117,7 +118,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   const handleAddOfflineMember = () => {
     const trimmed = offlineNameInput.trim();
     if (!trimmed) {
-      Alert.alert('Name Required', 'Please enter a name for the offline member.');
+      dialog.alert('Name Required', 'Please enter a name for the offline member.', 'warning');
       return;
     }
     const tempId = `offline-${Date.now()}`;
@@ -132,12 +133,12 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
 
   const handleCreateTrip = async () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Please enter a name for your trip.');
+      dialog.alert('Required', 'Please enter a name for your trip.', 'warning');
       return;
     }
 
     if (endDate && endDate < startDate) {
-      Alert.alert('Invalid Date Range', 'End date cannot be earlier than start date.');
+      dialog.alert('Invalid Date Range', 'End date cannot be earlier than start date.', 'warning');
       return;
     }
 
@@ -179,7 +180,7 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
 
       navigation.replace('TripDashboard', { tripId: trip.id });
     } catch (err) {
-      Alert.alert('Failed to Create Trip', (err as Error).message);
+      dialog.alert('Failed to Create Trip', (err as Error).message, 'error');
     } finally {
       setLoading(false);
       setUploadingCover(false);

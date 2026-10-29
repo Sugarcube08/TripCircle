@@ -152,38 +152,46 @@ export class StorageService {
     }
 
     // Check authorization:
-    // If associated with a trip, user must be an active member of the trip
-    if (file.tripId) {
-      const isMember = await prisma.tripMember.findFirst({
-        where: {
-          tripId: file.tripId,
-          userId: requestingUserId,
-          status: 'ACTIVE',
-        },
-      });
+    // Avatars, trip covers, and payment QRs are public media assets within the app
+    const isPublicAsset =
+      file.storageKey.includes('/avatars/') ||
+      file.storageKey.includes('/covers/') ||
+      file.storageKey.includes('/payment-qr/');
 
-      if (!isMember) {
-        throw new Error('Forbidden: You do not have permission to view this file');
-      }
-    } else if (file.userId && file.userId !== requestingUserId) {
-      // If it's a personal user file (e.g. payment QR), verify if requesting user shares any trip with this user
-      const sharedTrip = await prisma.tripMember.findFirst({
-        where: {
-          userId: requestingUserId,
-          status: 'ACTIVE',
-          trip: {
-            members: {
-              some: {
-                userId: file.userId,
-                status: 'ACTIVE',
+    if (!isPublicAsset) {
+      // If associated with a trip, user must be an active member of the trip
+      if (file.tripId) {
+        const isMember = await prisma.tripMember.findFirst({
+          where: {
+            tripId: file.tripId,
+            userId: requestingUserId,
+            status: 'ACTIVE',
+          },
+        });
+
+        if (!isMember) {
+          throw new Error('Forbidden: You do not have permission to view this file');
+        }
+      } else if (file.userId && file.userId !== requestingUserId) {
+        // If it's a private user file, verify if requesting user shares any trip with this user
+        const sharedTrip = await prisma.tripMember.findFirst({
+          where: {
+            userId: requestingUserId,
+            status: 'ACTIVE',
+            trip: {
+              members: {
+                some: {
+                  userId: file.userId,
+                  status: 'ACTIVE',
+                },
               },
             },
           },
-        },
-      });
+        });
 
-      if (!sharedTrip) {
-        throw new Error('Forbidden: You do not share a trip with the owner of this file');
+        if (!sharedTrip) {
+          throw new Error('Forbidden: You do not share a trip with the owner of this file');
+        }
       }
     }
 
