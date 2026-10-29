@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -28,13 +29,14 @@ async function main() {
   }
   console.log('✅ Expense categories seeded');
 
-  // 2. Seed Users
+  // 2. Seed 5 Demo Users (All have password: Password@123)
   const passwordHash = await bcrypt.hash('Password@123', 10);
   const usersData = [
     { email: 'alice@tripcircle.app', name: 'Alice Sharma', phone: '+919876543210' },
     { email: 'bob@tripcircle.app', name: 'Bob Verma', phone: '+919876543211' },
     { email: 'charlie@tripcircle.app', name: 'Charlie Patel', phone: '+919876543212' },
     { email: 'dave@tripcircle.app', name: 'Dave Fernandes', phone: '+919876543213' },
+    { email: 'eva@tripcircle.app', name: 'Eva Kapoor', phone: '+919876543214' },
   ];
 
   const userMap = {};
@@ -54,7 +56,7 @@ async function main() {
     });
     userMap[u.name.split(' ')[0]] = user;
   }
-  console.log('✅ Demo users seeded (Alice, Bob, Charlie, Dave - password: Password@123)');
+  console.log('✅ 5 Demo users seeded (Alice, Bob, Charlie, Dave, Eva - password: Password@123)');
 
   // 3. Seed Goa Trip
   const foodCat = await prisma.expenseCategory.findUnique({ where: { key: 'FOOD_DINING' } });
@@ -83,6 +85,7 @@ async function main() {
     { user: userMap.Bob, role: 'MEMBER', status: 'ACTIVE' },
     { user: userMap.Charlie, role: 'MEMBER', status: 'ACTIVE' },
     { user: userMap.Dave, role: 'MEMBER', status: 'ACTIVE' },
+    { user: userMap.Eva, role: 'MEMBER', status: 'ACTIVE' },
   ];
 
   for (const m of memberRoles) {
@@ -189,6 +192,51 @@ async function main() {
           { memberId: memberMap.Bob.id, sharePaise: 15000 },
           { memberId: memberMap.Charlie.id, sharePaise: 15000 },
           { memberId: memberMap.Dave.id, sharePaise: 15000 },
+        ],
+      },
+    });
+
+    // Expense 3: Eva pays ₹500 (50000 paise) split equally among all 5 members
+    const exp3 = await prisma.expense.create({
+      data: {
+        tripId: trip.id,
+        submitterId: userMap.Eva.id,
+        payerMemberId: memberMap.Eva.id,
+        amountPaise: 50000,
+        categoryId: foodCat.id,
+        description: 'Beach Shack Snacks & Refreshments',
+        location: 'Anjuna Beach, Goa',
+        splitMethod: 'EQUAL',
+        version: 1,
+        allocations: {
+          create: [
+            { memberId: memberMap.Alice.id, sharePaise: 10000 },
+            { memberId: memberMap.Bob.id, sharePaise: 10000 },
+            { memberId: memberMap.Charlie.id, sharePaise: 10000 },
+            { memberId: memberMap.Dave.id, sharePaise: 10000 },
+            { memberId: memberMap.Eva.id, sharePaise: 10000 },
+          ],
+        },
+      },
+    });
+
+    await prisma.expenseRevision.create({
+      data: {
+        expenseId: exp3.id,
+        version: 1,
+        editorId: userMap.Eva.id,
+        amountPaise: 50000,
+        payerMemberId: memberMap.Eva.id,
+        categoryId: foodCat.id,
+        description: 'Beach Shack Snacks & Refreshments',
+        location: 'Anjuna Beach, Goa',
+        splitMethod: 'EQUAL',
+        allocationsSnapshot: [
+          { memberId: memberMap.Alice.id, sharePaise: 10000 },
+          { memberId: memberMap.Bob.id, sharePaise: 10000 },
+          { memberId: memberMap.Charlie.id, sharePaise: 10000 },
+          { memberId: memberMap.Dave.id, sharePaise: 10000 },
+          { memberId: memberMap.Eva.id, sharePaise: 10000 },
         ],
       },
     });
