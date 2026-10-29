@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { clearTokens } from '../../storage/secureStore';
+import { LocalDatabase } from '../../storage/db';
 import { checkForAppUpdate } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -47,9 +48,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   }, [user]);
 
-  const fetchMe = useCallback(async () => {
+  const lastProfileFetchRef = React.useRef(0);
+
+  const fetchMe = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastProfileFetchRef.current < 30000) {
+      return;
+    }
     try {
       const data = await apiRequest('/users/me');
+      lastProfileFetchRef.current = Date.now();
       setProfile(data);
       onUpdateUser?.(data);
     } catch {
@@ -58,8 +66,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   }, [onUpdateUser]);
 
   useEffect(() => {
-    fetchMe();
-    const unsubscribe = navigation.addListener('focus', fetchMe);
+    fetchMe(false);
+    const unsubscribe = navigation.addListener('focus', () => fetchMe(false));
     return unsubscribe;
   }, [navigation, fetchMe]);
 
@@ -84,6 +92,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     });
     if (confirmed) {
       await clearTokens();
+      await LocalDatabase.clear();
       onLogout();
     }
   };

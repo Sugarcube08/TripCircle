@@ -24,20 +24,110 @@ export function getOnlineStatus(): boolean {
   return isOnline;
 }
 
-interface RequestOptions extends RequestInit {
-  requiresAuth?: boolean;
+/**
+ * Rich API Error with HTTP status, correlation ID, timeout flags, and network error classification.
+ */
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  isTimeout: boolean;
+  isNetworkError: boolean;
+  correlationId?: string;
+
+  constructor(
+    message: string,
+    options: {
+      status?: number;
+      code?: string;
+      isTimeout?: boolean;
+      isNetworkError?: boolean;
+      correlationId?: string;
+    } = {}
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = options.status || 0;
+    this.code = options.code;
+    this.isTimeout = options.isTimeout || false;
+    this.isNetworkError = options.isNetworkError || false;
+    this.correlationId = options.correlationId;
+  }
 }
 
+export interface RequestOptions extends RequestInit {
+  requiresAuth?: boolean;
+  timeoutMs?: number;
+  correlationId?: string;
+  _isRetry?: boolean;
+}
+
+// Single active token refresh promise shared across all concurrent 401 requests
+let activeRefreshPromise: Promise<string | null> | null = null;
+
+async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    try {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) {
+        await clearTokens();
+        return null;
+      }
+
+      const refreshRes = await fetch(`${baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!refreshRes.ok) {
+        await clearTokens();
+        return null;
+      }
+
+      const refreshData = await refreshRes.json();
+      const newAccess = refreshData.data?.accessToken || refreshData.accessToken;
+      const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
+
+      if (newAccess && newRefresh) {
+        await setTokens(newAccess, newRefresh);
+        return newAccess;
+      }
+
+      await clearTokens();
+      return null;
+    } catch {
+      await clearTokens();
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+}
+
+/**
+ * Executes an HTTP request with automatic timeout, cancellation support,
+ * request correlation, coordinated token refresh, and normalized error responses.
+ */
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
   const baseUrl = getApiBaseUrl();
   const requiresAuth = options.requiresAuth !== false;
+  const timeoutMs = options.timeoutMs ?? 15000; // 15s default timeout
+  const correlationId =
+    options.correlationId || `tc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-Request-ID': correlationId,
     ...(options.headers as Record<string, string>),
   };
 
@@ -48,66 +138,128 @@ export async function apiRequest<T = any>(
     }
   }
 
+  // Setup abort controller for timeout and caller cancellation
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  // Link caller-provided signal if present
+  let removeCallerListener: (() => void) | null = null;
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timeoutTimer);
+      controller.abort();
+    } else {
+      const onCallerAbort = () => controller.abort();
+      options.signal.addEventListener('abort', onCallerAbort);
+      removeCallerListener = () => options.signal?.removeEventListener('abort', onCallerAbort);
+    }
+  }
+
+  const startTime = Date.now();
+
   try {
-    let response = await fetch(url, {
+    const fetchOptions: RequestInit = {
       ...options,
       headers,
-    });
+      signal: controller.signal,
+    };
+    // remove custom internal flags from native fetch options
+    delete (fetchOptions as any).requiresAuth;
+    delete (fetchOptions as any).timeoutMs;
+    delete (fetchOptions as any).correlationId;
+    delete (fetchOptions as any)._isRetry;
 
-    // Handle token refresh on 401 Unauthorized
-    if (response.status === 401 && requiresAuth) {
-      const refreshToken = await getRefreshToken();
-      if (refreshToken) {
-        try {
-          const refreshRes = await fetch(`${baseUrl}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken }),
-          });
+    let response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutTimer);
+    if (removeCallerListener) removeCallerListener();
 
-          if (refreshRes.ok) {
-            const refreshData = await refreshRes.json();
-            await setTokens(refreshData.data.accessToken, refreshData.data.refreshToken);
-
-            // Retry original request with new token
-            headers['Authorization'] = `Bearer ${refreshData.data.accessToken}`;
-            response = await fetch(url, {
-              ...options,
-              headers,
-            });
-          } else {
-            await clearTokens();
-          }
-        } catch {
-          await clearTokens();
-        }
+    // 1. Handle token refresh on 401 Unauthorized (only if this is not already a retry)
+    if (response.status === 401 && requiresAuth && !options._isRetry) {
+      const newToken = await requestSharedTokenRefresh(baseUrl);
+      if (newToken) {
+        // Retry original request exactly once with fresh token
+        return apiRequest<T>(endpoint, {
+          ...options,
+          _isRetry: true,
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${newToken}`,
+          },
+        });
+      } else {
+        throw new ApiError('Session expired. Please log in again.', {
+          status: 401,
+          code: 'UNAUTHORIZED',
+          correlationId,
+        });
       }
     }
+
+    setOnlineStatus(true);
 
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
       if (!response.ok) {
-        const errorMsg = data.error?.message || data.error || data.message || 'Request failed';
-        throw new Error(errorMsg);
+        const errorMsg = data.error?.message || data.error || data.message || `Request failed (${response.status})`;
+        const errorCode = data.error?.code || data.code;
+        throw new ApiError(errorMsg, {
+          status: response.status,
+          code: errorCode,
+          correlationId,
+        });
       }
       return data.data !== undefined ? data.data : data;
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      throw new ApiError(`HTTP error ${response.status}: ${response.statusText}`, {
+        status: response.status,
+        correlationId,
+      });
     }
 
     return response as unknown as T;
-  } catch (error) {
-    // If network fetch fails, set offline
-    if (
-      (error as Error).message.includes('Network request failed') ||
-      (error as Error).message.includes('Failed to fetch')
-    ) {
-      isOnline = false;
+  } catch (error: any) {
+    clearTimeout(timeoutTimer);
+    if (removeCallerListener) removeCallerListener();
+
+    if (error instanceof ApiError) {
+      throw error;
     }
-    throw error;
+
+    if (timedOut) {
+      throw new ApiError(`Request timed out after ${timeoutMs}ms for ${endpoint}`, {
+        isTimeout: true,
+        correlationId,
+      });
+    }
+
+    if (controller.signal.aborted && !timedOut) {
+      throw new ApiError('Request was cancelled', {
+        code: 'ABORTED',
+        correlationId,
+      });
+    }
+
+    const errorMsg = error?.message || 'Network request failed';
+    const isNetwork =
+      errorMsg.includes('Network request failed') ||
+      errorMsg.includes('Failed to fetch') ||
+      errorMsg.includes('NetworkError');
+
+    if (isNetwork) {
+      setOnlineStatus(false);
+    }
+
+    throw new ApiError(errorMsg, {
+      isNetworkError: isNetwork,
+      correlationId,
+    });
   }
 }
 
@@ -121,6 +273,7 @@ export async function uploadRegistrationQr(
 ): Promise<{ token: string; storageKey: string; publicUrl: string }> {
   const baseUrl = getApiBaseUrl();
   const formData = new FormData();
+  const correlationId = `qr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
   const fileName = imageUri.split('/').pop() || 'payment-qr.png';
   formData.append('file', {
@@ -129,21 +282,35 @@ export async function uploadRegistrationQr(
     type: mimeType,
   } as any);
 
-  const response = await fetch(`${baseUrl}/auth/register-qr`, {
-    method: 'POST',
-    body: formData,
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
-  const data = await response.json();
-  if (!response.ok) {
-    const errorMsg = data.error?.message || data.error || 'Failed to upload QR code';
-    throw new Error(errorMsg);
+  try {
+    const response = await fetch(`${baseUrl}/auth/register-qr`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'X-Request-ID': correlationId,
+      },
+    });
+
+    clearTimeout(timer);
+    const data = await response.json();
+    if (!response.ok) {
+      const errorMsg = data.error?.message || data.error || 'Failed to upload QR code';
+      throw new ApiError(errorMsg, { status: response.status, correlationId });
+    }
+
+    return data.data || data;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (controller.signal.aborted) {
+      throw new ApiError('QR upload timed out after 45 seconds', { isTimeout: true, correlationId });
+    }
+    throw err;
   }
-
-  return data.data || data;
 }
 
 /**
@@ -211,13 +378,15 @@ export async function uploadFileToR2(params: {
 export async function uploadImageFromUri(
   imageUri: string,
   category: 'AVATAR' | 'PAYMENT_QR' | 'EXPENSE_RECEIPT' | 'PAYMENT_RECEIPT' | 'TRIP_COVER',
-  options: { tripId?: string; expenseId?: string; paymentId?: string; mimeType?: string } = {}
+  options: { tripId?: string; expenseId?: string; paymentId?: string; mimeType?: string; timeoutMs?: number } = {}
 ): Promise<{ id: string; storageKey: string; publicUrl: string; fileName: string }> {
   const baseUrl = getApiBaseUrl();
   const token = await getAccessToken();
   const formData = new FormData();
   const mimeType = options.mimeType || 'image/jpeg';
   const fileName = imageUri.split('/').pop() || `${category.toLowerCase()}.jpg`;
+  const timeoutMs = options.timeoutMs ?? 60000; // 60s timeout for media uploads
+  const correlationId = `upload-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
   formData.append('file', {
     uri: imageUri,
@@ -235,22 +404,39 @@ export async function uploadImageFromUri(
     formData.append('paymentId', options.paymentId);
   }
 
-  const response = await fetch(`${baseUrl}/files/upload`, {
-    method: 'POST',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      Accept: 'application/json',
-    },
-    body: formData,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const data = await response.json();
-  if (!response.ok) {
-    const errorMsg = data.error?.message || data.error || 'Failed to upload image';
-    throw new Error(errorMsg);
+  try {
+    const response = await fetch(`${baseUrl}/files/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Accept: 'application/json',
+        'X-Request-ID': correlationId,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+    const data = await response.json();
+    if (!response.ok) {
+      const errorMsg = data.error?.message || data.error || 'Failed to upload image';
+      throw new ApiError(errorMsg, { status: response.status, correlationId });
+    }
+
+    return data.data || data;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (controller.signal.aborted) {
+      throw new ApiError(`Image upload timed out after ${timeoutMs / 1000} seconds`, {
+        isTimeout: true,
+        correlationId,
+      });
+    }
+    throw err;
   }
-
-  return data.data || data;
 }
 
 /**

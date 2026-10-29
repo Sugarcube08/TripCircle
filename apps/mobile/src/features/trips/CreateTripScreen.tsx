@@ -85,22 +85,31 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
     }
   };
 
-  const handleSearch = async (text: string) => {
+  const searchTimerRef = React.useRef<any>(null);
+
+  const handleSearch = (text: string) => {
     setSearchQuery(text);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
     if (text.trim().length < 2) {
       setSearchResults([]);
+      setSearching(false);
       return;
     }
 
-    try {
-      setSearching(true);
-      const results = await apiRequest(`/users/search?q=${encodeURIComponent(text.trim())}`);
-      setSearchResults(results || []);
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
+    setSearching(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await apiRequest(`/users/search?q=${encodeURIComponent(text.trim())}`);
+        setSearchResults(results || []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
   };
 
   const addInvitee = (user: any) => {
@@ -167,15 +176,13 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
         }),
       });
 
-      // If offline members were added, create them now
+      // If offline members were added, create them concurrently
       if (offlineMembers.length > 0) {
-        for (const m of offlineMembers) {
-          try {
-            await addDummyMember(trip.id, { name: m.name });
-          } catch {
-            // Silently continue if individual offline member fails
-          }
-        }
+        await Promise.all(
+          offlineMembers.map((m) =>
+            addDummyMember(trip.id, { name: m.name }).catch(() => null)
+          )
+        );
       }
 
       navigation.replace('TripDashboard', { tripId: trip.id });

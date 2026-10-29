@@ -30,35 +30,32 @@ interface HomeScreenProps {
 type FilterStatus = 'ALL' | 'ACTIVE' | 'CLOSED';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
-  const [trips, setTrips] = useState<TripSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCachedTrips = useMemo(() => LocalDatabase.getTrips(), []);
+  const [trips, setTrips] = useState<TripSummary[]>(initialCachedTrips);
+  const [loading, setLoading] = useState(initialCachedTrips.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<string | null>(LocalDatabase.getCache().lastSyncTimestamp);
   const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('ALL');
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
     try {
-      const syncResult = await performSync();
+      // Execute incremental sync and pending invitations concurrently
+      const [syncResult, invites] = await Promise.all([
+        performSync({ force }),
+        apiRequest('/invitations').catch(() => []),
+      ]);
+
       setIsOffline(syncResult.isOffline);
       setLastSync(syncResult.lastSyncTimestamp);
+      setPendingInvitesCount(Array.isArray(invites) ? invites.length : 0);
 
-      if (!syncResult.isOffline) {
-        const data = await apiRequest('/trips');
-        setTrips(data.trips || []);
-
-        // Check invitations count
-        const invites = await apiRequest('/invitations').catch(() => []);
-        setPendingInvitesCount(invites.length || 0);
-      } else {
-        const cachedTrips = LocalDatabase.getTrips();
-        setTrips(cachedTrips);
-      }
+      const latestTrips = syncResult.trips || LocalDatabase.getTrips();
+      setTrips(latestTrips);
     } catch {
       setIsOffline(true);
-      const cachedTrips = LocalDatabase.getTrips();
-      setTrips(cachedTrips);
+      setTrips(LocalDatabase.getTrips());
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -66,14 +63,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, user }) => {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const unsubscribe = navigation.addListener('focus', loadData);
+    loadData(false);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadData(false);
+    });
     return unsubscribe;
   }, [navigation, loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadData();
+    loadData(true);
   };
 
   const filteredTrips = useMemo(() => {

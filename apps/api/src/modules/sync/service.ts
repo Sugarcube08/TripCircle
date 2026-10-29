@@ -14,14 +14,16 @@ export class SyncService {
     // 1. Fetch user's trips summary
     const myTripsResponse = await TripService.getMyTrips(userId);
 
-    // 2. Determine target trips for detailed sync
+    // 2. Determine target trips for detailed sync (incremental optimization)
     const targetTrips = requestedTripIds && requestedTripIds.length > 0
       ? myTripsResponse.trips.filter((t) => requestedTripIds.includes(t.id))
-      : myTripsResponse.trips.slice(0, 5); // Default to first 5 active trips
+      : sinceDate.getTime() > 0
+      ? myTripsResponse.trips.filter((t) => new Date(t.lastActivityAt) >= sinceDate)
+      : myTripsResponse.trips.slice(0, 5); // Default to first 5 active trips on cold initial sync
 
     const activeTripDetails = await Promise.all(
       targetTrips.map(async (t) => {
-        const [expenses, payments, settlementPlan] = await Promise.all([
+        const [expenses, payments] = await Promise.all([
           prisma.expense.findMany({
             where: {
               tripId: t.id,
@@ -43,8 +45,13 @@ export class SyncService {
               receiverMember: { include: { user: true } },
             },
           }),
-          SettlementService.getSettlementPlan(t.id, userId),
         ]);
+
+        // Only compute settlement plan if changes occurred or on cold sync
+        const shouldComputePlan = sinceDate.getTime() === 0 || expenses.length > 0 || payments.length > 0;
+        const settlementPlan = shouldComputePlan
+          ? await SettlementService.getSettlementPlan(t.id, userId)
+          : null;
 
         return {
           tripId: t.id,

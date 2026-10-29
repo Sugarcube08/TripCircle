@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
+import { LocalDatabase } from '../../storage/db';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
 import { formatDateTime } from '../../utils/formatters';
@@ -43,8 +44,9 @@ function getActivityIcon(type?: string, title?: string): { icon: keyof typeof Io
 
 export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, navigation }) => {
   const tripId = route?.params?.tripId;
-  const [activities, setActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedNotifications = useMemo(() => (!tripId ? LocalDatabase.getNotifications() : []), [tripId]);
+  const [activities, setActivities] = useState<any[]>(cachedNotifications);
+  const [loading, setLoading] = useState(!tripId ? cachedNotifications.length === 0 : true);
   const [refreshing, setRefreshing] = useState(false);
 
   const canGoBack = navigation && typeof navigation.canGoBack === 'function' && navigation.canGoBack();
@@ -56,10 +58,16 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
         setActivities(data || []);
       } else {
         const data = await apiRequest('/notifications');
-        setActivities(data || []);
+        const notifs = data || [];
+        setActivities(notifs);
+        LocalDatabase.saveNotifications(notifs);
       }
     } catch {
-      setActivities([]);
+      if (!tripId) {
+        setActivities(LocalDatabase.getNotifications());
+      } else {
+        setActivities([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

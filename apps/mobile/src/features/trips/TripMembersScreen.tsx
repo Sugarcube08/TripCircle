@@ -120,25 +120,34 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
     }
   };
 
-  const handleSearchReplaceUsers = async (text: string) => {
+  const replaceSearchTimerRef = React.useRef<any>(null);
+
+  const handleSearchReplaceUsers = (text: string) => {
     setReplaceSearchQuery(text);
+    if (replaceSearchTimerRef.current) {
+      clearTimeout(replaceSearchTimerRef.current);
+    }
+
     if (text.trim().length < 2) {
       setReplaceSearchResults([]);
+      setSearchingUsers(false);
       return;
     }
 
-    try {
-      setSearchingUsers(true);
-      const results = await searchRegisteredUsers(text.trim());
-      // Filter out users already in the trip
-      const existingUserIds = new Set((trip?.members || []).map((m: any) => m.userId).filter(Boolean));
-      const filtered = (results || []).filter((u: any) => !existingUserIds.has(u.id));
-      setReplaceSearchResults(filtered);
-    } catch {
-      setReplaceSearchResults([]);
-    } finally {
-      setSearchingUsers(false);
-    }
+    setSearchingUsers(true);
+    replaceSearchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchRegisteredUsers(text.trim());
+        // Filter out users already in the trip
+        const existingUserIds = new Set((trip?.members || []).map((m: any) => m.userId).filter(Boolean));
+        const filtered = (results || []).filter((u: any) => !existingUserIds.has(u.id));
+        setReplaceSearchResults(filtered);
+      } catch {
+        setReplaceSearchResults([]);
+      } finally {
+        setSearchingUsers(false);
+      }
+    }, 250);
   };
 
   const handleConfirmReplace = async (targetUser: any) => {

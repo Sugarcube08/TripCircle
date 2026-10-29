@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getAccessToken, clearTokens } from './src/storage/secureStore';
 import { apiRequest } from './src/services/api';
+import { LocalDatabase } from './src/storage/db';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { LoadingIndicator } from './src/components/LoadingIndicator';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
@@ -15,10 +16,15 @@ export default function App() {
   useEffect(() => {
     async function checkExistingAuth() {
       try {
-        const token = await getAccessToken();
+        const [token] = await Promise.all([
+          getAccessToken(),
+          LocalDatabase.init(),
+        ]);
+
         if (token) {
           const profile = await apiRequest('/users/me');
           setUser(profile);
+          await LocalDatabase.init(profile.id);
         }
       } catch {
         await clearTokens();

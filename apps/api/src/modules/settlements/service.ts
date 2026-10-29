@@ -19,10 +19,33 @@ export class SettlementService {
         },
         expenses: {
           where: { isDeleted: false },
-          include: { allocations: true },
+          select: {
+            id: true,
+            payerMemberId: true,
+            amountPaise: true,
+            allocations: {
+              select: { memberId: true, sharePaise: true },
+            },
+          },
         },
-        payments: true,
-        discounts: true,
+        payments: {
+          select: {
+            id: true,
+            payerMemberId: true,
+            receiverMemberId: true,
+            amountPaise: true,
+            status: true,
+          },
+        },
+        discounts: {
+          select: {
+            id: true,
+            fromMemberId: true,
+            toMemberId: true,
+            waivedPaise: true,
+            status: true,
+          },
+        },
       },
     });
 

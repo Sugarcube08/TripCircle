@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,8 +33,9 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
   user,
 }) => {
   const { tripId } = route.params;
-  const [plan, setPlan] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const initialPlan = useMemo(() => LocalDatabase.getSettlementPlan(tripId), [tripId]);
+  const [plan, setPlan] = useState<any>(initialPlan);
+  const [loading, setLoading] = useState(!initialPlan);
   const [refreshing, setRefreshing] = useState(false);
 
   // Discount modal state

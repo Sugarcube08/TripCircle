@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
+import { LocalDatabase } from '../../storage/db';
 import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { PaymentStatusBadge } from '../../components/PaymentStatusBadge';
@@ -33,8 +34,12 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   user,
 }) => {
   const { tripId, paymentId } = route.params;
-  const [payment, setPayment] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const initialCached = useMemo(() => {
+    return LocalDatabase.getPayments(tripId).find((p) => p.id === paymentId) || null;
+  }, [tripId, paymentId]);
+
+  const [payment, setPayment] = useState<any>(initialCached);
+  const [loading, setLoading] = useState(!initialCached);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Dispute modal state
@@ -46,11 +51,13 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
       const data = await apiRequest(`/trips/${tripId}/payments/${paymentId}`);
       setPayment(data);
     } catch (err) {
-      dialog.alert('Error', (err as Error).message, 'error');
+      if (!initialCached) {
+        dialog.alert('Error', (err as Error).message, 'error');
+      }
     } finally {
       setLoading(false);
     }
-  }, [tripId, paymentId]);
+  }, [tripId, paymentId, initialCached]);
 
   useEffect(() => {
     loadPayment();

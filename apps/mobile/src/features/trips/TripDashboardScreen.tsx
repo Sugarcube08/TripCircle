@@ -37,58 +37,95 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   user,
 }) => {
   const { tripId } = route.params;
-  const [trip, setTrip] = useState<any>(null);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [settlement, setSettlement] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+
+  // Initialize immediately from persistent cache for 0ms initial render
+  const initialCachedTrip = useMemo(() => LocalDatabase.getTripDetail(tripId), [tripId]);
+  const initialCachedExpenses = useMemo(() => LocalDatabase.getExpenses(tripId), [tripId]);
+  const initialCachedPayments = useMemo(() => LocalDatabase.getPayments(tripId), [tripId]);
+  const initialCachedSettlement = useMemo(() => LocalDatabase.getSettlementPlan(tripId), [tripId]);
+
+  const [trip, setTrip] = useState<any>(initialCachedTrip);
+  const [expenses, setExpenses] = useState<any[]>(initialCachedExpenses);
+  const [payments, setPayments] = useState<any[]>(initialCachedPayments);
+  const [settlement, setSettlement] = useState<any>(initialCachedSettlement);
+  const [loading, setLoading] = useState(!initialCachedTrip);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<LedgerFilter>('LEDGER');
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
-  const loadTripData = useCallback(async () => {
-    try {
-      const [tripData, expensesData, paymentsData, settlementData] = await Promise.all([
-        apiRequest(`/trips/${tripId}`),
-        apiRequest(`/trips/${tripId}/expenses`).catch(() => []),
-        apiRequest(`/trips/${tripId}/payments`).catch(() => []),
-        apiRequest(`/trips/${tripId}/settlement`).catch(() => null),
-      ]);
+  const lastFetchTimeRef = React.useRef(0);
+  const activeFetchPromiseRef = React.useRef<Promise<void> | null>(null);
 
-      setTrip(tripData);
-      setExpenses(expensesData || []);
-      setPayments(paymentsData || []);
-      setSettlement(settlementData);
-
-      LocalDatabase.saveTripDetail(tripId, tripData);
-      LocalDatabase.saveExpenses(tripId, expensesData || []);
-    } catch {
-      const cachedTrip = LocalDatabase.getTripDetail(tripId);
-      const cachedExpenses = LocalDatabase.getExpenses(tripId);
-      if (cachedTrip) setTrip(cachedTrip);
-      if (cachedExpenses) setExpenses(cachedExpenses);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const loadTripData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchTimeRef.current < 15000 && trip) {
+      return;
     }
-  }, [tripId]);
+
+    if (activeFetchPromiseRef.current) {
+      return activeFetchPromiseRef.current;
+    }
+
+    activeFetchPromiseRef.current = (async () => {
+      try {
+        const [tripData, expensesData, paymentsData, settlementData] = await Promise.all([
+          apiRequest(`/trips/${tripId}`),
+          apiRequest(`/trips/${tripId}/expenses`).catch(() => []),
+          apiRequest(`/trips/${tripId}/payments`).catch(() => []),
+          apiRequest(`/trips/${tripId}/settlement`).catch(() => null),
+        ]);
+
+        lastFetchTimeRef.current = Date.now();
+        setTrip(tripData);
+        setExpenses(expensesData || []);
+        setPayments(paymentsData || []);
+        setSettlement(settlementData);
+
+        LocalDatabase.saveTripDetail(tripId, tripData);
+        LocalDatabase.saveExpenses(tripId, expensesData || []);
+        LocalDatabase.savePayments(tripId, paymentsData || []);
+        if (settlementData) {
+          LocalDatabase.saveSettlementPlan(tripId, settlementData);
+        }
+      } catch {
+        const cachedTrip = LocalDatabase.getTripDetail(tripId);
+        const cachedExpenses = LocalDatabase.getExpenses(tripId);
+        const cachedPayments = LocalDatabase.getPayments(tripId);
+        const cachedSettlement = LocalDatabase.getSettlementPlan(tripId);
+
+        if (cachedTrip) setTrip(cachedTrip);
+        if (cachedExpenses) setExpenses(cachedExpenses);
+        if (cachedPayments) setPayments(cachedPayments);
+        if (cachedSettlement) setSettlement(cachedSettlement);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        activeFetchPromiseRef.current = null;
+      }
+    })();
+
+    return activeFetchPromiseRef.current;
+  }, [tripId, trip]);
 
   useEffect(() => {
-    loadTripData();
-    const unsubscribe = navigation.addListener('focus', loadTripData);
+    loadTripData(false);
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadTripData(false);
+    });
     return unsubscribe;
   }, [navigation, loadTripData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadTripData();
+    loadTripData(true);
   };
 
-  // Unified chronological ledger entries
+  // Unified chronological ledger entries with pre-computed timestamps
   const unifiedLedger = useMemo(() => {
     type LedgerItem = {
       id: string;
       itemType: 'EXPENSE' | 'PAYMENT';
+      timestamp: number;
       date: string;
       title: string;
       subtitle: string;
@@ -104,12 +141,14 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
     const items: LedgerItem[] = [];
 
     for (const exp of expenses) {
-      const splitCount = exp.splits?.length || 0;
-      const payerName = exp.payerMember?.user?.name || 'Someone';
+      const splitCount = exp.allocations?.length || exp.splits?.length || 0;
+      const payerName = exp.payerMember?.displayName || exp.payerMember?.user?.name || 'Someone';
+      const rawDate = exp.expenseDate || exp.date || exp.createdAt;
       items.push({
         id: `exp-${exp.id}`,
         itemType: 'EXPENSE',
-        date: exp.date || exp.createdAt,
+        timestamp: Date.parse(rawDate) || 0,
+        date: rawDate,
         title: exp.description,
         subtitle: `${exp.category?.name || 'General'} • Paid by ${payerName}`,
         amountPaise: exp.amountPaise,
@@ -122,12 +161,14 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
     }
 
     for (const p of payments) {
-      const payerName = p.payerMember?.user?.name || 'Someone';
-      const receiverName = p.receiverMember?.user?.name || 'Someone';
+      const payerName = p.payerMember?.displayName || p.payerMember?.user?.name || 'Someone';
+      const receiverName = p.receiverMember?.displayName || p.receiverMember?.user?.name || 'Someone';
+      const rawDate = p.createdAt;
       items.push({
         id: `pmt-${p.id}`,
         itemType: 'PAYMENT',
-        date: p.createdAt,
+        timestamp: Date.parse(rawDate) || 0,
+        date: rawDate,
         title: `Payment: ${payerName} → ${receiverName}`,
         subtitle: `${p.paymentMethod || 'UPI'} • ${p.status}`,
         amountPaise: p.amountPaise,
@@ -140,8 +181,8 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
       });
     }
 
-    // Sort descending by date
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Sort descending by pre-parsed numeric timestamp
+    return items.sort((a, b) => b.timestamp - a.timestamp);
   }, [expenses, payments]);
 
   if (loading && !refreshing) {

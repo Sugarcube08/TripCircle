@@ -26,6 +26,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@tripcircle/contracts': path.resolve(__dirname, '../../packages/contracts/src'),
+      'react-native': path.resolve(__dirname, './tests/mocks/react-native.ts'),
+      'expo-secure-store': path.resolve(__dirname, './tests/mocks/expo-secure-store.ts'),
+      'expo-file-system': path.resolve(__dirname, './tests/mocks/expo-file-system.ts'),
     },
   },
 });

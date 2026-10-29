@@ -87,21 +87,36 @@ export class TripService {
               select: { id: true, name: true, email: true, avatarUrl: true },
             },
             members: {
-              include: {
-                user: {
-                  select: { id: true, name: true, email: true, avatarUrl: true },
-                },
-              },
+              select: { id: true, status: true },
             },
             expenses: {
               where: { isDeleted: false },
-              include: { allocations: true },
+              select: {
+                id: true,
+                payerMemberId: true,
+                amountPaise: true,
+                allocations: {
+                  select: { memberId: true, sharePaise: true },
+                },
+              },
             },
             payments: {
               where: { status: 'CONFIRMED' },
+              select: {
+                id: true,
+                payerMemberId: true,
+                receiverMemberId: true,
+                amountPaise: true,
+              },
             },
             discounts: {
               where: { status: 'ACCEPTED' },
+              select: {
+                id: true,
+                fromMemberId: true,
+                toMemberId: true,
+                waivedPaise: true,
+              },
             },
           },
         },
@@ -199,13 +214,32 @@ export class TripService {
         },
         expenses: {
           where: { isDeleted: false },
-          include: { allocations: true },
+          select: {
+            id: true,
+            payerMemberId: true,
+            amountPaise: true,
+            allocations: {
+              select: { memberId: true, sharePaise: true },
+            },
+          },
         },
         payments: {
           where: { status: 'CONFIRMED' },
+          select: {
+            id: true,
+            payerMemberId: true,
+            receiverMemberId: true,
+            amountPaise: true,
+          },
         },
         discounts: {
           where: { status: 'ACCEPTED' },
+          select: {
+            id: true,
+            fromMemberId: true,
+            toMemberId: true,
+            waivedPaise: true,
+          },
         },
       },
     });

@@ -178,6 +178,7 @@ model TripMember {
   @@unique([tripId, userId])
   @@index([tripId, status])
   @@index([userId])
+  @@index([userId, status])
 }
 
 model ExpenseCategory {
@@ -219,6 +220,7 @@ model Expense {
   revisions      ExpenseRevision[]
 
   @@index([tripId, isDeleted])
+  @@index([tripId, updatedAt])
   @@index([payerMemberId])
   @@index([categoryId])
 }
@@ -285,6 +287,7 @@ model Payment {
   discounts        SettlementDiscount[]
 
   @@index([tripId, status])
+  @@index([tripId, updatedAt])
   @@index([payerMemberId])
   @@index([receiverMemberId])
 }
@@ -348,6 +351,7 @@ model Notification {
   trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@index([tripId])
 }
 
@@ -414,4 +418,5 @@ model FileMetadata {
 
   @@index([tripId])
   @@index([userId])
+  @@index([storageKey])
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
+import { LocalDatabase } from '../../storage/db';
 import { AmountText } from '../../components/AmountText';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -56,8 +57,12 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
   user,
 }) => {
   const { tripId, expenseId } = route.params;
-  const [expense, setExpense] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const initialCached = useMemo(() => {
+    return LocalDatabase.getExpenses(tripId).find((e) => e.id === expenseId) || null;
+  }, [tripId, expenseId]);
+
+  const [expense, setExpense] = useState<any>(initialCached);
+  const [loading, setLoading] = useState(!initialCached);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
 
   const loadExpense = useCallback(async () => {
@@ -65,11 +70,13 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
       const data = await apiRequest(`/trips/${tripId}/expenses/${expenseId}`);
       setExpense(data);
     } catch (err) {
-      dialog.alert('Error', (err as Error).message, 'error');
+      if (!initialCached) {
+        dialog.alert('Error', (err as Error).message, 'error');
+      }
     } finally {
       setLoading(false);
     }
-  }, [tripId, expenseId]);
+  }, [tripId, expenseId, initialCached]);
 
   useEffect(() => {
     loadExpense();
