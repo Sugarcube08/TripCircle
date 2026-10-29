@@ -273,3 +273,19 @@ export const ExportReportSchema = z.object({
   endDate: z.string().optional(),
 });
 export type ExportReportInput = z.infer<typeof ExportReportSchema>;
+
+// --- Version Manifest Schema ---
+
+export const VersionManifestSchema = z.object({
+  version: z.string().regex(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/, 'Invalid semantic version'),
+  versionCode: z.number().int().positive('versionCode must be a positive integer'),
+  minimumSupportedVersion: z.string().optional().default('1.0.0'),
+  minimumSupportedVersionCode: z.number().int().positive().default(1),
+  releaseNotes: z.array(z.string()).default([]),
+  releaseUrl: z.string().url('Invalid release URL').optional(),
+  apkUrl: z.string().url('Invalid APK URL').optional(),
+  sha256: z.string().optional(),
+  mandatory: z.boolean().default(false),
+  publishedAt: z.string().optional(),
+});
+export type VersionManifest = z.infer<typeof VersionManifestSchema>;

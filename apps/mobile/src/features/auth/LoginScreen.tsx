@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
+import { LocalDatabase } from '../../storage/db';
 import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
@@ -46,6 +47,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, onLoginSuc
       });
 
       await setTokens(data.accessToken, data.refreshToken);
+      await LocalDatabase.init(data.user.id);
       onLoginSuccess(data.user);
     } catch (err) {
       dialog.alert('Login Failed', (err as Error).message, 'error');

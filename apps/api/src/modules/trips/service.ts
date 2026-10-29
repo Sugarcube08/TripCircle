@@ -36,7 +36,7 @@ export class TripService {
       if (input.initialInvitedUserIds && input.initialInvitedUserIds.length > 0) {
         for (const inviteeId of input.initialInvitedUserIds) {
           if (inviteeId === userId) continue;
-          await tx.tripMember.create({
+          const invitedMember = await tx.tripMember.create({
             data: {
               tripId: trip.id,
               userId: inviteeId,
@@ -53,7 +53,7 @@ export class TripService {
               type: 'TRIP_INVITATION',
               title: `Invitation to ${trip.name}`,
               body: `You have been invited to join "${trip.name}".`,
-              data: { tripId: trip.id },
+              data: { tripId: trip.id, invitationId: invitedMember.id },
             },
           });
         }

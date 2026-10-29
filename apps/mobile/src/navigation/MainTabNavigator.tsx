@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeScreen } from '../features/trips/HomeScreen';
 import { TripActivityScreen } from '../features/trips/TripActivityScreen';
 import { UserProfileScreen } from '../features/profile/UserProfileScreen';
+import { subscribeToUnreadCount, ActivityRouter } from '../services/activityRouter';
 import { THEME } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -16,6 +17,22 @@ interface MainTabProps {
 }
 
 export const MainTabNavigator: React.FC<MainTabProps> = ({ user, setUser, onLogout }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    // Subscribe to reactive unread count changes from ActivityRouter
+    const unsubscribe = subscribeToUnreadCount((count) => {
+      setUnreadCount(count);
+    });
+
+    // Also poll server unread count on startup
+    ActivityRouter.refreshUnreadCount().then((serverCount) => {
+      setUnreadCount(serverCount);
+    });
+
+    return unsubscribe;
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -60,6 +77,17 @@ export const MainTabNavigator: React.FC<MainTabProps> = ({ user, setUser, onLogo
         component={TripActivityScreen}
         options={{
           tabBarLabel: 'Activity',
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: THEME.colors.primary,
+            color: '#0B0F19',
+            fontSize: 10,
+            fontWeight: '700',
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            lineHeight: Platform.OS === 'ios' ? 18 : 17,
+          },
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'notifications' : 'notifications-outline'}

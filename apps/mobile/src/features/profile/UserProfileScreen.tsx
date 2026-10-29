@@ -105,9 +105,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const handleManualUpdateCheck = async () => {
     setCheckingUpdate(true);
     try {
-      const update = await checkForAppUpdate();
-      if (!update) {
-        dialog.alert('TripCircle is Up to Date', 'You are running the latest version with the latest security and financial engine updates.', 'success');
+      const res = await checkForAppUpdate();
+      if (!res.isAvailable) {
+        dialog.alert(
+          'TripCircle is Up to Date',
+          `You are running version v${res.installedVersion} (Build ${res.installedVersionCode}). You have the latest financial engine and security updates.`,
+          'success'
+        );
       }
     } catch (err) {
       dialog.alert('Check Failed', (err as Error).message, 'error');

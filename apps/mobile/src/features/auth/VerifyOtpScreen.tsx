@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { setTokens } from '../../storage/secureStore';
+import { LocalDatabase } from '../../storage/db';
 import { dialog } from '../../components/ui';
 import { THEME } from '../../theme';
 
@@ -61,6 +62,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
 
       if (purpose === 'EMAIL_VERIFY' && data.accessToken) {
         await setTokens(data.accessToken, data.refreshToken);
+        await LocalDatabase.init(data.user.id);
         if (onLoginSuccess) {
           onLoginSuccess(data.user);
         }

@@ -39,9 +39,10 @@ let cache: LocalCacheState = { ...DEFAULT_STATE };
 let isInitialized = false;
 let persistTimer: any = null;
 
-function getCacheFilePath(): string | null {
+function getCacheFilePath(userId?: string | null): string | null {
   if (FileSystem.documentDirectory) {
-    return `${FileSystem.documentDirectory}tripcircle_cache_v${CURRENT_CACHE_VERSION}.json`;
+    const userSuffix = userId ? `_u_${userId.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '_anon';
+    return `${FileSystem.documentDirectory}tripcircle_cache_v${CURRENT_CACHE_VERSION}${userSuffix}.json`;
   }
   return null;
 }
@@ -57,7 +58,7 @@ function schedulePersist() {
 
   persistTimer = setTimeout(async () => {
     persistTimer = null;
-    const path = getCacheFilePath();
+    const path = getCacheFilePath(cache.currentUserId);
     if (!path) return;
 
     try {
@@ -74,15 +75,31 @@ function schedulePersist() {
 
 export const LocalDatabase = {
   /**
-   * Initializes the persistent cache on app startup.
-   * Loads cached trips, details, and balances into memory instantly.
+   * Initializes the persistent cache on app startup or user authentication.
+   * Loads cached trips, details, and balances for the specific user into memory.
    */
   async init(userId?: string | null): Promise<void> {
-    if (isInitialized && (!userId || cache.currentUserId === userId)) {
+    const targetUserId = userId || null;
+
+    if (isInitialized && cache.currentUserId === targetUserId) {
       return;
     }
 
-    const path = getCacheFilePath();
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+      persistTimer = null;
+    }
+
+    // Always reset in-memory cache when user changes to prevent cross-account leakage
+    cache = { ...DEFAULT_STATE, currentUserId: targetUserId };
+
+    // Clean up legacy single-user cache file if present
+    if (FileSystem.documentDirectory) {
+      const legacyPath = `${FileSystem.documentDirectory}tripcircle_cache_v${CURRENT_CACHE_VERSION}.json`;
+      FileSystem.deleteAsync(legacyPath, { idempotent: true }).catch(() => {});
+    }
+
+    const path = getCacheFilePath(targetUserId);
     if (!path) {
       isInitialized = true;
       return;
@@ -96,26 +113,33 @@ export const LocalDatabase = {
         });
         const parsed = JSON.parse(raw);
 
-        // Account isolation: If user changed, start with fresh cache
-        if (userId && parsed.currentUserId && parsed.currentUserId !== userId) {
-          cache = { ...DEFAULT_STATE, currentUserId: userId };
-          schedulePersist();
-        } else if (parsed && parsed.version === CURRENT_CACHE_VERSION) {
+        // Account isolation: Verify user identity matches cache payload
+        if (parsed && parsed.version === CURRENT_CACHE_VERSION && parsed.currentUserId === targetUserId) {
           cache = {
             ...DEFAULT_STATE,
             ...parsed,
-            currentUserId: userId || parsed.currentUserId,
+            currentUserId: targetUserId,
           };
         }
-      } else {
-        cache = { ...DEFAULT_STATE, currentUserId: userId };
       }
     } catch (err) {
       console.warn('[LocalDatabase] Cache recovery notice:', (err as Error).message);
-      cache = { ...DEFAULT_STATE, currentUserId: userId };
+      cache = { ...DEFAULT_STATE, currentUserId: targetUserId };
     } finally {
       isInitialized = true;
     }
+  },
+
+  /**
+   * Purges in-memory cache immediately (used during logout / account switch).
+   */
+  resetMemory(): void {
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+      persistTimer = null;
+    }
+    cache = { ...DEFAULT_STATE };
+    isInitialized = false;
   },
 
   getCache(): LocalCacheState {
@@ -268,9 +292,11 @@ export const LocalDatabase = {
       persistTimer = null;
     }
 
+    const currentUid = cache.currentUserId;
     cache = { ...DEFAULT_STATE };
+    isInitialized = false;
 
-    const path = getCacheFilePath();
+    const path = getCacheFilePath(currentUid);
     if (path) {
       try {
         const info = await FileSystem.getInfoAsync(path);

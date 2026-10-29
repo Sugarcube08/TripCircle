@@ -1,4 +1,5 @@
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../storage/secureStore';
+import { LocalDatabase } from '../storage/db';
 
 /**
  * Resolves the API base URL strictly from environment variables.
@@ -164,6 +165,7 @@ async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null
       const refreshToken = await getRefreshToken();
       if (!refreshToken) {
         await clearTokens();
+        LocalDatabase.resetMemory();
         return null;
       }
 
@@ -175,6 +177,7 @@ async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null
 
       if (!refreshRes.ok) {
         await clearTokens();
+        LocalDatabase.resetMemory();
         return null;
       }
 
@@ -188,9 +191,11 @@ async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null
       }
 
       await clearTokens();
+      LocalDatabase.resetMemory();
       return null;
     } catch {
       await clearTokens();
+      LocalDatabase.resetMemory();
       return null;
     } finally {
       activeRefreshPromise = null;

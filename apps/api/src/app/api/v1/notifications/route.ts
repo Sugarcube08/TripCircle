@@ -8,6 +8,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const authUser = await getAuthUser(req);
+    const url = new URL(req.url);
+    if (url.searchParams.get('countOnly') === 'true') {
+      const unreadCount = await NotificationService.getUnreadCount(authUser.id);
+      return successResponse({ unreadCount });
+    }
     const notifications = await NotificationService.listNotifications(authUser.id);
     return successResponse(notifications);
   } catch (err) {

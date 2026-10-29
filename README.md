@@ -1,125 +1,133 @@
-# TripCircle (V1)
+# TripCircle
 
-**Collaborative trip expense tracking, transparent financial records, and simplified group settlement.**
+**Effortless group travel expenses, transparent financial records, and mathematically verified settlements.**
 
-TripCircle is an end-to-end, production-oriented monorepo providing groups of friends with a shared financial ledger during trips. It features exact integer paise accounting, receiver-confirmed payments, immediate expense updates without approvals, auditable revision histories, greedy debt simplification settlement, offline viewing, and PDF/Excel export.
-
----
-
-## Architecture
-
-- **`apps/api`**: Next.js 14 Standalone REST API server, MySQL 8.0, Prisma ORM, Cloudflare R2 object storage, Gmail SMTP transactional email, durable transactional outbox worker, and PDF/Excel reports.
-- **`apps/mobile`**: React Native Expo mobile application with clean finance-oriented UI, local SQLite caching, offline detection, and presigned R2 upload workflow.
-- **`packages/contracts`**: Shared TypeScript types, Zod schemas, constants, and financial math.
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0-blue.svg)](https://github.com/Sugarcube08/TripCircle/releases)
+[![Platform: Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://github.com/Sugarcube08/TripCircle/releases/latest)
 
 ---
 
-## Production Infrastructure Stack
+## What is TripCircle?
 
-- **Object Storage:** Cloudflare R2 (S3-compatible API via `@aws-sdk/client-s3`) with private bucket policy and short-lived presigned URLs for upload (5m) and download (15m).
-- **Transactional Email:** Gmail SMTP (`smtp.gmail.com:587` with STARTTLS) utilizing 16-character Google Account App Passwords and branded responsive templates.
-- **Authoritative Database:** Remote MySQL 8.0 managed instance (AWS RDS, PlanetScale, DigitalOcean, Railway) with connection pooling and TLS enforcement.
-- **Asynchronous Reliability:** Durable MySQL-backed transactional Outbox (`OutboxEvent`) with exponential backoff and recovery worker (`scripts/run-worker.mjs`).
+**TripCircle** is a mobile-first collaborative expense management and debt settlement application designed specifically for group trips, vacations, weekend getaways, and shared adventures.
 
----
-
-## Core Product Guarantees
-
-1. **Exact Accounting:** Money is stored and calculated in integer **paise** ($1\text{ Rupee} = 100\text{ paise}$).
-2. **Zero-Sum Ledger Invariant:** $\sum \text{member net balances} = 0$ for every trip.
-3. **No Approval Workflows for Expenses:** Submitted expenses immediately affect the ledger.
-4. **Receiver-Confirmed Payments:** Payments affect balances only after the recipient confirms them. Disputed payments do not modify balances.
-5. **Deterministic Debt Simplification:** Minimizes transfers between group members while reconciling 100% to net balances.
-6. **Explicit Settlement Discounts:** Transparently records agreed waived coin/fractional balances with required creditor acceptance.
-7. **Offline Access with Server Authority:** Cached records can be viewed offline; submissions require connectivity.
-8. **Independent Deployment:** API and mobile applications can be built, configured, and released independently.
+Instead of messy spreadsheets, lost receipts, or complicated mental math, TripCircle gives everyone on the trip a single, shared, real-time financial ledger. Anyone can record expenses on the fly, companion shares are split instantly, debts are mathematically simplified into the fewest possible transfers, and payments are verified directly between the payer and receiver.
 
 ---
 
-## Quick Start (Local Development)
+## Why TripCircle? (The Problem It Solves)
 
-### Prerequisites
-- Node.js $\ge 20$
-- pnpm $\ge 10$
-- Docker & Docker Compose
+Traveling with friends and family is amazing—until the trip ends and everyone tries to figure out who owes whom:
 
-### 1. Start Infrastructure
-```bash
-# Start MySQL 8.0 container on port 3306
-pnpm docker:up
-```
-
-### 2. Install Dependencies & Build Contracts
-```bash
-pnpm install
-pnpm build:contracts
-```
-
-### 3. Run Migrations & Seed Database
-```bash
-# Push schema and apply migrations
-pnpm db:migrate
-
-# Seed demo users (Alice, Bob, Charlie, Dave) and Goa Trip
-pnpm db:seed
-```
-
-Demo credentials:
-- Users: `alice@tripcircle.app`, `bob@tripcircle.app`, `charlie@tripcircle.app`, `dave@tripcircle.app`
-- Password: `Password@123`
-
-### 4. Run Automated Tests
-```bash
-# Run all tests (financial invariants + integration)
-pnpm test
-
-# Run financial engine unit tests only
-pnpm test:financial
-
-# Run integration tests only
-pnpm test:integration
-```
-
-### 5. Start Development Servers
-```bash
-# Start Next.js API server (http://localhost:3000)
-pnpm dev:api
-
-# Start React Native Expo mobile app
-pnpm dev:mobile
-```
+- **The Split Confusion:** One person booked the villa, someone else paid for fuel, two people bought groceries, and three people went on an excursion. Trying to calculate individual net balances in a notebook or WhatsApp group chat quickly descends into chaos.
+- **The "I Already Paid" Dispute:** In traditional apps, anyone can click "Mark as Paid" even if they never sent the money. One person thinks the debt is cleared, while the other never received the funds.
+- **Floating-Point Rounding Defects:** Dividing ₹1,000 evenly across 3 friends results in ₹333.3333... Standard apps accumulate rounding errors that leave balances unbalanced by cents or paise.
+- **Awkward Micro-Balances:** When final settlements are calculated, someone inevitably owes someone else ₹0.32 or ₹0.50—amounts that cannot be transferred via UPI or physical cash.
+- **Spotty Travel Network:** Remote hill stations, beaches, and hiking trails rarely have reliable 5G connectivity. Travelers need to check their balances and view trip details even when completely offline.
 
 ---
 
-## Workspace Scripts
+## Why TripCircle is Necessary: Core Financial Invariants
 
-| Command | Purpose |
-|---|---|
-| `pnpm dev:api` | Run Next.js API in development mode |
-| `pnpm dev:mobile` | Run Expo mobile app |
-| `pnpm build:api` | Build standalone production API server |
-| `pnpm build:mobile`| Typecheck mobile application |
-| `pnpm typecheck` | Run workspace-wide TypeScript validation |
-| `pnpm test` | Run full test suite |
-| `pnpm test:financial` | Run paise precision & invariant unit tests |
-| `pnpm test:integration`| Run end-to-end trip lifecycle tests |
-| `pnpm db:migrate` | Deploy Prisma database migrations to MySQL |
-| `pnpm db:seed` | Seed realistic demo trips, expenses, and payments |
-| `pnpm docker:up` | Start local Docker Compose services |
-| `pnpm docker:down` | Stop local Docker Compose services |
+TripCircle was engineered from the ground up to guarantee absolute financial correctness and dispute-free settlements:
+
+1. **Exact Integer Paise Precision ($1\text{ INR} = 100\text{ paise}$):**
+   Every amount, allocation, share, and payment is stored and calculated as an exact integer number of paise. Floating-point math is strictly forbidden. There are zero rounding discrepancies.
+2. **Zero-Sum Ledger Invariant:**
+   At all times, the exact mathematical sum of all member net balances across every trip strictly equals zero ($\sum \text{balances} = 0$). Money is never created or lost.
+3. **Receiver-Confirmed Settlement Payments:**
+   When a member pays off a debt, they record the transfer (via UPI, Cash, or Net Banking). However, group balances update **only after the receiving member explicitly confirms receipt**. If funds were not received, the receiver can dispute the payment with an explanation, keeping balances clean and truthful.
+4. **Deterministic Greedy Debt Simplification:**
+   Instead of everyone paying everyone else in dozens of confusing bilateral transactions, TripCircle's settlement engine computes the globally optimal, minimum-transfer settlement plan. A 6-person trip with 30 expenses can be completely settled in just 3 or 4 simple transfers.
+5. **Automatic Sub-Rupee Debt Waivers ($< \text{₹}1.00$):**
+   Once major transfers are settled, any leftover residual fractional amounts below ₹1.00 (e.g. ₹0.32) are automatically waived as accepted settlement discounts. No more awkward discussions over tiny coin balances.
+6. **Immutable Audit Trail:**
+   Financial history is never erased. Cancelled payments, disputes, expense revisions, and settlement waivers are permanently recorded for complete transparency.
 
 ---
 
-## Documentation
+## How to Use TripCircle
 
-Detailed specifications and architectural designs are available in the [`docs/`](./docs/) directory:
+You don't need to configure databases or host your own servers to use TripCircle. The public production application connects automatically to the official high-availability cloud infrastructure.
 
-- [Product Specification](./docs/PRODUCT_SPEC.md)
-- [System Architecture](./docs/ARCHITECTURE.md)
-- [Database Schema & Data Model](./docs/DATABASE.md)
-- [Financial Model & Exact Accounting](./docs/FINANCIAL_MODEL.md)
-- [REST API Reference](./docs/API.md)
-- [Security & Privacy Architecture](./docs/SECURITY.md)
-- [Offline Access & Synchronization](./docs/OFFLINE_SYNC.md)
-- [Independent Deployment Guide](./docs/DEPLOYMENT.md)
-- [Testing & Verification Guide](./docs/TESTING.md)
+### 1. Download the App
+Download the latest Android release APK directly to your device:
+
+👉 **[Download TripCircle Latest Release APK](https://github.com/Sugarcube08/TripCircle/releases/latest)**
+
+*Open the downloaded `.apk` file on your Android phone and follow the on-screen prompt to install.*
+
+### 2. Create Your Account
+- Launch TripCircle and sign up with your email address.
+- Verify your account using the 6-digit verification code sent to your inbox.
+- During registration, upload your UPI QR code or set your payment details so friends can pay you back instantly in one tap.
+
+### 3. Create or Join a Trip
+- **Create a Trip:** Tap **+ New Trip**, enter the trip name (e.g. *Goa Beach Retreat 2026*), destination, and dates.
+- **Invite Friends:** Invite registered friends via email, or add offline travelers (*dummy members*) who don't have the app yet so their share can still be tracked.
+- **Accept Invitations:** Received an invitation? Open the **Activity & Alerts** tab or tap **Invitations** on your Home screen to accept.
+
+### 4. Record Shared Expenses
+- Tap **Add Expense** whenever you pay for something.
+- Enter the amount, description, and category (Stay, Food, Travel, Activities, etc.).
+- Choose how to split:
+  - **Equal Split:** Automatically divided evenly among all or selected members.
+  - **Exact Amounts:** Specify exact paise for each person.
+  - **Percentages:** Allocate custom percentages.
+- Attach a photo of the receipt for your records. The expense immediately posts to the group ledger!
+
+### 5. Review Balances & Settle Up
+- The **Trip Dashboard** shows your exact net position: whether you are owed money (in green) or owe money (in red).
+- Switch to the **Settlement Dashboard** to see the recommended transfers.
+- When you pay a friend, tap **Record Payment**, choose the method (UPI or Cash), and submit.
+- The recipient receives an instant in-app alert to **Confirm Received** or **Dispute**.
+- Once confirmed, balances update immediately and residual sub-rupee amounts are automatically reconciled.
+
+### 6. Export Auditable Financial Statements
+- Tap **Export Reports** in your trip settings.
+- Generate an official **PDF Financial Statement** complete with chronological ledgers, member balance tables, and payment statuses.
+- Export a full **Excel (.xlsx)** workbook containing 5 dedicated sheets for comprehensive record-keeping.
+
+---
+
+## Activity & Alerts: Context-Aware Deep Linking
+
+TripCircle features an **Activity & Alerts** notification center with real-time unread badges:
+- **Tapping an expense notification** jumps directly into that exact expense's detail card.
+- **Tapping a payment request** navigates directly to the payment record with permitted Confirm and Dispute actions.
+- **Tapping a trip invite** opens the invitation response screen.
+- Notifications are automatically marked as read upon inspection, and an unread badge indicator on the bottom tab keeps you informed of pending actions.
+
+---
+
+## Automatic Startup Version Verification
+
+The mobile app includes an integrated, non-blocking startup version checker:
+- On every app launch, TripCircle verifies its build version against the authoritative release manifest.
+- **Optional Updates:** Displays what's new with release notes and a one-tap upgrade button, while letting you continue using the app.
+- **Mandatory Updates:** If a critical financial calculation or security update is released, the app clearly notifies you to update before proceeding.
+- Includes offline fallback: remote version checks never prevent normal offline access.
+
+---
+
+## Self-Hosting (Advanced Developers)
+
+For developers and private organizations who wish to deploy their own isolated backend infrastructure, TripCircle supports full containerized self-hosting.
+
+See the dedicated guide: **[`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md)** for details on running the Next.js API, MySQL database, Cloudflare R2 object storage, and background worker.
+
+---
+
+## Releases & Changelog
+
+See **[`CHANGELOG.md`](CHANGELOG.md)** for the complete history of features, improvements, and releases.
+
+- **Current Release:** `v1.0.0`
+- **Release Manifest:** `version.json`
+
+---
+
+## License
+
+TripCircle is open-source software licensed under the **[MIT License](LICENSE)**.

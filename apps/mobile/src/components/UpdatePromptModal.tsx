@@ -12,9 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   checkForAppUpdate,
   downloadAndInstallUpdate,
-  VersionMetadata,
   UpdateCheckResult,
 } from '../services/updateService';
+import { VersionManifest } from '@tripcircle/contracts';
 import { THEME } from '../theme';
 
 let lastCheckTimestamp = 0;

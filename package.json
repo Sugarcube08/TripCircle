@@ -20,7 +20,9 @@
     "db:seed": "pnpm --filter @tripcircle/api db:seed",
     "db:studio": "pnpm --filter @tripcircle/api db:studio",
     "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "manifest:generate": "node scripts/generate-version-manifest.mjs",
+    "manifest:validate": "node scripts/generate-version-manifest.mjs --dry-run"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

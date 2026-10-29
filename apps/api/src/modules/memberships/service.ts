@@ -208,7 +208,7 @@ export class MembershipService {
           type: 'TRIP_INVITATION',
           title: `Invitation to ${trip.name}`,
           body: `You have been re-invited to join "${trip.name}".`,
-          data: { tripId },
+          data: { tripId, invitationId: updated.id },
         },
       });
 
@@ -232,7 +232,7 @@ export class MembershipService {
         type: 'TRIP_INVITATION',
         title: `Invitation to ${trip.name}`,
         body: `You have been invited to join "${trip.name}".`,
-        data: { tripId },
+        data: { tripId, invitationId: member.id },
       },
     });
 

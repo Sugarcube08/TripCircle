@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { LocalDatabase } from '../../storage/db';
+import { ActivityRouter, notifyUnreadCountChanged } from '../../services/activityRouter';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { EmptyState } from '../../components/EmptyState';
 import { formatDateTime } from '../../utils/formatters';
@@ -41,6 +42,7 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
         const notifs = data || [];
         setActivities(notifs);
         LocalDatabase.saveNotifications(notifs);
+        notifyUnreadCountChanged();
       }
     } catch {
       if (!tripId) {
@@ -56,11 +58,38 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
 
   useEffect(() => {
     loadActivity();
-  }, [loadActivity]);
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      loadActivity();
+    });
+    return unsubscribe;
+  }, [navigation, loadActivity]);
 
   const onRefresh = () => {
     setRefreshing(true);
     loadActivity();
+  };
+
+  const unreadCount = useMemo(() => {
+    if (tripId) return 0;
+    return activities.filter((a) => !a.isRead).length;
+  }, [activities, tripId]);
+
+  const handleMarkAllRead = async () => {
+    ActivityRouter.markAsReadLocally();
+    setActivities((prev) => prev.map((a) => ({ ...a, isRead: true })));
+    apiRequest('/notifications', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }).catch(() => {});
+  };
+
+  const handlePressActivity = async (item: any) => {
+    // Route through centralized router service
+    await ActivityRouter.routeActivity(item, navigation);
+    // Optimistically update list read state
+    setActivities((prev) =>
+      prev.map((a) => (a.id === item.id ? { ...a, isRead: true } : a))
+    );
   };
 
   if (loading && !refreshing) {
@@ -81,10 +110,21 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
             <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 10 }} />
+          <View style={{ width: 40 }} />
         )}
         <Text style={styles.headerTitle}>{tripId ? 'Trip Activity' : 'Activity & Alerts'}</Text>
-        <View style={{ width: 40 }} />
+
+        {!tripId && unreadCount > 0 ? (
+          <TouchableOpacity
+            style={styles.markAllReadBtn}
+            onPress={handleMarkAllRead}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.markAllReadText}>Read All</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
 
       <FlatList
@@ -92,23 +132,45 @@ export const TripActivityScreen: React.FC<TripActivityScreenProps> = ({ route, n
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const act = getActivityConfig(item.type, item.title);
+          const isUnread = !item.isRead && !tripId;
 
           return (
-            <View style={styles.activityCard}>
+            <TouchableOpacity
+              style={[styles.activityCard, isUnread && styles.unreadCard]}
+              activeOpacity={0.75}
+              onPress={() => handlePressActivity(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}. ${item.description || item.body}`}
+            >
               <View style={[styles.iconCircle, { backgroundColor: act.bg, borderColor: act.border }]}>
                 <Ionicons name={act.icon} size={20} color={act.color} />
               </View>
 
               <View style={styles.activityBody}>
                 <View style={styles.headerRow}>
-                  <Text style={styles.title} numberOfLines={1}>
-                    {item.title}
-                  </Text>
+                  <View style={styles.titleContainer}>
+                    {isUnread && <View style={styles.unreadDot} />}
+                    <Text
+                      style={[styles.title, isUnread && styles.unreadTitle]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                  </View>
                   <Text style={styles.time}>{formatDateTime(item.timestamp || item.createdAt)}</Text>
                 </View>
-                <Text style={styles.description}>{item.description || item.body}</Text>
+                <Text style={[styles.description, isUnread && styles.unreadDescription]}>
+                  {item.description || item.body}
+                </Text>
               </View>
-            </View>
+
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={isUnread ? THEME.colors.primary : THEME.colors.textMuted}
+                style={styles.chevron}
+              />
+            </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
@@ -155,6 +217,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: THEME.colors.textPrimary,
   },
+  markAllReadBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: THEME.colors.surfaceSubtle,
+  },
+  markAllReadText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+  },
   list: {
     padding: THEME.spacing.md,
     paddingBottom: THEME.spacing.xxl,
@@ -167,8 +240,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.colors.border,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    minHeight: 64,
     ...THEME.shadows.sm,
+  },
+  unreadCard: {
+    backgroundColor: THEME.colors.surfaceElevated,
+    borderColor: THEME.colors.primaryDark,
   },
   iconCircle: {
     width: 38,
@@ -177,10 +255,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    marginTop: 2,
   },
   activityBody: {
     flex: 1,
+    minWidth: 0,
   },
   headerRow: {
     flexDirection: 'row',
@@ -188,12 +266,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  title: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME.colors.textPrimary,
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
     marginRight: 8,
+  },
+  unreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: THEME.colors.primary,
+    marginRight: 6,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.textPrimary,
+    flex: 1,
+  },
+  unreadTitle: {
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   time: {
     fontSize: 11,
@@ -203,5 +297,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: THEME.colors.textSecondary,
     lineHeight: 18,
+  },
+  unreadDescription: {
+    color: THEME.colors.textPrimary,
+  },
+  chevron: {
+    marginLeft: 8,
   },
 });

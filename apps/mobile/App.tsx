@@ -28,6 +28,7 @@ export default function App() {
         }
       } catch {
         await clearTokens();
+        LocalDatabase.resetMemory();
         setUser(null);
       } finally {
         setInitializing(false);

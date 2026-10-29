@@ -7,6 +7,7 @@ import { VerifyOtpScreen } from '../features/auth/VerifyOtpScreen';
 import { ForgotPasswordScreen } from '../features/auth/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '../features/auth/ResetPasswordScreen';
 import { MainTabNavigator } from './MainTabNavigator';
+import { LocalDatabase } from '../storage/db';
 import { TripDashboardScreen } from '../features/trips/TripDashboardScreen';
 import { CreateTripScreen } from '../features/trips/CreateTripScreen';
 import { TripMembersScreen } from '../features/trips/TripMembersScreen';
@@ -54,7 +55,10 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ user, setUser }) =
                 <MainTabNavigator
                   user={user}
                   setUser={setUser}
-                  onLogout={() => setUser(null)}
+                  onLogout={() => {
+                    LocalDatabase.resetMemory();
+                    setUser(null);
+                  }}
                 />
               )}
             </Stack.Screen>

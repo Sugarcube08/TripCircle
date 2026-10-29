@@ -27,6 +27,12 @@ export class NotificationService {
     return { success: true };
   }
 
+  static async getUnreadCount(userId: string): Promise<number> {
+    return prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+  }
+
   static async registerPushToken(userId: string, token: string, platform = 'expo') {
     const record = await prisma.pushDeviceToken.upsert({
       where: {
