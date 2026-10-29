@@ -11,11 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { EXPENSE_CATEGORIES, calculateEqualSplit } from '@tripcircle/contracts';
-import { apiRequest, getOnlineStatus } from '../../services/api';
+import { apiRequest, getOnlineStatus, uploadImageFromUri } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { dialog } from '../../components/ui';
@@ -67,8 +69,31 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
   const [unequalShares, setUnequalShares] = useState<Record<string, string>>({});
   const [location, setLocation] = useState('');
   const [note, setNote] = useState('');
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
+
+  const pickReceipt = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        dialog.alert('Permission Required', 'Permission to access photos is needed to attach a receipt.', 'warning');
+        return;
+      }
+
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setReceiptUri(res.assets[0].uri);
+      }
+    } catch (err) {
+      dialog.alert('Photo Selection Failed', (err as Error).message, 'error');
+    }
+  };
 
   useEffect(() => {
     async function loadMembers() {
@@ -186,6 +211,13 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
 
     try {
       setLoading(true);
+
+      let uploadedReceiptUrl: string | undefined = undefined;
+      if (receiptUri) {
+        const uploadRes = await uploadImageFromUri(receiptUri, 'EXPENSE_RECEIPT', { tripId });
+        uploadedReceiptUrl = uploadRes.publicUrl;
+      }
+
       await apiRequest(`/trips/${tripId}/expenses`, {
         method: 'POST',
         body: JSON.stringify({
@@ -197,6 +229,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
           allocations,
           location: location.trim() || undefined,
           note: note.trim() || undefined,
+          receiptUrl: uploadedReceiptUrl,
         }),
       });
 
@@ -512,6 +545,32 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                 onChangeText={setNote}
                 multiline
               />
+            </View>
+            <View style={styles.cardDivider} />
+            <View style={styles.receiptSection}>
+              <TouchableOpacity
+                style={styles.receiptPickerBtn}
+                onPress={pickReceipt}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-outline" size={18} color={THEME.colors.primary} style={styles.optIcon} />
+                <Text style={styles.receiptPickerText}>
+                  {receiptUri ? 'Change Attached Receipt' : 'Attach Receipt Photo'}
+                </Text>
+              </TouchableOpacity>
+              {receiptUri && (
+                <View style={styles.receiptPreviewRow}>
+                  <Image source={{ uri: receiptUri }} style={styles.receiptThumb} />
+                  <TouchableOpacity
+                    style={styles.removeReceiptBtn}
+                    onPress={() => setReceiptUri(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    <Text style={styles.removeReceiptText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -891,6 +950,48 @@ const styles = StyleSheet.create({
   cardDivider: {
     height: 1,
     backgroundColor: THEME.colors.borderLight,
+  },
+  receiptSection: {
+    paddingVertical: 10,
+  },
+  receiptPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  receiptPickerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+  },
+  receiptPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.borderLight,
+  },
+  receiptThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: THEME.colors.darkCard,
+  },
+  removeReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  removeReceiptText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginLeft: 4,
   },
   saveBtn: {
     flexDirection: 'row',

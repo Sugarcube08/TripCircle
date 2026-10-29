@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { CreateTripInput, UpdateTripInput } from '@tripcircle/contracts';
 import { calculateTripNetBalances } from '../financial/calculator';
+import { StorageService } from '../../infrastructure/storage';
 
 export class TripService {
   static async createTrip(userId: string, input: CreateTripInput) {
@@ -296,6 +297,19 @@ export class TripService {
 
     if (!member || member.role !== 'CREATOR') {
       throw new Error('Forbidden: Only the trip creator can modify trip details');
+    }
+
+    const existingTrip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { coverImageUrl: true },
+    });
+
+    if (
+      input.coverImageUrl !== undefined &&
+      existingTrip?.coverImageUrl &&
+      input.coverImageUrl !== existingTrip.coverImageUrl
+    ) {
+      await StorageService.deleteMediaByUrl(existingTrip.coverImageUrl);
     }
 
     const updated = await prisma.trip.update({

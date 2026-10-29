@@ -11,11 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { PAYMENT_METHODS } from '@tripcircle/contracts';
-import { apiRequest, getOnlineStatus } from '../../services/api';
+import { apiRequest, getOnlineStatus, uploadImageFromUri } from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { dialog } from '../../components/ui';
@@ -38,9 +40,32 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
   const [receiverMemberId, setReceiverMemberId] = useState<string>(defaultReceiverMemberId || '');
   const [payerMemberId, setPayerMemberId] = useState<string>('');
   const [note, setNote] = useState('');
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const pickReceipt = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        dialog.alert('Permission Required', 'Permission to access photos is needed to attach payment proof.', 'warning');
+        return;
+      }
+
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setReceiptUri(res.assets[0].uri);
+      }
+    } catch (err) {
+      dialog.alert('Photo Selection Failed', (err as Error).message, 'error');
+    }
+  };
 
   useEffect(() => {
     async function loadMembers() {
@@ -92,6 +117,13 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
 
     try {
       setSubmitting(true);
+
+      let uploadedReceiptUrl: string | undefined = undefined;
+      if (receiptUri) {
+        const uploadRes = await uploadImageFromUri(receiptUri, 'PAYMENT_RECEIPT', { tripId });
+        uploadedReceiptUrl = uploadRes.publicUrl;
+      }
+
       await apiRequest(`/trips/${tripId}/payments`, {
         method: 'POST',
         body: JSON.stringify({
@@ -100,6 +132,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
           amountPaise,
           paymentMethod,
           note: note.trim() || undefined,
+          receiptUrl: uploadedReceiptUrl,
           idempotencyKey: `pay-${Date.now()}-${payerMemberId}`,
         }),
       });
@@ -257,6 +290,43 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
               value={note}
               onChangeText={setNote}
             />
+          </View>
+
+          {/* Payment Proof / Receipt Attachment */}
+          <Text style={styles.sectionHeader}>PAYMENT PROOF / RECEIPT (OPTIONAL)</Text>
+          <View style={styles.receiptCard}>
+            {receiptUri ? (
+              <View style={styles.receiptPreviewRow}>
+                <Image source={{ uri: receiptUri }} style={styles.receiptThumb} />
+                <View style={styles.receiptActionsCol}>
+                  <TouchableOpacity
+                    style={styles.changeReceiptBtn}
+                    onPress={pickReceipt}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="camera-outline" size={16} color={THEME.colors.primary} />
+                    <Text style={styles.changeReceiptText}>Change Screenshot</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeReceiptBtn}
+                    onPress={() => setReceiptUri(null)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    <Text style={styles.removeReceiptText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.attachReceiptBtn}
+                onPress={pickReceipt}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-outline" size={20} color={THEME.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.attachReceiptText}>Attach Screenshot / Proof</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Policy Notice */}
@@ -487,6 +557,63 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: THEME.colors.textPrimary,
+  },
+  receiptCard: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.md,
+    padding: THEME.spacing.md,
+    marginBottom: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    ...THEME.shadows.sm,
+  },
+  attachReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  attachReceiptText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+  },
+  receiptPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  receiptThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: THEME.colors.darkCard,
+    marginRight: 14,
+  },
+  receiptActionsCol: {
+    flex: 1,
+    gap: 8,
+  },
+  changeReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  changeReceiptText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+    marginLeft: 6,
+  },
+  removeReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  removeReceiptText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginLeft: 6,
   },
   noticeBox: {
     flexDirection: 'row',

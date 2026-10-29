@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const tripId = formData.get('tripId') as string | null;
+    const expenseId = formData.get('expenseId') as string | null;
+    const paymentId = formData.get('paymentId') as string | null;
     const category = (formData.get('category') as FileCategory) || 'EXPENSE_RECEIPT';
 
     if (!file) {
@@ -45,7 +47,9 @@ export async function POST(req: NextRequest) {
       file.name,
       file.type,
       tripId || undefined,
-      category
+      category,
+      expenseId || undefined,
+      paymentId || undefined
     );
 
     return successResponse(metadata, 201);

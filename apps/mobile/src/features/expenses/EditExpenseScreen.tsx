@@ -11,10 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { apiRequest } from '../../services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { apiRequest, uploadImageFromUri } from '../../services/api';
+import { resolveMediaUrl } from '../../utils/media';
 import { calculateEqualSplit, validateUnequalSplit } from '@tripcircle/contracts';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -39,8 +42,34 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   const [members, setMembers] = useState<any[]>([]);
   const [selectedBeneficiaryIds, setSelectedBeneficiaryIds] = useState<string[]>([]);
   const [unequalShares, setUnequalShares] = useState<Record<string, string>>({});
+  const [existingReceiptUrl, setExistingReceiptUrl] = useState<string | null>(null);
+  const [newReceiptUri, setNewReceiptUri] = useState<string | null>(null);
+  const [removeReceipt, setRemoveReceipt] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const pickReceipt = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        dialog.alert('Permission Required', 'Permission to access photos is needed to update the receipt.', 'warning');
+        return;
+      }
+
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setNewReceiptUri(res.assets[0].uri);
+        setRemoveReceipt(false);
+      }
+    } catch (err) {
+      dialog.alert('Photo Selection Failed', (err as Error).message, 'error');
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -55,6 +84,9 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
         setDescription(exp.description);
         setSplitMethod(exp.splitMethod);
         setMembers(tripData.members.filter((m: any) => m.status === 'ACTIVE'));
+        if (exp.receiptUrl) {
+          setExistingReceiptUrl(exp.receiptUrl);
+        }
 
         const allocatedIds = exp.allocations.map((a: any) => a.memberId);
         setSelectedBeneficiaryIds(allocatedIds);
@@ -117,6 +149,18 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
 
     try {
       setSaving(true);
+
+      let finalReceiptUrl: string | null | undefined = existingReceiptUrl;
+      if (removeReceipt) {
+        finalReceiptUrl = null;
+      } else if (newReceiptUri) {
+        const uploadRes = await uploadImageFromUri(newReceiptUri, 'EXPENSE_RECEIPT', {
+          tripId,
+          expenseId,
+        });
+        finalReceiptUrl = uploadRes.publicUrl;
+      }
+
       await apiRequest(`/trips/${tripId}/expenses/${expenseId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -128,6 +172,7 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
           allocations,
           expectedVersion: expense.version,
           changeReason: changeReason.trim() || undefined,
+          receiptUrl: finalReceiptUrl,
         }),
       });
 
@@ -143,6 +188,10 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   if (loading) {
     return <LoadingIndicator message="Loading expense for edit..." />;
   }
+
+  const displayedReceiptUri = !removeReceipt
+    ? newReceiptUri || (existingReceiptUrl ? resolveMediaUrl(existingReceiptUrl) : null)
+    : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
@@ -308,6 +357,46 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
                 </View>
               );
             })}
+          </View>
+
+          {/* Receipt Section */}
+          <Text style={styles.sectionHeader}>RECEIPT ATTACHMENT</Text>
+          <View style={styles.receiptCard}>
+            {displayedReceiptUri ? (
+              <View style={styles.receiptPreviewRow}>
+                <Image source={{ uri: displayedReceiptUri }} style={styles.receiptThumb} />
+                <View style={styles.receiptActionsCol}>
+                  <TouchableOpacity
+                    style={styles.changeReceiptBtn}
+                    onPress={pickReceipt}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="camera-outline" size={16} color={THEME.colors.primary} />
+                    <Text style={styles.changeReceiptText}>Change Photo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeReceiptBtn}
+                    onPress={() => {
+                      setNewReceiptUri(null);
+                      setRemoveReceipt(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    <Text style={styles.removeReceiptText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.attachReceiptBtn}
+                onPress={pickReceipt}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-outline" size={20} color={THEME.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.attachReceiptText}>Attach Receipt Photo</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Save Action */}
@@ -555,6 +644,62 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     padding: 0,
     fontVariant: ['tabular-nums'],
+  },
+  receiptCard: {
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.md,
+    padding: THEME.spacing.md,
+    marginBottom: THEME.spacing.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  attachReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  attachReceiptText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+  },
+  receiptPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  receiptThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: THEME.colors.darkCard,
+    marginRight: 14,
+  },
+  receiptActionsCol: {
+    flex: 1,
+    gap: 8,
+  },
+  changeReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  changeReceiptText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+    marginLeft: 6,
+  },
+  removeReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  removeReceiptText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginLeft: 6,
   },
   saveBtn: {
     flexDirection: 'row',

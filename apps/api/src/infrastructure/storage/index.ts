@@ -8,6 +8,68 @@ import { generateStorageKey } from './key-generator';
 export * from './types';
 export * from './key-generator';
 
+export interface DeleteMediaContextParams {
+  category: FileCategory;
+  userId?: string;
+  tripId?: string;
+  expenseId?: string;
+  paymentId?: string;
+  excludeStorageKey?: string;
+}
+
+/**
+ * Extracts canonical storage key from a public URL or relative file path.
+ * Returns null if the URL is an external resource (e.g. Unsplash, DiceBear).
+ */
+export function extractStorageKey(urlOrKey?: string | null): string | null {
+  if (!urlOrKey || typeof urlOrKey !== 'string') return null;
+  const trimmed = urlOrKey.trim();
+  if (!trimmed) return null;
+
+  // 1. Matches /api/v1/files/<key> or full host URL containing /api/v1/files/<key>
+  const filesPathIdx = trimmed.indexOf('/api/v1/files/');
+  if (filesPathIdx !== -1) {
+    const keyPart = trimmed.substring(filesPathIdx + '/api/v1/files/'.length).split('?')[0];
+    try {
+      return decodeURIComponent(keyPart);
+    } catch {
+      return keyPart;
+    }
+  }
+
+  // 2. Matches absolute storage direct URLs (e.g. R2 public bucket URLs)
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const parsed = new URL(trimmed);
+      const pathname = parsed.pathname.replace(/^\/+/, '');
+      const decoded = decodeURIComponent(pathname);
+      if (
+        decoded.startsWith('users/') ||
+        decoded.startsWith('trips/') ||
+        decoded.startsWith('uploads/') ||
+        decoded.startsWith('temp/')
+      ) {
+        return decoded;
+      }
+    } catch {
+      // not a parseable URL
+    }
+    return null;
+  }
+
+  // 3. Already a storage key
+  if (
+    trimmed.startsWith('users/') ||
+    trimmed.startsWith('trips/') ||
+    trimmed.startsWith('uploads/') ||
+    trimmed.startsWith('temp/')
+  ) {
+    return trimmed.split('?')[0];
+  }
+
+  return null;
+}
+
 let driverInstance: IStorageDriver | null = null;
 
 export function getStorageDriver(): IStorageDriver {
@@ -115,7 +177,18 @@ export class StorageService {
       throw new Error('Uploaded file exceeds maximum permitted size');
     }
 
-    // 2. Persist metadata in database
+    // 2. Remove previously saved media of the same context before saving new metadata
+    const category = this.inferCategoryFromStorageKey(params.storageKey);
+    if (category) {
+      await this.deleteMediaByContext({
+        category,
+        userId: params.userId,
+        tripId: params.tripId,
+        excludeStorageKey: params.storageKey,
+      });
+    }
+
+    // 3. Persist metadata in database
     const publicUrl = env.R2_PUBLIC_BASE_URL
       ? `${env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')}/${params.storageKey}`
       : `${env.API_BASE_URL}/api/v1/files/${encodeURIComponent(params.storageKey)}`;
@@ -215,6 +288,8 @@ export class StorageService {
     mimeType: string;
     category?: FileCategory;
     tripId?: string;
+    expenseId?: string;
+    paymentId?: string;
   }) {
     const env = getEnv();
 
@@ -227,17 +302,33 @@ export class StorageService {
       throw new Error(`File size exceeds 10MB limit`);
     }
 
+    const category = params.category || 'EXPENSE_RECEIPT';
+
     const { storageKey } = generateStorageKey({
-      category: params.category || 'EXPENSE_RECEIPT',
+      category,
       userId: params.userId,
       tripId: params.tripId,
+      expenseId: params.expenseId,
+      paymentId: params.paymentId,
       originalName: params.originalName,
       mimeType: params.mimeType,
     });
 
+    // 1. Remove previously saved media of the same context before saving new media
+    await this.deleteMediaByContext({
+      category,
+      userId: params.userId,
+      tripId: params.tripId,
+      expenseId: params.expenseId,
+      paymentId: params.paymentId,
+      excludeStorageKey: storageKey,
+    });
+
+    // 2. Persist to storage driver
     const driver = getStorageDriver();
     const { publicUrl } = await driver.saveDirect(storageKey, params.buffer, params.mimeType);
 
+    // 3. Record new FileMetadata
     const metadata = await prisma.fileMetadata.create({
       data: {
         userId: params.userId,
@@ -252,6 +343,256 @@ export class StorageService {
     });
 
     return metadata;
+  }
+
+  /**
+   * Infer the logical FileCategory from a storage key path.
+   */
+  static inferCategoryFromStorageKey(storageKey: string): FileCategory | null {
+    if (storageKey.includes('/avatars/')) return 'AVATAR';
+    if (storageKey.includes('/payment-qr/') || storageKey.startsWith('temp/registration-qr/')) return 'PAYMENT_QR';
+    if (storageKey.includes('/covers/')) return 'TRIP_COVER';
+    if (storageKey.includes('/expenses/')) return 'EXPENSE_RECEIPT';
+    if (storageKey.includes('/payments/')) return 'PAYMENT_RECEIPT';
+    return null;
+  }
+
+  /**
+   * Delete media file and its metadata record given its public URL or storage key.
+   */
+  static async deleteMediaByUrl(urlOrKey?: string | null): Promise<boolean> {
+    if (!urlOrKey) return false;
+    const storageKey = extractStorageKey(urlOrKey);
+
+    const driver = getStorageDriver();
+    let deletedCount = 0;
+
+    const files = await prisma.fileMetadata.findMany({
+      where: {
+        OR: [
+          ...(storageKey ? [{ storageKey }] : []),
+          { publicUrl: urlOrKey },
+          ...(storageKey ? [{ publicUrl: { contains: encodeURIComponent(storageKey) } }] : []),
+        ],
+      },
+    });
+
+    for (const file of files) {
+      try {
+        await driver.deleteObject(file.storageKey);
+      } catch (err) {
+        console.warn(`[Storage] Failed to delete object ${file.storageKey}: ${(err as Error).message}`);
+      }
+      await prisma.fileMetadata.delete({ where: { id: file.id } }).catch(() => {});
+      deletedCount++;
+    }
+
+    if (files.length === 0 && storageKey) {
+      try {
+        await driver.deleteObject(storageKey);
+        deletedCount++;
+      } catch {
+        // Silently catch if already removed
+      }
+    }
+
+    return deletedCount > 0;
+  }
+
+  /**
+   * Remove previously saved media for the same context before/after saving new media.
+   * Ensures that updating an avatar, payment QR, trip cover, or receipt does not leave
+   * stale orphaned media in storage.
+   */
+  static async deleteMediaByContext(params: DeleteMediaContextParams): Promise<number> {
+    const driver = getStorageDriver();
+    const keysToDelete = new Set<string>();
+    const fileIdsToDelete = new Set<string>();
+    const excludeKey = params.excludeStorageKey;
+
+    switch (params.category) {
+      case 'AVATAR': {
+        if (params.userId) {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              userId: params.userId,
+              storageKey: { contains: '/avatars/' },
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { id: params.userId },
+            select: { avatarUrl: true },
+          });
+          if (user?.avatarUrl) {
+            const key = extractStorageKey(user.avatarUrl);
+            if (key && key !== excludeKey) {
+              keysToDelete.add(key);
+            }
+          }
+        }
+        break;
+      }
+
+      case 'PAYMENT_QR': {
+        if (params.userId) {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              userId: params.userId,
+              OR: [
+                { storageKey: { contains: '/payment-qr/' } },
+                { storageKey: { startsWith: 'temp/registration-qr/' } },
+              ],
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { id: params.userId },
+            select: { paymentQrUrl: true },
+          });
+          if (user?.paymentQrUrl) {
+            const key = extractStorageKey(user.paymentQrUrl);
+            if (key && key !== excludeKey) {
+              keysToDelete.add(key);
+            }
+          }
+        }
+        break;
+      }
+
+      case 'TRIP_COVER': {
+        if (params.tripId) {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              tripId: params.tripId,
+              storageKey: { contains: '/covers/' },
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+
+          const trip = await prisma.trip.findUnique({
+            where: { id: params.tripId },
+            select: { coverImageUrl: true },
+          });
+          if (trip?.coverImageUrl) {
+            const key = extractStorageKey(trip.coverImageUrl);
+            if (key && key !== excludeKey) {
+              keysToDelete.add(key);
+            }
+          }
+        } else if (params.userId) {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              userId: params.userId,
+              tripId: null,
+              storageKey: { contains: '/covers/' },
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+        }
+        break;
+      }
+
+      case 'EXPENSE_RECEIPT': {
+        if (params.expenseId && params.expenseId !== 'draft') {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              storageKey: { contains: `/expenses/${params.expenseId}/` },
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+
+          const expense = await prisma.expense.findUnique({
+            where: { id: params.expenseId },
+            select: { receiptUrl: true },
+          });
+          if (expense?.receiptUrl) {
+            const key = extractStorageKey(expense.receiptUrl);
+            if (key && key !== excludeKey) {
+              keysToDelete.add(key);
+            }
+          }
+        } else if (params.tripId) {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              tripId: params.tripId,
+              storageKey: { contains: '/expenses/draft/' },
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+        }
+        break;
+      }
+
+      case 'PAYMENT_RECEIPT': {
+        if (params.paymentId && params.paymentId !== 'draft') {
+          const existing = await prisma.fileMetadata.findMany({
+            where: {
+              storageKey: { contains: `/payments/${params.paymentId}/` },
+              ...(excludeKey ? { storageKey: { not: excludeKey } } : {}),
+            },
+          });
+          for (const f of existing) {
+            keysToDelete.add(f.storageKey);
+            fileIdsToDelete.add(f.id);
+          }
+
+          const payment = await prisma.payment.findUnique({
+            where: { id: params.paymentId },
+            select: { receiptUrl: true },
+          });
+          if (payment?.receiptUrl) {
+            const key = extractStorageKey(payment.receiptUrl);
+            if (key && key !== excludeKey) {
+              keysToDelete.add(key);
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    for (const key of keysToDelete) {
+      try {
+        await driver.deleteObject(key);
+      } catch (err) {
+        console.warn(`[Storage] Failed to delete object ${key}: ${(err as Error).message}`);
+      }
+    }
+
+    if (fileIdsToDelete.size > 0) {
+      await prisma.fileMetadata.deleteMany({
+        where: { id: { in: Array.from(fileIdsToDelete) } },
+      });
+    }
+
+    return keysToDelete.size;
   }
 
   /**

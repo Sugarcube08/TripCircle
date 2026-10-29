@@ -47,7 +47,9 @@ export class FileService {
     originalName: string,
     mimeType: string,
     tripId?: string,
-    category?: FileCategory
+    category?: FileCategory,
+    expenseId?: string,
+    paymentId?: string
   ) {
     return StorageService.uploadDirect({
       userId,
@@ -56,6 +58,8 @@ export class FileService {
       mimeType,
       category,
       tripId,
+      expenseId,
+      paymentId,
     });
   }
 }

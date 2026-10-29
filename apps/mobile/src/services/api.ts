@@ -211,7 +211,7 @@ export async function uploadFileToR2(params: {
 export async function uploadImageFromUri(
   imageUri: string,
   category: 'AVATAR' | 'PAYMENT_QR' | 'EXPENSE_RECEIPT' | 'PAYMENT_RECEIPT' | 'TRIP_COVER',
-  options: { tripId?: string; mimeType?: string } = {}
+  options: { tripId?: string; expenseId?: string; paymentId?: string; mimeType?: string } = {}
 ): Promise<{ id: string; storageKey: string; publicUrl: string; fileName: string }> {
   const baseUrl = getApiBaseUrl();
   const token = await getAccessToken();
@@ -227,6 +227,12 @@ export async function uploadImageFromUri(
   formData.append('category', category);
   if (options.tripId) {
     formData.append('tripId', options.tripId);
+  }
+  if (options.expenseId) {
+    formData.append('expenseId', options.expenseId);
+  }
+  if (options.paymentId) {
+    formData.append('paymentId', options.paymentId);
   }
 
   const response = await fetch(`${baseUrl}/files/upload`, {

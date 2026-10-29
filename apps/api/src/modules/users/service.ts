@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma';
 import { UpdateProfileInput, ChangePasswordInput } from '@tripcircle/contracts';
+import { StorageService } from '../../infrastructure/storage';
 
 export class UserService {
   static async getProfile(userId: string) {
@@ -38,6 +39,33 @@ export class UserService {
   }
 
   static async updateProfile(userId: string, input: UpdateProfileInput) {
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true, paymentQrUrl: true },
+    });
+
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+
+    // If new avatarUrl provided and differs from old, clean up previous avatar
+    if (
+      input.avatarUrl !== undefined &&
+      input.avatarUrl !== existingUser.avatarUrl &&
+      existingUser.avatarUrl
+    ) {
+      await StorageService.deleteMediaByUrl(existingUser.avatarUrl);
+    }
+
+    // If new paymentQrUrl provided and differs from old, clean up previous payment QR
+    if (
+      input.paymentQrUrl !== undefined &&
+      input.paymentQrUrl !== existingUser.paymentQrUrl &&
+      existingUser.paymentQrUrl
+    ) {
+      await StorageService.deleteMediaByUrl(existingUser.paymentQrUrl);
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: {

@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import { CreateExpenseInput, EditExpenseInput } from '@tripcircle/contracts';
 import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
 import { createOutboxEvent } from '../../lib/outbox';
+import { StorageService } from '../../infrastructure/storage';
 
 export class ExpenseService {
   static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
@@ -211,6 +212,15 @@ export class ExpenseService {
         calculatedAllocations = calculateEqualSplit(input.amountPaise, beneficiaryIds);
       } else {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
+      }
+
+      // If receiptUrl was replaced, remove previously saved receipt media
+      if (
+        input.receiptUrl !== undefined &&
+        expense.receiptUrl &&
+        input.receiptUrl !== expense.receiptUrl
+      ) {
+        await StorageService.deleteMediaByUrl(expense.receiptUrl);
       }
 
       const nextVersion = expense.version + 1;
