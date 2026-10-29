@@ -262,4 +262,77 @@ describe('First-Class Dummy Members & Replacement Integration Tests', () => {
       })
     ).rejects.toThrow('User is already a member of this trip');
   });
+
+  it('Step 7: PaymentService auto-confirms payment when paying a dummy member without approval', async () => {
+    // Member A pays dummy member Priya ₹500 (50000 paise) via PaymentService
+    const payment = await PaymentService.createPayment(trip.id, userA.id, {
+      payerMemberId: memberA.id,
+      receiverMemberId: dummyMemberPriya.id,
+      amountPaise: 50000,
+      paymentMethod: 'UPI',
+      note: 'Auto-confirmed advance',
+    });
+
+    expect(payment).toBeDefined();
+    expect(payment.status).toBe('CONFIRMED');
+    expect(payment.confirmedAt).toBeDefined();
+
+    // Verify ledger entries were created immediately
+    const ledgerEntries = await prisma.ledgerEntry.findMany({
+      where: { referenceId: payment.id },
+    });
+    expect(ledgerEntries.length).toBe(2);
+
+    const payerEntry = ledgerEntries.find((e) => e.memberId === memberA.id);
+    const receiverEntry = ledgerEntries.find((e) => e.memberId === dummyMemberPriya.id);
+
+    expect(payerEntry).toBeDefined();
+    expect(payerEntry?.creditPaise).toBe(50000);
+    expect(payerEntry?.debitPaise).toBe(0);
+
+    expect(receiverEntry).toBeDefined();
+    expect(receiverEntry?.creditPaise).toBe(0);
+    expect(receiverEntry?.debitPaise).toBe(50000);
+
+    // Verify balance updated immediately in settlement plan
+    const plan = await SettlementService.getSettlementPlan(trip.id, userA.id);
+    const priyaBalance = plan.memberBalances.find((b) => b.memberId === dummyMemberPriya.id);
+    // Priya had 0, now received 50000 paise payment (debit), so net balance is -50000 (-₹500.00)
+    expect(priyaBalance?.netBalancePaise).toBe(-50000);
+  });
+
+  it('Step 8: ExpenseService resolves categories by both category key and category UUID', async () => {
+    // 1. Create expense using category key string 'FOOD_DINING'
+    const expenseWithKey = await ExpenseService.createExpense(trip.id, userA.id, {
+      payerMemberId: memberA.id,
+      amountPaise: 120000,
+      description: 'Breakfast Cafe',
+      categoryId: 'FOOD_DINING',
+      splitMethod: 'EQUAL',
+      allocations: [
+        { memberId: memberA.id, sharePaise: 60000 },
+        { memberId: dummyMemberPriya.id, sharePaise: 60000 },
+      ],
+    });
+
+    expect(expenseWithKey).toBeDefined();
+    expect(expenseWithKey.category.key).toBe('FOOD_DINING');
+    expect(expenseWithKey.categoryId).toBe(expenseWithKey.category.id); // Stored foreign key is UUID
+
+    // 2. Create expense using category UUID directly
+    const expenseWithUuid = await ExpenseService.createExpense(trip.id, userA.id, {
+      payerMemberId: memberA.id,
+      amountPaise: 80000,
+      description: 'Snacks & Beverages',
+      categoryId: expenseWithKey.category.id,
+      splitMethod: 'EQUAL',
+      allocations: [
+        { memberId: memberA.id, sharePaise: 40000 },
+        { memberId: dummyMemberPriya.id, sharePaise: 40000 },
+      ],
+    });
+
+    expect(expenseWithUuid).toBeDefined();
+    expect(expenseWithUuid.categoryId).toBe(expenseWithKey.category.id);
+  });
 });

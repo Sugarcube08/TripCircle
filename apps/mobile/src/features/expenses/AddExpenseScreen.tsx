@@ -100,12 +100,16 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       try {
         const [tripData, catsData] = await Promise.all([
           apiRequest(`/trips/${tripId}`),
-          apiRequest('/categories').catch(() => EXPENSE_CATEGORIES),
+          apiRequest('/categories').catch(() => []),
         ]);
 
         const activeMembers = tripData.members.filter((m: any) => m.status === 'ACTIVE');
         setMembers(activeMembers);
-        setCategories(catsData || EXPENSE_CATEGORIES);
+        const validCats = Array.isArray(catsData) && catsData.length > 0 ? catsData : [];
+        setCategories(validCats);
+        if (validCats.length > 0 && validCats[0].key) {
+          setSelectedCategory(validCats[0].key);
+        }
 
         // Default payer: current user's membership
         const myMember = activeMembers.find((m: any) => m.userId === user?.id);
@@ -205,7 +209,15 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
       }));
     }
 
-    const cat = categories.find((c) => c.key === selectedCategory) || categories[0] || EXPENSE_CATEGORIES[0];
+    const cat = categories.find((c) => c.key === selectedCategory || c.id === selectedCategory)
+      || categories.find((c) => c.id)
+      || categories[0];
+    const categoryId = cat?.id || cat?.key || selectedCategory || 'FOOD_DINING';
+
+    if (!categoryId) {
+      dialog.alert('Category Required', 'Please select a valid expense category.', 'warning');
+      return;
+    }
 
     try {
       setLoading(true);
@@ -222,7 +234,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
           payerMemberId,
           description: description.trim() || undefined,
           amountPaise: totalAmountPaise,
-          categoryId: cat.id,
+          categoryId,
           splitMethod,
           allocations,
           location: location.trim() || undefined,
@@ -304,17 +316,18 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoryRow}
           >
-            {EXPENSE_CATEGORIES.map((cat) => {
-              const isSelected = selectedCategory === cat.key;
-              const cfg = getCategoryConfig(cat.key);
+            {(categories.length > 0 ? categories : EXPENSE_CATEGORIES).map((cat: any) => {
+              const catKey = cat.key || cat.id;
+              const isSelected = selectedCategory === catKey || selectedCategory === cat.id || selectedCategory === cat.key;
+              const cfg = getCategoryConfig(catKey);
               return (
                 <TouchableOpacity
-                  key={cat.key}
+                  key={cat.id || cat.key}
                   style={[
                     styles.categoryPill,
                     isSelected && { backgroundColor: cfg.bg, borderColor: cfg.color, borderWidth: 1.5 },
                   ]}
-                  onPress={() => setSelectedCategory(cat.key)}
+                  onPress={() => setSelectedCategory(cat.key || cat.id)}
                   activeOpacity={0.8}
                 >
                   <View style={[styles.categoryIconCircle, { backgroundColor: isSelected ? cfg.color : '#F1F5F9' }]}>

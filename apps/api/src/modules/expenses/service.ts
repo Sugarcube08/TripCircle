@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { CreateExpenseInput, EditExpenseInput } from '@tripcircle/contracts';
+import { CreateExpenseInput, EditExpenseInput, EXPENSE_CATEGORIES } from '@tripcircle/contracts';
 import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
 import { createOutboxEvent } from '../../lib/outbox';
 import { StorageService } from '../../infrastructure/storage';
@@ -84,10 +84,24 @@ export class ExpenseService {
         throw new Error('One or more beneficiary members are not valid members of this trip');
       }
 
-      // Category lookup
-      const category = await tx.expenseCategory.findUnique({
-        where: { id: input.categoryId },
+      // Category lookup - supports UUID id or standard category key
+      let category = await tx.expenseCategory.findFirst({
+        where: {
+          OR: [{ id: input.categoryId }, { key: input.categoryId }],
+        },
       });
+
+      if (!category) {
+        const standardCat = EXPENSE_CATEGORIES.find((c) => c.key === input.categoryId);
+        if (standardCat) {
+          category = await tx.expenseCategory.upsert({
+            where: { key: standardCat.key },
+            update: { name: standardCat.name, icon: standardCat.icon },
+            create: { key: standardCat.key, name: standardCat.name, icon: standardCat.icon, isSystem: true },
+          });
+        }
+      }
+
       if (!category) {
         throw new Error('Expense category not found');
       }
@@ -102,7 +116,7 @@ export class ExpenseService {
           submitterId: currentUserId,
           payerMemberId: input.payerMemberId,
           amountPaise: input.amountPaise,
-          categoryId: input.categoryId,
+          categoryId: category.id,
           description: normalizedDescription,
           note: input.note,
           location: input.location,
@@ -136,7 +150,7 @@ export class ExpenseService {
           editorId: currentUserId,
           amountPaise: input.amountPaise,
           payerMemberId: input.payerMemberId,
-          categoryId: input.categoryId,
+          categoryId: category.id,
           description: normalizedDescription,
           note: input.note,
           location: input.location,
@@ -262,13 +276,27 @@ export class ExpenseService {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
       }
 
-      // Category lookup
+      // Category lookup - supports UUID id or standard category key
+      let resolvedCategoryId = expense.categoryId;
       let categoryName = expense.category?.name;
       if (input.categoryId !== expense.categoryId) {
-        const cat = await tx.expenseCategory.findUnique({
-          where: { id: input.categoryId },
+        let cat = await tx.expenseCategory.findFirst({
+          where: {
+            OR: [{ id: input.categoryId }, { key: input.categoryId }],
+          },
         });
+        if (!cat) {
+          const standardCat = EXPENSE_CATEGORIES.find((c) => c.key === input.categoryId);
+          if (standardCat) {
+            cat = await tx.expenseCategory.upsert({
+              where: { key: standardCat.key },
+              update: { name: standardCat.name, icon: standardCat.icon },
+              create: { key: standardCat.key, name: standardCat.name, icon: standardCat.icon, isSystem: true },
+            });
+          }
+        }
         if (!cat) throw new Error('Expense category not found');
+        resolvedCategoryId = cat.id;
         categoryName = cat.name;
       }
 
@@ -298,7 +326,7 @@ export class ExpenseService {
           editorId: currentUserId,
           amountPaise: input.amountPaise,
           payerMemberId: input.payerMemberId,
-          categoryId: input.categoryId,
+          categoryId: resolvedCategoryId,
           description: normalizedDescription,
           note: input.note,
           location: input.location,
@@ -328,7 +356,7 @@ export class ExpenseService {
         data: {
           payerMemberId: input.payerMemberId,
           amountPaise: input.amountPaise,
-          categoryId: input.categoryId,
+          categoryId: resolvedCategoryId,
           description: normalizedDescription,
           note: input.note,
           location: input.location,

@@ -132,7 +132,7 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
         uploadedReceiptUrl = uploadRes.publicUrl;
       }
 
-      await apiRequest(`/trips/${tripId}/payments`, {
+      const createdPayment = await apiRequest(`/trips/${tripId}/payments`, {
         method: 'POST',
         body: JSON.stringify({
           payerMemberId,
@@ -145,11 +145,19 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
         }),
       });
 
-      await dialog.alert(
-        'Payment Submitted',
-        'Your payment has been recorded as Pending. Group balances will update once the receiver confirms receipt.',
-        'success'
-      );
+      if (createdPayment?.status === 'CONFIRMED') {
+        await dialog.alert(
+          'Payment Recorded',
+          'Payment was automatically confirmed and ledger balances updated.',
+          'success'
+        );
+      } else {
+        await dialog.alert(
+          'Payment Submitted',
+          'Your payment has been recorded as Pending. Group balances will update once the receiver confirms receipt.',
+          'success'
+        );
+      }
       navigation.goBack();
     } catch (err: any) {
       const msg = err instanceof ApiError ? err.formatUserMessage() : (err as Error).message;
@@ -218,6 +226,49 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
               ))}
             </View>
           </View>
+
+          {/* Paid By Selector */}
+          <Text style={styles.sectionHeader}>PAID BY</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.membersRow}
+          >
+            {members.map((m) => {
+              const isSelected = payerMemberId === m.id;
+              const isYou = m.userId === user?.id;
+              const memberName = m.displayName || m.user?.name || 'Member';
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.payerCard, isSelected && styles.selectedPayerCard]}
+                  onPress={() => {
+                    setPayerMemberId(m.id);
+                    if (receiverMemberId === m.id) {
+                      const nextOther = members.find((other) => other.id !== m.id);
+                      if (nextOther) setReceiverMemberId(nextOther.id);
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.avatarWrapper}>
+                    <MemberAvatar name={memberName} avatarUrl={m.user?.avatarUrl} size={40} />
+                    {isSelected && (
+                      <View style={styles.selectedBadge}>
+                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={[styles.payerName, isSelected && styles.selectedPayerName]}
+                    numberOfLines={1}
+                  >
+                    {isYou ? 'You' : memberName.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           {/* Paid To Selector */}
           <Text style={styles.sectionHeader}>PAID TO</Text>
@@ -464,6 +515,52 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 10,
     marginLeft: 4,
+  },
+  membersRow: {
+    paddingVertical: 6,
+    gap: 12,
+    marginBottom: THEME.spacing.md,
+  },
+  payerCard: {
+    alignItems: 'center',
+    width: 68,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: THEME.borderRadius.md,
+    backgroundColor: THEME.colors.card,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.border,
+  },
+  selectedPayerCard: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: 'rgba(13, 148, 136, 0.08)',
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  selectedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: THEME.colors.primary,
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  payerName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  selectedPayerName: {
+    color: THEME.colors.primary,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: THEME.colors.card,
