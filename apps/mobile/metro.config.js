@@ -27,6 +27,7 @@ config.resolver.extraNodeModules = {
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
   '@tripcircle/contracts': path.resolve(workspaceRoot, 'packages/contracts/src'),
   '@react-native/assets-registry': assetsRegistryDir,
+  'expo-asset': path.resolve(projectRoot, 'node_modules/expo-asset'),
 };
 
 // 4. Force all React, React Native, and assets-registry resolution calls to resolve properly
