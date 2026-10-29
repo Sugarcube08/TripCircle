@@ -267,7 +267,7 @@ export class MembershipService {
         tripId: member.tripId,
         type: 'INVITATION_RESPONSE',
         title: `Invitation ${input.action.toLowerCase()}ed`,
-        body: `${updated.user.name} has ${input.action.toLowerCase()}ed the invitation to "${member.trip.name}".`,
+        body: `${updated.user?.name || updated.displayName || 'A member'} has ${input.action.toLowerCase()}ed the invitation to "${member.trip.name}".`,
         data: { tripId: member.tripId, memberId: member.id },
       },
     });

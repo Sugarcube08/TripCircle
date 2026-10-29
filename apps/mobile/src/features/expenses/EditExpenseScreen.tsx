@@ -275,9 +275,13 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
                     <View style={[styles.checkbox, isIncluded && styles.checkboxActive]}>
                       {isIncluded && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
                     </View>
-                    <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={36} />
+                    <MemberAvatar
+                      name={m.displayName || m.user?.name || 'Member'}
+                      avatarUrl={m.user?.avatarUrl}
+                      size={36}
+                    />
                     <Text style={[styles.beneficiaryName, !isIncluded && styles.textDisabled]}>
-                      {m.user.name}
+                      {m.displayName || m.user?.name || 'Member'}
                     </Text>
                   </TouchableOpacity>
 

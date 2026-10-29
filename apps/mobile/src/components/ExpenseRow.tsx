@@ -56,7 +56,7 @@ export const ExpenseRow: React.FC<ExpenseRowProps> = ({
         </Text>
         <View style={styles.subtextRow}>
           <Text style={isPayer ? styles.payerYou : styles.payerOther}>
-            {isPayer ? 'You paid' : `${expense.payer?.user.name.split(' ')[0] || 'Member'} paid`}
+            {isPayer ? 'You paid' : `${(expense.payer?.user?.name || expense.payer?.displayName || 'Member').split(' ')[0]} paid`}
           </Text>
           <Text style={styles.subtext}> · {formatDate(expense.expenseDate)}</Text>
           {expense.receiptUrl ? (

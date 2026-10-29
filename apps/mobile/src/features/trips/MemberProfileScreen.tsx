@@ -63,6 +63,11 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
   const member = trip?.members.find((m: any) => m.id === memberId);
   const memberBalance = plan?.memberBalances?.find((b: any) => b.memberId === memberId);
 
+  const memberName = member?.displayName || member?.user?.name || 'Offline Member';
+  const memberEmail = member?.email || member?.user?.email || (member?.isDummy ? 'Offline Participant' : 'N/A');
+  const memberPhone = member?.phone || member?.user?.phone;
+  const isDummy = member?.isDummy || !member?.userId;
+
   // Find bilateral obligations involving this member
   const bilateral = plan?.bilateralObligations?.find((o: any) => o.otherMemberId === memberId);
   const directObligation = bilateral ? bilateral.amountPaise : 0;
@@ -72,7 +77,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
     if (!rawQrUrl) return;
     try {
       setDownloadingQr(true);
-      const filename = `tripcircle_qr_${member.user.id || memberId}.png`;
+      const filename = `tripcircle_qr_${member.user?.id || memberId}.png`;
       const localUri = `${FileSystem.cacheDirectory}${filename}`;
 
       const result = await FileSystem.downloadAsync(rawQrUrl, localUri);
@@ -81,7 +86,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         if (isAvailable) {
           await Sharing.shareAsync(result.uri, {
             mimeType: 'image/png',
-            dialogTitle: `Save or Share ${member.user.name}'s QR Code`,
+            dialogTitle: `Save or Share ${memberName}'s QR Code`,
           });
         } else {
           Alert.alert('QR Saved', `Payment QR code saved to temporary cache: ${result.uri}`);
@@ -108,7 +113,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         >
           <Ionicons name="arrow-back" size={24} color={THEME.colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{member?.user.name || 'Member'}</Text>
+        <Text style={styles.headerTitle}>{memberName}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -116,20 +121,29 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <MemberAvatar
-            name={member?.user.name || 'Member'}
-            avatarUrl={member?.user.avatarUrl}
+            name={memberName}
+            avatarUrl={member?.user?.avatarUrl}
             size={76}
             showBorder
             borderColor={THEME.colors.primary}
           />
-          <Text style={styles.name}>{member?.user.name}</Text>
-          <Text style={styles.email}>{member?.user.email}</Text>
-          {member?.user.phone ? (
+          <Text style={styles.name}>{memberName}</Text>
+          <Text style={styles.email}>{memberEmail}</Text>
+          {memberPhone ? (
             <View style={styles.phoneRow}>
               <Ionicons name="call-outline" size={13} color={THEME.colors.textMuted} style={{ marginRight: 4 }} />
-              <Text style={styles.phone}>{member.user.phone}</Text>
+              <Text style={styles.phone}>{memberPhone}</Text>
             </View>
           ) : null}
+
+          {isDummy && (
+            <View style={styles.dummyNoticeBadge}>
+              <Ionicons name="people-circle-outline" size={16} color={THEME.colors.mint} style={{ marginRight: 6 }} />
+              <Text style={styles.dummyNoticeText}>
+                Offline Participant — Fully calculated in all expenses and settlements
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Net Balance Hero Card */}
@@ -156,14 +170,14 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             {directObligation > 0 ? (
               <View style={styles.obligationContent}>
                 <Text style={styles.obligationText}>
-                  {member?.user.name} owes you{' '}
+                  {memberName} owes you{' '}
                   <AmountText paise={directObligation} size="medium" colorType="credit" />
                 </Text>
               </View>
             ) : (
               <View style={styles.obligationContent}>
                 <Text style={styles.obligationText}>
-                  You owe {member?.user.name}{' '}
+                  You owe {memberName}{' '}
                   <AmountText paise={-directObligation} size="medium" colorType="debt" />
                 </Text>
                 <TouchableOpacity
@@ -206,20 +220,20 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         </View>
 
         {/* Payment QR Button */}
-        {member?.user.paymentQrUrl ? (
+        {member?.user?.paymentQrUrl ? (
           <TouchableOpacity
             style={styles.qrBtn}
             onPress={() => setQrModalVisible(true)}
             activeOpacity={0.85}
           >
             <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.qrBtnText}>View {member?.user.name.split(' ')[0]}'s Payment QR</Text>
+            <Text style={styles.qrBtnText}>View {memberName.split(' ')[0]}'s Payment QR</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.noQrNotice}>
             <Ionicons name="information-circle-outline" size={18} color={THEME.colors.textMuted} />
             <Text style={styles.noQrText}>
-              {member?.user.name} has not uploaded a payment QR code yet.
+              {memberName} has not uploaded a payment QR code yet.
             </Text>
           </View>
         )}
@@ -236,7 +250,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
           <View style={styles.qrModalCard}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.qrTitle}>{member?.user.name}'s Payment QR</Text>
+                <Text style={styles.qrTitle}>{memberName}'s Payment QR</Text>
                 <Text style={styles.qrSubtitle}>Authorized participant settlement code</Text>
               </View>
               <TouchableOpacity onPress={() => setQrModalVisible(false)}>
@@ -245,9 +259,9 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             </View>
 
             <View style={styles.qrContainer}>
-              {resolveMediaUrl(member?.user.paymentQrUrl) ? (
+              {resolveMediaUrl(member?.user?.paymentQrUrl) ? (
                 <Image
-                  source={{ uri: resolveMediaUrl(member?.user.paymentQrUrl)! }}
+                  source={{ uri: resolveMediaUrl(member?.user?.paymentQrUrl)! }}
                   style={styles.qrImage}
                   resizeMode="contain"
                 />
@@ -258,7 +272,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             <View style={styles.verifyCallout}>
               <Ionicons name="shield-checkmark" size={16} color={THEME.colors.primary} />
               <Text style={styles.verifyCalloutText}>
-                Confirm recipient is <Text style={styles.boldText}>{member?.user.name}</Text> before approving payment in UPI app.
+                Confirm recipient is <Text style={styles.boldText}>{memberName}</Text> before approving payment in UPI app.
               </Text>
             </View>
 
@@ -360,6 +374,23 @@ const styles = StyleSheet.create({
   phone: {
     ...THEME.typography.bodySmall,
     color: THEME.colors.textMuted,
+  },
+  dummyNoticeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.md,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.35)',
+  },
+  dummyNoticeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+    flex: 1,
   },
   card: {
     backgroundColor: THEME.colors.card,

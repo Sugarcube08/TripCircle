@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,14 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [qrUri, setQrUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string>('');
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setPhone(user.phone || '');
+    }
+  }, [user]);
 
   const pickAvatar = async () => {
     try {
@@ -51,7 +59,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.85,
+        quality: 0.75,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
@@ -74,7 +82,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.9,
+        quality: 0.8,
       });
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
@@ -93,23 +101,38 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
 
     try {
       setSaving(true);
+      setSaveStatus('Preparing updates...');
 
       let finalAvatarUrl = user?.avatarUrl;
       let finalQrUrl = user?.paymentQrUrl;
 
-      // 1. Upload new avatar if changed
+      // Parallelize uploads if images changed
+      const uploadPromises: Promise<void>[] = [];
+
       if (avatarUri) {
-        const uploadedAvatar = await uploadImageFromUri(avatarUri, 'AVATAR');
-        finalAvatarUrl = uploadedAvatar.publicUrl;
+        setSaveStatus('Uploading avatar...');
+        uploadPromises.push(
+          uploadImageFromUri(avatarUri, 'AVATAR').then((res) => {
+            finalAvatarUrl = res.publicUrl;
+          })
+        );
       }
 
-      // 2. Upload new payment QR if changed
       if (qrUri) {
-        const uploadedQr = await uploadImageFromUri(qrUri, 'PAYMENT_QR');
-        finalQrUrl = uploadedQr.publicUrl;
+        setSaveStatus('Uploading payment QR...');
+        uploadPromises.push(
+          uploadImageFromUri(qrUri, 'PAYMENT_QR').then((res) => {
+            finalQrUrl = res.publicUrl;
+          })
+        );
       }
 
-      // 3. Save profile mutations to backend
+      if (uploadPromises.length > 0) {
+        setSaveStatus('Uploading media...');
+        await Promise.all(uploadPromises);
+      }
+
+      setSaveStatus('Saving profile...');
       const updatedProfile = await apiRequest('/users/me', {
         method: 'PATCH',
         body: JSON.stringify({
@@ -131,6 +154,7 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
       Alert.alert('Failed to Update Profile', (err as Error).message);
     } finally {
       setSaving(false);
+      setSaveStatus('');
     }
   };
 
@@ -270,7 +294,10 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
             activeOpacity={0.85}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator color="#FFFFFF" size="small" style={{ marginRight: 8 }} />
+                <Text style={styles.saveBtnText}>{saveStatus || 'Saving Changes...'}</Text>
+              </View>
             ) : (
               <>
                 <Ionicons name="checkmark-sharp" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />

@@ -406,18 +406,21 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
               <Text style={styles.avatarName}>Invite</Text>
             </TouchableOpacity>
 
-            {trip.members?.map((m: any) => (
-              <TouchableOpacity
-                key={m.id}
-                style={styles.avatarItem}
-                onPress={() => navigation.navigate('MemberProfile', { tripId, memberId: m.id })}
-              >
-                <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={44} />
-                <Text style={styles.avatarName} numberOfLines={1}>
-                  {m.userId === user?.id ? 'You' : m.user.name.split(' ')[0]}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {trip.members?.map((m: any) => {
+              const memberName = m.displayName || m.user?.name || 'Member';
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={styles.avatarItem}
+                  onPress={() => navigation.navigate('MemberProfile', { tripId, memberId: m.id })}
+                >
+                  <MemberAvatar name={memberName} avatarUrl={m.user?.avatarUrl} size={44} />
+                  <Text style={styles.avatarName} numberOfLines={1}>
+                    {m.userId === user?.id ? 'You' : memberName.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 

@@ -75,11 +75,13 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const isReceiver = payment.receiverMember?.userId === user?.id;
   const isPayer = payment.payerMember?.userId === user?.id;
   const isPending = payment.status === 'PENDING';
+  const payerName = payment.payerMember?.displayName || payment.payerMember?.user?.name || 'Payer';
+  const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
 
   const handleConfirm = async () => {
     Alert.alert(
       'Confirm Payment Received',
-      `Did you receive ₹${(payment.amountPaise / 100).toFixed(2)} from ${payment.payerMember?.user.name}? This will immediately update your balance and settle this transfer.`,
+      `Did you receive ₹${(payment.amountPaise / 100).toFixed(2)} from ${payerName}? This will immediately update your balance and settle this transfer.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -196,12 +198,12 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
             <View style={styles.partyBox}>
               <Text style={styles.partyRole}>FROM (PAYER)</Text>
               <MemberAvatar
-                name={payment.payerMember?.user.name || 'Payer'}
-                avatarUrl={payment.payerMember?.user.avatarUrl}
+                name={payerName}
+                avatarUrl={payment.payerMember?.user?.avatarUrl}
                 size={44}
               />
               <Text style={styles.partyName} numberOfLines={1}>
-                {payment.payerMember?.user.name} {isPayer ? '(You)' : ''}
+                {payerName} {isPayer ? '(You)' : ''}
               </Text>
             </View>
 
@@ -215,12 +217,12 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
             <View style={styles.partyBox}>
               <Text style={styles.partyRole}>TO (RECEIVER)</Text>
               <MemberAvatar
-                name={payment.receiverMember?.user.name || 'Receiver'}
-                avatarUrl={payment.receiverMember?.user.avatarUrl}
+                name={receiverName}
+                avatarUrl={payment.receiverMember?.user?.avatarUrl}
                 size={44}
               />
               <Text style={styles.partyName} numberOfLines={1}>
-                {payment.receiverMember?.user.name} {isReceiver ? '(You)' : ''}
+                {receiverName} {isReceiver ? '(You)' : ''}
               </Text>
             </View>
           </View>

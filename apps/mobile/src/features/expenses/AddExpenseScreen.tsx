@@ -326,6 +326,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
             {members.map((m) => {
               const isSelected = payerMemberId === m.id;
               const isYou = m.userId === user?.id;
+              const memberName = m.displayName || m.user?.name || 'Member';
               return (
                 <TouchableOpacity
                   key={m.id}
@@ -334,7 +335,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                   activeOpacity={0.85}
                 >
                   <View style={styles.avatarWrapper}>
-                    <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={44} />
+                    <MemberAvatar name={memberName} avatarUrl={m.user?.avatarUrl} size={44} />
                     {isSelected && (
                       <View style={styles.selectedBadge}>
                         <Ionicons name="checkmark" size={12} color="#FFFFFF" />
@@ -345,7 +346,7 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                     style={[styles.payerName, isSelected && styles.selectedPayerName]}
                     numberOfLines={1}
                   >
-                    {isYou ? 'You' : m.user.name.split(' ')[0]}
+                    {isYou ? 'You' : memberName.split(' ')[0]}
                   </Text>
                 </TouchableOpacity>
               );
@@ -450,10 +451,14 @@ export const AddExpenseScreen: React.FC<AddExpenseScreenProps> = ({
                     <View style={[styles.checkbox, isIncluded && styles.checkboxActive]}>
                       {isIncluded && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
                     </View>
-                    <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={36} />
+                    <MemberAvatar
+                      name={m.displayName || m.user?.name || 'Member'}
+                      avatarUrl={m.user?.avatarUrl}
+                      size={36}
+                    />
                     <View style={styles.beneficiaryInfo}>
                       <Text style={[styles.beneficiaryName, !isIncluded && styles.textDisabled]}>
-                        {m.user.name} {isYou ? '(You)' : ''}
+                        {m.displayName || m.user?.name || 'Member'} {isYou ? '(You)' : ''}
                       </Text>
                     </View>
                   </TouchableOpacity>

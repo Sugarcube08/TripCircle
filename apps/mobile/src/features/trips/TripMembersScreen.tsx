@@ -9,13 +9,20 @@ import {
   TextInput,
   ActivityIndicator,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { apiRequest } from '../../services/api';
+import {
+  apiRequest,
+  addDummyMember,
+  replaceDummyMember,
+  searchRegisteredUsers,
+} from '../../services/api';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { Badge } from '../../components/ui/Badge';
 import { THEME } from '../../theme';
 
 interface TripMembersScreenProps {
@@ -32,8 +39,25 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
   const { tripId } = route.params;
   const [trip, setTrip] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Add tab: 'REGISTERED' | 'OFFLINE'
+  const [activeTab, setActiveTab] = useState<'REGISTERED' | 'OFFLINE'>('REGISTERED');
+
+  // Registered invite inputs
   const [inviteEmailOrId, setInviteEmailOrId] = useState('');
   const [inviting, setInviting] = useState(false);
+
+  // Offline member inputs
+  const [offlineName, setOfflineName] = useState('');
+  const [offlinePhone, setOfflinePhone] = useState('');
+  const [addingOffline, setAddingOffline] = useState(false);
+
+  // Replace dummy member modal
+  const [selectedDummyMember, setSelectedDummyMember] = useState<any | null>(null);
+  const [replaceSearchQuery, setReplaceSearchQuery] = useState('');
+  const [replaceSearchResults, setReplaceSearchResults] = useState<any[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [replacing, setReplacing] = useState(false);
 
   const loadTrip = async () => {
     try {
@@ -72,11 +96,88 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
     }
   };
 
+  const handleAddOffline = async () => {
+    if (!offlineName.trim()) {
+      Alert.alert('Required', 'Please enter a name for the offline member.');
+      return;
+    }
+
+    try {
+      setAddingOffline(true);
+      await addDummyMember(tripId, {
+        name: offlineName.trim(),
+        phone: offlinePhone.trim() || undefined,
+      });
+      setOfflineName('');
+      setOfflinePhone('');
+      Alert.alert('Member Added', 'Offline member added to the trip. They can now participate in expenses.');
+      loadTrip();
+    } catch (err) {
+      Alert.alert('Failed to Add Member', (err as Error).message);
+    } finally {
+      setAddingOffline(false);
+    }
+  };
+
+  const handleSearchReplaceUsers = async (text: string) => {
+    setReplaceSearchQuery(text);
+    if (text.trim().length < 2) {
+      setReplaceSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearchingUsers(true);
+      const results = await searchRegisteredUsers(text.trim());
+      // Filter out users already in the trip
+      const existingUserIds = new Set((trip?.members || []).map((m: any) => m.userId).filter(Boolean));
+      const filtered = (results || []).filter((u: any) => !existingUserIds.has(u.id));
+      setReplaceSearchResults(filtered);
+    } catch {
+      setReplaceSearchResults([]);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  const handleConfirmReplace = (targetUser: any) => {
+    if (!selectedDummyMember) return;
+
+    Alert.alert(
+      'Link Registered Account',
+      `Are you sure you want to link ${targetUser.name} (${targetUser.email}) to "${selectedDummyMember.displayName || 'Offline Member'}"?\n\n100% of expenses, splits, and balances will be securely attached to this user account without creating duplicates.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm & Link',
+          onPress: async () => {
+            try {
+              setReplacing(true);
+              await replaceDummyMember(tripId, selectedDummyMember.id, {
+                registeredUserId: targetUser.id,
+              });
+              Alert.alert('Account Linked', `Successfully linked ${targetUser.name} to this trip.`);
+              setSelectedDummyMember(null);
+              setReplaceSearchQuery('');
+              setReplaceSearchResults([]);
+              loadTrip();
+            } catch (err) {
+              Alert.alert('Replacement Failed', (err as Error).message);
+            } finally {
+              setReplacing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return <LoadingIndicator message="Loading trip members..." />;
   }
 
   const members = trip?.members || [];
+  const isCreator = trip?.creatorId === user?.id;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
@@ -96,32 +197,108 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
         </View>
       </View>
 
-      {/* Invite Box */}
+      {/* Add Member Container */}
       <View style={styles.inviteContainer}>
-        <Text style={styles.sectionHeader}>ADD NEW MEMBER</Text>
-        <View style={styles.inviteInputRow}>
-          <Ionicons name="mail-outline" size={18} color={THEME.colors.textMuted} style={styles.inputIcon} />
-          <TextInput
-            style={styles.inviteInput}
-            placeholder="Enter friend's email or user ID..."
-            placeholderTextColor={THEME.colors.textLight}
-            value={inviteEmailOrId}
-            onChangeText={setInviteEmailOrId}
-            autoCapitalize="none"
-          />
+        {/* Tab Switcher */}
+        <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.inviteBtn, inviting && styles.btnDisabled]}
-            onPress={handleInvite}
-            disabled={inviting}
-            activeOpacity={0.8}
+            style={[styles.tabBtn, activeTab === 'REGISTERED' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('REGISTERED')}
           >
-            {inviting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.inviteBtnText}>Invite</Text>
-            )}
+            <Ionicons
+              name="person-add-outline"
+              size={15}
+              color={activeTab === 'REGISTERED' ? THEME.colors.primary : THEME.colors.textMuted}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.tabBtnText,
+                activeTab === 'REGISTERED' && styles.tabBtnTextActive,
+              ]}
+            >
+              Invite User
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'OFFLINE' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('OFFLINE')}
+          >
+            <Ionicons
+              name="people-outline"
+              size={15}
+              color={activeTab === 'OFFLINE' ? THEME.colors.primary : THEME.colors.textMuted}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.tabBtnText,
+                activeTab === 'OFFLINE' && styles.tabBtnTextActive,
+              ]}
+            >
+              Add Offline Member
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {activeTab === 'REGISTERED' ? (
+          <View style={styles.inviteInputRow}>
+            <Ionicons name="mail-outline" size={18} color={THEME.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.inviteInput}
+              placeholder="Friend's email or registered user ID..."
+              placeholderTextColor={THEME.colors.textLight}
+              value={inviteEmailOrId}
+              onChangeText={setInviteEmailOrId}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={[styles.inviteBtn, inviting && styles.btnDisabled]}
+              onPress={handleInvite}
+              disabled={inviting}
+              activeOpacity={0.8}
+            >
+              {inviting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.inviteBtnText}>Invite</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.offlineBox}>
+            <View style={styles.offlineInputsRow}>
+              <TextInput
+                style={[styles.inviteInput, { marginRight: 8 }]}
+                placeholder="Name * (e.g. Rahul)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={offlineName}
+                onChangeText={setOfflineName}
+              />
+              <TextInput
+                style={[styles.inviteInput, { flex: 0.8 }]}
+                placeholder="Phone (Optional)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={offlinePhone}
+                onChangeText={setOfflinePhone}
+                keyboardType="phone-pad"
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.addOfflineBtn, addingOffline && styles.btnDisabled]}
+              onPress={handleAddOffline}
+              disabled={addingOffline}
+              activeOpacity={0.8}
+            >
+              {addingOffline ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.inviteBtnText}>+ Add Offline Member</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -129,8 +306,10 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const isYou = item.userId === user?.id;
-          const isCreator = item.role === 'CREATOR';
-          const isPending = item.status === 'PENDING_INVITE';
+          const isTripCreator = item.role === 'CREATOR';
+          const isPending = item.status === 'INVITED';
+          const isDummy = item.isDummy || !item.userId;
+          const memberDisplayName = item.displayName || item.user?.name || 'Offline Member';
 
           return (
             <TouchableOpacity
@@ -138,40 +317,48 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
               onPress={() => navigation.navigate('MemberProfile', { tripId, memberId: item.id })}
               activeOpacity={0.75}
             >
-              <MemberAvatar name={item.user.name} avatarUrl={item.user.avatarUrl} size={46} />
+              <MemberAvatar
+                name={memberDisplayName}
+                avatarUrl={item.user?.avatarUrl}
+                size={46}
+              />
               <View style={styles.memberInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name} numberOfLines={1}>
-                    {item.user.name} {isYou ? '(You)' : ''}
+                    {memberDisplayName} {isYou ? '(You)' : ''}
                   </Text>
-                  {isCreator && (
-                    <View style={styles.creatorBadge}>
-                      <Ionicons name="star" size={10} color="#D97706" style={{ marginRight: 2 }} />
-                      <Text style={styles.creatorText}>Host</Text>
-                    </View>
+                  {isTripCreator && (
+                    <Badge label="Host" size="sm" variant="warning" style={{ marginLeft: 4 }} />
+                  )}
+                  {isDummy && (
+                    <Badge label="OFFLINE" size="sm" variant="secondary" style={{ marginLeft: 4 }} />
                   )}
                 </View>
 
                 <Text style={styles.email} numberOfLines={1}>
-                  {item.user.email}
+                  {isDummy ? item.phone || item.email || 'Offline Participant' : item.user?.email}
                 </Text>
 
                 <View style={styles.statusRow}>
-                  <View
-                    style={[
-                      styles.statusPill,
-                      isPending ? styles.statusPillPending : styles.statusPillActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusPillText,
-                        isPending ? styles.statusTextPending : styles.statusTextActive,
-                      ]}
-                    >
-                      {isPending ? 'Invite Pending' : 'Active Member'}
-                    </Text>
-                  </View>
+                  {isPending ? (
+                    <Badge label="Invite Pending" size="sm" variant="warning" />
+                  ) : isDummy ? (
+                    <View style={styles.dummyActionsRow}>
+                      <Badge label="Full Ledger Participant" size="sm" variant="outline" />
+                      {isCreator && (
+                        <TouchableOpacity
+                          style={styles.linkAccountBtn}
+                          onPress={() => setSelectedDummyMember(item)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="link-outline" size={13} color={THEME.colors.primary} style={{ marginRight: 3 }} />
+                          <Text style={styles.linkAccountBtnText}>Link Account</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    <Badge label="Active Member" size="sm" variant="success" />
+                  )}
                 </View>
               </View>
 
@@ -185,6 +372,92 @@ export const TripMembersScreen: React.FC<TripMembersScreenProps> = ({
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Link Account / Replace Dummy Member Modal */}
+      <Modal
+        visible={!!selectedDummyMember}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedDummyMember(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Link Registered Account</Text>
+                <Text style={styles.modalSubtitle}>
+                  Replace "{selectedDummyMember?.displayName}" with a registered user
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedDummyMember(null);
+                  setReplaceSearchQuery('');
+                  setReplaceSearchResults([]);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={24} color={THEME.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearchRow}>
+              <Ionicons name="search" size={18} color={THEME.colors.textMuted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search user by name or email..."
+                placeholderTextColor={THEME.colors.textLight}
+                value={replaceSearchQuery}
+                onChangeText={handleSearchReplaceUsers}
+                autoCapitalize="none"
+                autoFocus
+              />
+              {searchingUsers && <ActivityIndicator size="small" color={THEME.colors.primary} />}
+            </View>
+
+            {replacing ? (
+              <View style={styles.replacingLoading}>
+                <ActivityIndicator size="large" color={THEME.colors.primary} />
+                <Text style={styles.replacingText}>Linking account & updating ledger...</Text>
+              </View>
+            ) : replaceSearchResults.length > 0 ? (
+              <FlatList
+                data={replaceSearchResults}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.userResultRow}
+                    onPress={() => handleConfirmReplace(item)}
+                    activeOpacity={0.7}
+                  >
+                    <MemberAvatar name={item.name} avatarUrl={item.avatarUrl} size={36} />
+                    <View style={styles.userResultInfo}>
+                      <Text style={styles.userResultName}>{item.name}</Text>
+                      <Text style={styles.userResultEmail}>{item.email}</Text>
+                    </View>
+                    <View style={styles.linkSelectBtn}>
+                      <Text style={styles.linkSelectBtnText}>Select</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                style={{ maxHeight: 280 }}
+              />
+            ) : replaceSearchQuery.length >= 2 ? (
+              <View style={styles.noResultsBox}>
+                <Ionicons name="search-outline" size={32} color={THEME.colors.textMuted} />
+                <Text style={styles.noResultsText}>No available users found matching "{replaceSearchQuery}"</Text>
+              </View>
+            ) : (
+              <View style={styles.modalHelpBox}>
+                <Ionicons name="information-circle-outline" size={20} color={THEME.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.modalHelpText}>
+                  Type at least 2 characters to search registered TripCircle users.
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -233,12 +506,31 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: THEME.colors.border,
   },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: THEME.colors.cardAlt,
+    borderRadius: THEME.borderRadius.md,
+    padding: 3,
+    marginBottom: 12,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.sm,
+  },
+  tabBtnActive: {
+    backgroundColor: THEME.colors.card,
+  },
+  tabBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: THEME.colors.textMuted,
-    marginBottom: 8,
+  },
+  tabBtnTextActive: {
+    color: THEME.colors.primary,
   },
   inviteInputRow: {
     flexDirection: 'row',
@@ -266,6 +558,19 @@ const styles = StyleSheet.create({
     borderRadius: THEME.borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  offlineBox: {
+    gap: 8,
+  },
+  offlineInputsRow: {
+    flexDirection: 'row',
+  },
+  addOfflineBtn: {
+    backgroundColor: THEME.colors.primary,
+    paddingVertical: 10,
+    borderRadius: THEME.borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   btnDisabled: {
     opacity: 0.6,
@@ -304,51 +609,145 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: THEME.colors.textPrimary,
   },
-  creatorBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  creatorText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#92400E',
-  },
   email: {
     fontSize: 12,
     color: THEME.colors.textMuted,
     marginTop: 2,
   },
   statusRow: {
-    marginTop: 4,
+    marginTop: 6,
   },
-  statusPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
+  dummyActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  statusPillActive: {
-    backgroundColor: '#ECFDF5',
+  linkAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.4)',
   },
-  statusPillPending: {
-    backgroundColor: '#FFFBEB',
-  },
-  statusPillText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  statusTextActive: {
-    color: '#059669',
-  },
-  statusTextPending: {
-    color: '#D97706',
+  linkAccountBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.primary,
   },
   rightCol: {
     alignItems: 'flex-end',
     marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: THEME.colors.card,
+    borderTopLeftRadius: THEME.borderRadius.xl,
+    borderTopRightRadius: THEME.borderRadius.xl,
+    padding: THEME.spacing.lg,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: THEME.spacing.md,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textSecondary,
+    marginTop: 2,
+  },
+  modalSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.inputBg,
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.inputBorder,
+    paddingHorizontal: 12,
+    height: 44,
+    marginBottom: THEME.spacing.md,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: THEME.colors.textPrimary,
+  },
+  userResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.divider,
+  },
+  userResultInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  userResultName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.textPrimary,
+  },
+  userResultEmail: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+  },
+  linkSelectBtn: {
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.sm,
+  },
+  linkSelectBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  noResultsBox: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  noResultsText: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  modalHelpBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: THEME.colors.cardAlt,
+    borderRadius: THEME.borderRadius.md,
+    marginVertical: 12,
+  },
+  modalHelpText: {
+    flex: 1,
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+  },
+  replacingLoading: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  replacingText: {
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
+    marginTop: 12,
   },
 });

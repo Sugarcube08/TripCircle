@@ -191,10 +191,16 @@ export const AddPaymentScreen: React.FC<AddPaymentScreenProps> = ({
                   onPress={() => setReceiverMemberId(m.id)}
                   activeOpacity={0.7}
                 >
-                  <MemberAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={40} />
+                  <MemberAvatar
+                    name={m.displayName || m.user?.name || 'Member'}
+                    avatarUrl={m.user?.avatarUrl}
+                    size={40}
+                  />
                   <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{m.user.name}</Text>
-                    {m.user.phone ? <Text style={styles.memberPhone}>{m.user.phone}</Text> : null}
+                    <Text style={styles.memberName}>{m.displayName || m.user?.name || 'Member'}</Text>
+                    {m.phone || m.user?.phone ? (
+                      <Text style={styles.memberPhone}>{m.phone || m.user?.phone}</Text>
+                    ) : null}
                   </View>
                   <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
                     {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
