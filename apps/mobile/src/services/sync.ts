@@ -1,10 +1,11 @@
 import { apiRequest, getOnlineStatus, setOnlineStatus } from './api';
 import { LocalDatabase } from '../storage/db';
 
-export async function performSync(): Promise<{
+export async function performSync(options: { includeTripDetails?: boolean } = {}): Promise<{
   success: boolean;
   isOffline: boolean;
   lastSyncTimestamp: string | null;
+  trips: any[];
 }> {
   try {
     const cache = LocalDatabase.getCache();
@@ -12,6 +13,7 @@ export async function performSync(): Promise<{
       method: 'POST',
       body: JSON.stringify({
         lastSyncTimestamp: cache.lastSyncTimestamp || undefined,
+        ...(options.includeTripDetails === undefined ? {} : { includeTripDetails: options.includeTripDetails }),
       }),
     });
 
@@ -38,6 +40,7 @@ export async function performSync(): Promise<{
       success: true,
       isOffline: false,
       lastSyncTimestamp: result.lastSyncTimestamp,
+      trips: result.trips || LocalDatabase.getTrips(),
     };
   } catch (error) {
     console.warn('Sync failed (offline mode):', error);
@@ -46,6 +49,7 @@ export async function performSync(): Promise<{
       success: false,
       isOffline: true,
       lastSyncTimestamp: LocalDatabase.getCache().lastSyncTimestamp,
+      trips: LocalDatabase.getTrips(),
     };
   }
 }
