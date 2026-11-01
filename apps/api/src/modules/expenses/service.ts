@@ -237,7 +237,8 @@ export class ExpenseService {
     currentUserId: string,
     input: EditExpenseInput
   ) {
-    return prisma.$transaction(async (tx) => {
+    let obsoleteReceiptUrl: string | null = null;
+    const updatedExpense = await prisma.$transaction(async (tx) => {
       const expense = await tx.expense.findUnique({
         where: { id: expenseId },
         include: { payerMember: true, category: true },
@@ -313,7 +314,7 @@ export class ExpenseService {
         expense.receiptUrl &&
         input.receiptUrl !== expense.receiptUrl
       ) {
-        await StorageService.deleteMediaByUrl(expense.receiptUrl);
+        obsoleteReceiptUrl = expense.receiptUrl;
       }
 
       const nextVersion = expense.version + 1;
@@ -400,6 +401,14 @@ export class ExpenseService {
 
       return updatedExpense;
     });
+
+    // Keep external object-storage I/O outside the database transaction.
+    if (obsoleteReceiptUrl) {
+      void StorageService.deleteMediaByUrl(obsoleteReceiptUrl).catch(() => {
+        // Cleanup is best-effort after the database update has committed.
+      });
+    }
+    return updatedExpense;
   }
 
   static async listExpenses(tripId: string) {

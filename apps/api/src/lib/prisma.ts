@@ -21,6 +21,14 @@ function createPrismaClient(): PrismaClient {
         url: dbUrl,
       },
     },
+    // Expense and payment workflows perform several dependent reads/writes in one
+    // interactive transaction. The Prisma default (5s timeout / 2s maxWait) is
+    // too tight for the remote MySQL deployment under normal network variance.
+    // Keep transactions bounded while allowing these atomic workflows to finish.
+    transactionOptions: {
+      maxWait: 10_000,
+      timeout: 15_000,
+    },
     log:
       env.NODE_ENV === 'development'
         ? ['error', 'warn']
