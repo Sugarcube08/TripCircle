@@ -43,6 +43,8 @@ jobs:
     env:
       DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
       TEST_DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
+      JWT_ACCESS_SECRET: ci-only-access-secret-not-for-deployment-1234567890abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-deployment-abcdef1234567890
 
     steps:
       - name: Checkout Source Code
