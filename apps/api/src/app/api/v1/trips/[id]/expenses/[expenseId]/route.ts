@@ -38,3 +38,16 @@ export async function PUT(
     return handleApiError(err);
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string; expenseId: string } }
+) {
+  try {
+    const authUser = await getAuthUser(req);
+    const deleted = await ExpenseService.deleteExpense(params.id, params.expenseId, authUser.id);
+    return successResponse(deleted);
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
