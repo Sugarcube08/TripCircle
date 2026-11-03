@@ -2,7 +2,6 @@ import { prisma } from '../../lib/prisma';
 import { CreateExpenseInput, EditExpenseInput, EXPENSE_CATEGORIES } from '@tripcircle/contracts';
 import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
 import { createOutboxEvent } from '../../lib/outbox';
-import { StorageService } from '../../infrastructure/storage';
 
 /**
  * Normalizes an expense description at the backend boundary.
