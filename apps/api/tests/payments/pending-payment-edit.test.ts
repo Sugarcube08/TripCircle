@@ -86,4 +86,21 @@ describe('Pending payment edit lifecycle', () => {
       })
     ).rejects.toThrow('Only pending payments can be edited');
   });
+
+  it('soft-deletes a confirmed payment and writes a zero-sum reversal', async () => {
+    const deleted = await PaymentService.deletePayment(trip.id, paymentId, userA.id);
+    expect(deleted.deleted).toBe(true);
+    expect(deleted.previousStatus).toBe('CONFIRMED');
+
+    const activePayments = await PaymentService.listPayments(trip.id, userA.id);
+    expect(activePayments.some((payment) => payment.id === paymentId)).toBe(false);
+
+    const reversalEntries = await prisma.ledgerEntry.findMany({
+      where: { referenceId: paymentId, eventType: 'PAYMENT_DELETED' },
+    });
+    expect(reversalEntries).toHaveLength(2);
+    expect(reversalEntries.reduce((sum, entry) => sum + entry.netChangePaise, 0)).toBe(0);
+
+    await expect(PaymentService.getPaymentDetail(trip.id, paymentId, userA.id)).rejects.toThrow('Payment not found');
+  });
 });
