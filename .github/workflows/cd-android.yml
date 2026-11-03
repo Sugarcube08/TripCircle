@@ -26,6 +26,10 @@ on:
         description: 'Android Version Code override (leave blank to use app.json)'
         required: false
         default: ''
+      api_url:
+        description: 'API Base URL'
+        required: false
+        default: 'https://api-eta-liard-50.vercel.app/api/v1'
 
 concurrency:
   group: cd-android-${{ github.workflow }}-${{ github.ref }}
@@ -120,6 +124,19 @@ jobs:
 
       - name: Build Shared Contracts
         run: pnpm --filter @tripcircle/contracts build
+
+      - name: Create Production Environment (.env)
+        shell: bash
+        run: |
+          API_URL="${{ github.event.inputs.api_url || 'https://api-eta-liard-50.vercel.app/api/v1' }}"
+          cat << EOF > apps/mobile/.env
+          EXPO_PUBLIC_API_URL=${API_URL}
+          EXPO_PUBLIC_UPDATE_METADATA_URL=https://api-eta-liard-50.vercel.app/version.json
+          NODE_ENV=production
+          EOF
+          cp apps/mobile/.env .env
+          echo "✅ Production .env created:"
+          cat apps/mobile/.env
 
       - name: Prebuild Native Android Project
         run: |

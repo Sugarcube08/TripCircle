@@ -14,7 +14,8 @@ export function getApiBaseUrl(): string {
       '[TripCircle Configuration Error] EXPO_PUBLIC_API_URL is missing. Please set EXPO_PUBLIC_API_URL in your apps/mobile/.env file.'
     );
   }
-  return envUrl.trim().replace(/\/$/, '');
+  const clean = envUrl.trim().replace(/\/+$/, '');
+  return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
 }
 
 let isOnline = true;

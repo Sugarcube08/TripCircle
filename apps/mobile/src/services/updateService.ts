@@ -75,7 +75,7 @@ export async function checkForAppUpdate(): Promise<UpdateCheckResult> {
       let metadataUrl = process.env.EXPO_PUBLIC_UPDATE_METADATA_URL;
       if (!metadataUrl) {
         try {
-          const apiBase = getApiBaseUrl();
+          const apiBase = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
           metadataUrl = `${apiBase}/version.json`;
         } catch {
           metadataUrl = DEFAULT_GITHUB_METADATA_URL;

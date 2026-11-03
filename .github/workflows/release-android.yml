@@ -119,6 +119,18 @@ jobs:
       - name: Run Test Suite
         run: pnpm test
 
+      - name: Create Production Environment (.env)
+        shell: bash
+        run: |
+          cat << 'EOF' > apps/mobile/.env
+          EXPO_PUBLIC_API_URL=https://api-eta-liard-50.vercel.app/api/v1
+          EXPO_PUBLIC_UPDATE_METADATA_URL=https://api-eta-liard-50.vercel.app/version.json
+          NODE_ENV=production
+          EOF
+          cp apps/mobile/.env .env
+          echo "✅ Production .env created:"
+          cat apps/mobile/.env
+
       - name: Prepare Android Build
         run: |
           cd apps/mobile
