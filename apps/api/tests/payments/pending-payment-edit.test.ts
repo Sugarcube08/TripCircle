@@ -10,7 +10,7 @@ describe('Pending payment edit lifecycle', () => {
   let trip: any;
   let memberA: any;
   let memberB: any;
-  let paymentId: string;
+  let paymentId = '';
 
   beforeAll(async () => {
     const suffix = Date.now();
