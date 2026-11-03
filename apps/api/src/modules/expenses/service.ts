@@ -1,40 +1,4 @@
-import { prisma } from '../../lib/prisma';
-import { CreateExpenseInput, EditExpenseInput, EXPENSE_CATEGORIES } from '@tripcircle/contracts';
-import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
-import { createOutboxEvent } from '../../lib/outbox';
-
-/**
- * Normalizes an expense description at the backend boundary.
- * If rawDescription is non-empty, trims and returns it.
- * If omitted/cleared:
- *  - when existingDescription is provided (editing without clearing), preserves it.
- *  - otherwise falls back to category name, or 'Expense'.
- */
-export function normalizeExpenseDescription(
-  rawDescription?: string | null,
-  categoryName?: string | null,
-  existingDescription?: string | null
-): string {
-  if (rawDescription === undefined && existingDescription) {
-    const trimmedExisting = existingDescription.trim();
-    if (trimmedExisting.length > 0) return trimmedExisting;
-  }
-
-  const trimmed = rawDescription?.trim();
-  if (trimmed && trimmed.length > 0) {
-    return trimmed;
-  }
-
-  const trimmedCategory = categoryName?.trim();
-  if (trimmedCategory && trimmedCategory.length > 0) {
-    return trimmedCategory;
-  }
-
-  return 'Expense';
-}
-
-export class ExpenseService {
-  static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
+static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
     return prisma.$transaction(async (tx) => {
       // 1. Verify submitter is active member
       const submitterMember = await tx.tripMember.findUnique({
@@ -71,21 +35,6 @@ export class ExpenseService {
         calculatedAllocations = calculateEqualSplit(input.amountPaise, beneficiaryIds);
       } else {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
-      }
-
-      const payer = await tx.tripMember.findFirst({
-        where: { id: input.payerMemberId, tripId, status: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (!payer) throw new Error('Invalid payer: choose an active member of this trip');
-
-      const beneficiaryIds = calculatedAllocations.map((allocation) => allocation.memberId);
-      const validMembers = await tx.tripMember.findMany({
-        where: { id: { in: beneficiaryIds }, tripId, status: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (validMembers.length !== new Set(beneficiaryIds).size) {
-        throw new Error('One or more beneficiaries are not active members of this trip');
       }
 
       // Batched verification: all beneficiaries must be members of this trip
@@ -292,6 +241,21 @@ export class ExpenseService {
         calculatedAllocations = calculateEqualSplit(input.amountPaise, beneficiaryIds);
       } else {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
+      }
+
+      const payer = await tx.tripMember.findFirst({
+        where: { id: input.payerMemberId, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (!payer) throw new Error('Invalid payer: choose an active member of this trip');
+
+      const beneficiaryIds = calculatedAllocations.map((allocation) => allocation.memberId);
+      const validMembers = await tx.tripMember.findMany({
+        where: { id: { in: beneficiaryIds }, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (validMembers.length !== new Set(beneficiaryIds).size) {
+        throw new Error('One or more beneficiaries are not active members of this trip');
       }
 
       // Category lookup - supports UUID id or standard category key
