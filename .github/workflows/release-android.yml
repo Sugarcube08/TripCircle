@@ -126,6 +126,7 @@ jobs:
 
       - name: Build Android Release APK and AAB
         run: |
+          sed -i '/org.gradle.java.home/d' apps/mobile/android/gradle.properties 2>/dev/null || true
           cd apps/mobile/android
           chmod +x ./gradlew
           ./gradlew assembleRelease bundleRelease --stacktrace

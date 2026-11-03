@@ -129,6 +129,7 @@ jobs:
       - name: Build Android APK
         shell: bash
         run: |
+          sed -i '/org.gradle.java.home/d' apps/mobile/android/gradle.properties 2>/dev/null || true
           cd apps/mobile/android
           chmod +x ./gradlew
           BUILD_TYPE="${{ steps.meta.outputs.build_type }}"
