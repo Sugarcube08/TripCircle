@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const authUser = await getAuthUser(req);
-    const expenses = await ExpenseService.listExpenses(params.id);
+    const expenses = await ExpenseService.listExpenses(params.id, authUser.id);
     return successResponse(expenses);
   } catch (err) {
     return handleApiError(err);

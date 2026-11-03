@@ -411,7 +411,13 @@ export class ExpenseService {
     return updatedExpense;
   }
 
-  static async listExpenses(tripId: string) {
+  static async listExpenses(tripId: string, currentUserId?: string) {
+    if (currentUserId) {
+      const membership = await prisma.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } }, select: { id: true },
+      });
+      if (!membership) throw new Error('Forbidden: You are not a member of this trip');
+    }
     const expenses = await prisma.expense.findMany({
       where: {
         tripId,

@@ -451,10 +451,13 @@ export class TripService {
     if (!trip) throw new Error('Trip not found');
     if (trip.creatorId !== userId) throw new Error('Forbidden: Only the trip creator can permanently delete this trip');
     const [expenses, files] = await Promise.all([
-      prisma.expense.findMany({ where: { tripId }, select: { receiptUrl: true } }),
+      prisma.expense.findMany({ where: { tripId }, select: { id: true, receiptUrl: true } }),
       prisma.fileMetadata.findMany({ where: { tripId }, select: { publicUrl: true } }),
     ]);
     await prisma.$transaction(async (tx) => {
+      const paymentRows = await tx.payment.findMany({ where: { tripId }, select: { id: true } });
+      const aggregateIds = [...expenses.map((e) => e.id), ...paymentRows.map((p) => p.id)];
+      if (aggregateIds.length) await tx.outboxEvent.deleteMany({ where: { aggregateId: { in: aggregateIds } } });
       await tx.settlementDiscount.deleteMany({ where: { tripId } });
       await tx.ledgerEntry.deleteMany({ where: { tripId } });
       await tx.payment.deleteMany({ where: { tripId } });

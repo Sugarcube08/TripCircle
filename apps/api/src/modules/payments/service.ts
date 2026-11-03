@@ -442,7 +442,13 @@ export class PaymentService {
     return { id: paymentId, deleted: true };
   }
 
-  static async listPayments(tripId: string) {
+  static async listPayments(tripId: string, currentUserId?: string) {
+    if (currentUserId) {
+      const membership = await prisma.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } }, select: { id: true },
+      });
+      if (!membership) throw new Error('Forbidden: You are not a member of this trip');
+    }
     const payments = await prisma.payment.findMany({
       where: { tripId },
       include: {
