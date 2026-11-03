@@ -411,7 +411,13 @@ export class ExpenseService {
     return updatedExpense;
   }
 
-  static async listExpenses(tripId: string) {
+  static async listExpenses(tripId: string, currentUserId?: string) {
+    if (currentUserId) {
+      const membership = await prisma.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } }, select: { id: true },
+      });
+      if (!membership) throw new Error('Forbidden: You are not a member of this trip');
+    }
     const expenses = await prisma.expense.findMany({
       where: {
         tripId,
@@ -431,7 +437,7 @@ export class ExpenseService {
     return expenses;
   }
 
-  static async getExpenseDetail(tripId: string, expenseId: string) {
+  static async getExpenseDetail(tripId: string, expenseId: string, currentUserId?: string) {
     const expense = await prisma.expense.findUnique({
       where: { id: expenseId },
       include: {
@@ -452,6 +458,35 @@ export class ExpenseService {
       throw new Error('Expense not found');
     }
 
-    return expense;
+    const currentMember = currentUserId ? await prisma.tripMember.findUnique({
+      where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true },
+    }) : null;
+    if (currentUserId && !currentMember) throw new Error('Forbidden: You are not a member of this trip');
+    const canManage = Boolean(currentUserId && (expense.submitterId === currentUserId || currentMember?.role === 'CREATOR'));
+    return { ...expense, permissions: { canEdit: canManage, canDelete: canManage } };
+  }
+
+  static async deleteExpense(tripId: string, expenseId: string, currentUserId: string) {
+    const expense = await prisma.expense.findFirst({
+      where: { id: expenseId, tripId },
+      select: { id: true, submitterId: true, receiptUrl: true, description: true },
+    });
+    if (!expense) throw new Error('Expense not found');
+    const member = await prisma.tripMember.findUnique({
+      where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true },
+    });
+    if (!member || (expense.submitterId !== currentUserId && member.role !== 'CREATOR')) {
+      throw new Error('Forbidden: Only the expense submitter or trip creator can delete this expense');
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.ledgerEntry.deleteMany({ where: { tripId, referenceId: expenseId } });
+      await tx.outboxEvent.deleteMany({ where: { aggregateId: expenseId } });
+      await tx.expense.delete({ where: { id: expenseId } });
+      await tx.auditLog.create({
+        data: { userId: currentUserId, tripId, action: 'DELETE_EXPENSE', entityType: 'EXPENSE', entityId: expenseId, details: { description: expense.description } },
+      });
+    });
+    if (expense.receiptUrl) void StorageService.deleteMediaByUrl(expense.receiptUrl).catch(() => undefined);
+    return { id: expenseId, deleted: true };
   }
 }

@@ -234,8 +234,10 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   const isNetOwing = userNetBalancePaise < 0;
   const isSettled = userNetBalancePaise === 0;
 
-  // Bilateral totals
-  const obligations = settlement?.bilateralObligations || [];
+  // Bilateral totals are more useful than a net balance, but settlement can fail independently.
+  // Fall back to the authoritative trip net balance instead of rendering a misleading ₹0.00.
+  const hasSettlementBreakdown = Array.isArray(settlement?.bilateralObligations);
+  const obligations = hasSettlementBreakdown ? settlement.bilateralObligations : [];
   let totalYouAreOwed = 0;
   let totalYouOwe = 0;
   for (const ob of obligations) {
@@ -244,6 +246,10 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
     } else if (ob.amountPaise < 0) {
       totalYouOwe += Math.abs(ob.amountPaise);
     }
+  }
+  if (!hasSettlementBreakdown) {
+    if (userNetBalancePaise < 0) totalYouOwe = Math.abs(userNetBalancePaise);
+    else totalYouAreOwed = userNetBalancePaise;
   }
 
   const isTripClosed = trip.status === 'CLOSED';
@@ -409,7 +415,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             </View>
             <View style={styles.breakdownDivider} />
             <View style={styles.breakdownCol}>
-              <Text style={styles.breakdownLabel}>YOU OWE</Text>
+              <Text style={styles.breakdownLabel}>{hasSettlementBreakdown ? 'YOU OWE' : 'NET YOU OWE'}</Text>
               <Text style={[styles.breakdownValue, { color: THEME.colors.debt }]}>
                 ₹{(totalYouOwe / 100).toFixed(2)}
               </Text>
@@ -418,7 +424,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             <View style={styles.breakdownCol}>
               <Text style={styles.breakdownLabel}>TOTAL SPENT</Text>
               <Text style={styles.breakdownValue}>
-                ₹{((trip.totalSpentPaise || 0) / 100).toFixed(2)}
+                ₹{(((trip.totalSpentPaise ?? trip.totalExpensePaise ?? expenses.reduce((sum, item) => sum + (item.amountPaise || 0), 0)) || 0) / 100).toFixed(2)}
               </Text>
             </View>
           </View>
@@ -426,14 +432,14 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
         {/* Primary Action Buttons: Add Expense / Record Payment */}
         <View style={[styles.actionsRow, isNarrow && styles.actionsRowNarrow]}>
-          <TouchableOpacity
+          {!isTripClosed ? <TouchableOpacity
             style={[styles.actionBtn, styles.expenseBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => navigation.navigate('AddExpense', { tripId })}
             activeOpacity={0.85}
           >
             <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
             <Text style={styles.actionBtnText}>Add Expense</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> : null}
 
           <TouchableOpacity
             style={[styles.actionBtn, styles.paymentBtn, isNarrow && styles.actionBtnNarrow]}

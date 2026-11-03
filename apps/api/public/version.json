@@ -1,17 +1,18 @@
 {
-  "version": "1.0.0",
-  "versionCode": 1,
+  "version": "1.2.0-alpha.1",
+  "versionCode": 2,
   "minimumSupportedVersion": "1.0.0",
   "minimumSupportedVersionCode": 1,
   "releaseNotes": [
-    "Production-grade mobile UI/UX and safe-area stabilization across all devices.",
-    "Consolidated trip directory and comprehensive individual trip ledger.",
-    "Mandatory payment QR code during registration and full profile management.",
-    "In-app Android release update mechanism with cryptographic SHA-256 verification."
+    "Crash-safe expense and payment detail rendering, including offline members.",
+    "Role- and status-aware expense/payment actions with edit and permanent deletion controls.",
+    "Permanent trip deletion for trip creators, with dependent financial records removed transactionally.",
+    "Pending payment editing; confirmed payments remain immutable to preserve ledger integrity.",
+    "Consistent total-spend reporting and improved Prisma transaction handling."
   ],
-  "apkUrl": "https://github.com/Sugarcube08/TripCircle/releases/download/v1.0.0/TripCircle.apk",
-  "releaseUrl": "https://github.com/Sugarcube08/TripCircle/releases/tag/v1.0.0",
-  "sha256": "7fc3fc78929470e66f5b58bda0d63da7b71a8751b0dd8d4a701bcedf4918df04",
+  "apkUrl": "https://github.com/Sugarcube08/TripCircle/releases/download/v1.2.0-alpha.1/TripCircle-release.apk",
+  "releaseUrl": "https://github.com/Sugarcube08/TripCircle/releases/tag/v1.2.0-alpha.1",
+  "sha256": "",
   "mandatory": false,
-  "publishedAt": "2026-10-29T20:30:53.436Z"
+  "publishedAt": "2026-11-03T12:00:00.000Z"
 }
