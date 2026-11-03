@@ -96,7 +96,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const isTripCreator = tripCreatorId === user?.id;
   const canEdit = isPending && (isPayer || isTripCreator);
   const canConfirmOrDispute = isPending && (isReceiver || (payment.receiverMember?.isDummy && isTripCreator));
-  const canCancel = isPending && (isPayer || (payment.payerMember?.isDummy && isTripCreator));
+  const canDeletePayment = !payment.isDeleted && (isPayer || isTripCreator || (payment.payerMember?.isDummy && isTripCreator));
   const payerName = payment.payerMember?.displayName || payment.payerMember?.user?.name || 'Payer';
   const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
 
@@ -179,24 +179,22 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
     }
   };
 
-  const handleCancel = async () => {
+  const handleDeletePayment = async () => {
     const confirmed = await dialog.confirm(
-      'Cancel Payment',
-      'Are you sure you want to cancel this pending payment submission?',
-      { confirmText: 'Yes, Cancel', destructive: true }
+      'Delete Payment Entry',
+      payment.status === 'CONFIRMED'
+        ? 'This removes the payment from active totals and reverses its ledger effect. The original payment and reversal remain in the audit trail.'
+        : 'This removes the payment from active payment lists. Its record remains in the audit trail.',
+      { confirmText: 'Delete Payment', destructive: true }
     );
-
-    if (!confirmed) return;
-
+    if (!confirmed || actionLoading) return;
     try {
       setActionLoading(true);
-      const cancelled = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
-        method: 'DELETE',
-      });
-      setPayment(cancelled);
-      await dialog.alert('Payment Cancelled', 'The pending payment was cancelled.', 'info');
+      await apiRequest(`/trips/${tripId}/payments/${paymentId}`, { method: 'DELETE' });
+      await dialog.alert('Payment Deleted', 'The payment entry was removed from active trip calculations.', 'success');
+      navigation.goBack();
     } catch (err) {
-      dialog.alert('Cancellation Failed', (err as Error).message, 'error');
+      dialog.alert('Delete Failed', (err as Error).message, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -355,10 +353,10 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
         ) : null}
 
         {/* Action Controls for Payer */}
-        {canCancel && (
+        {canDeletePayment && (
           <TouchableOpacity
             style={[styles.btn, styles.cancelBtn]}
-            onPress={handleCancel}
+            onPress={handleDeletePayment}
             disabled={actionLoading}
             activeOpacity={0.85}
           >
