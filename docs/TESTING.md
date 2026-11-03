@@ -54,3 +54,19 @@ Simulates the complete 4-user acceptance scenario:
 4. **User C** corrects payment details and submits a new payment, which A confirms. Balances update immediately.
 5. **User B** settles remaining debt to A with an agreed ₹1 cash coin discount, which A accepts.
 6. The settlement plan confirms `isSettled: true` and all member balances equal 0 paise.
+
+
+## Pull request CI (v1.2.0-alpha.1)
+
+The `.github/workflows/ci.yml` workflow runs on pull requests and pushes to the primary development branches. It installs the frozen pnpm workspace, generates the Prisma client against a disposable MySQL URL, typechecks the contracts/API/mobile workspaces, validates the release manifest, and runs the API Vitest suite. It deliberately does not require the Android SDK; Android APK packaging remains isolated in the tag/manual release workflow.
+
+For a release candidate, run locally:
+
+```bash
+pnpm install --frozen-lockfile
+DATABASE_URL='mysql://test:test@127.0.0.1:3306/tripcircle' pnpm --filter @tripcircle/api exec prisma generate
+pnpm typecheck
+pnpm manifest:validate
+pnpm test
+```
+

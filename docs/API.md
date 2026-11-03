@@ -76,6 +76,9 @@ Retrieve trip dashboard details, members list with individual net balances, and 
 ### `PUT /trips/:id`
 Update trip name, cover image, dates, or destination (Creator only).
 
+### `DELETE /trips/:id`
+Permanently delete a trip (Creator only). This is destructive and removes its financial records, memberships, notifications, and trip file metadata.
+
 ### `POST /trips/:id/close`
 Close the trip (Creator only). Blocks new expenses while preserving balance records.
 
@@ -117,7 +120,10 @@ Add a new expense. Affects balances immediately without approval.
 Get expense details and chronological revision history snapshots.
 
 ### `PUT /trips/:id/expenses/:expenseId`
-Edit an expense.
+Edit an expense (submitter or trip creator).
+
+### `DELETE /trips/:id/expenses/:expenseId`
+Permanently delete an expense (submitter or trip creator), including its allocations, revision snapshots, and ledger entries.
 - **Body:** `{ payerMemberId, amountPaise, categoryId, description, splitMethod, allocations, expectedVersion, changeReason? }`
 - **Response:** `200 OK` on success, or `409 Conflict` if version mismatch.
 
@@ -132,8 +138,14 @@ List available expense categories.
 List all payment transfers in the trip.
 
 ### `POST /trips/:id/payments`
-Record a new payment transfer. Created in `PENDING` status.
+Record a new payment transfer. Usually `PENDING`; transfers involving offline/dummy receivers can be auto-confirmed.
 - **Body:** `{ payerMemberId, receiverMemberId, amountPaise, paymentMethod, note?, receiptUrl?, idempotencyKey? }`
+
+### `PUT /trips/:id/payments/:paymentId`
+Edit a pending payment (payer or trip creator). Confirmed, disputed, and cancelled payments are immutable.
+
+### `DELETE /trips/:id/payments/:paymentId/permanent`
+Permanently delete a payment (payer or trip creator), including related settlement discounts and ledger entries. The existing `DELETE /trips/:id/payments/:paymentId` endpoint continues to cancel a pending payment.
 
 ### `POST /trips/:id/payments/:paymentId/confirm`
 Confirm payment receipt (Receiver only). Updates balances and records ledger entries.

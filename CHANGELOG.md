@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.2.0-alpha.1] - 2026-11-03
+
+### Added
+- Expense detail rendering now safely supports offline/dummy members with no linked user account.
+- Expense submitters and trip creators can permanently delete an expense; allocations, revisions, and ledger rows are removed together.
+- Trip creators can permanently delete a trip and its associated membership, expense, payment, settlement, ledger, notification, and file metadata records.
+- Pending payments can be edited by the payer or trip creator. Confirmed, disputed, and cancelled payments are intentionally immutable.
+- Payment entries can be permanently deleted by the payer or trip creator; associated discounts and ledger rows are removed in the same transaction.
+- Backend responses expose action permissions and a consistent `totalSpentPaise` field.
+
+### Fixed
+- Expense/payment detail screens use null-safe member rendering to prevent crashes for offline members.
+- Trip dashboard total-spend rendering now uses the backend total with a safe expense-list fallback.
+- Closed trips no longer offer the Add Expense action; settlement payments remain available.
+- Interactive transaction defaults remain extended to 15 seconds with a 10-second acquisition wait; external media cleanup stays outside database transactions.
+
+### Changed
+- Release version is `1.2.0-alpha.1` (Android versionCode 2).
+- Added a dedicated pull-request CI workflow for contracts/API/mobile typechecking and API tests.
+
+---
+
 All notable changes to the TripCircle platform are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

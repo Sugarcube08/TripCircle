@@ -79,7 +79,19 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
     );
   }
 
-  const canEdit = expense.submitterId === user?.id;
+  const canEdit = expense.permissions?.canEdit ?? (expense.submitterId === user?.id);
+  const canDelete = expense.permissions?.canDelete ?? canEdit;
+  const handleDelete = async () => {
+    const confirmed = await dialog.confirm('Permanently Delete Expense', 'This removes the expense, its allocations, revision history, and ledger entries. This cannot be undone.', { confirmText: 'Delete Expense', destructive: true });
+    if (!confirmed) return;
+    try {
+      await apiRequest(`/trips/${tripId}/expenses/${expenseId}`, { method: 'DELETE' });
+      await dialog.alert('Expense Deleted', 'The expense was permanently deleted.', 'success');
+      navigation.goBack();
+    } catch (err) {
+      dialog.alert('Delete Failed', (err as Error).message, 'error');
+    }
+  };
   const catConfig = getCategoryConfig(expense.category?.name || expense.category?.key);
 
   return (
@@ -109,6 +121,12 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
         )}
       </View>
 
+      {canDelete ? (
+        <TouchableOpacity style={styles.deleteExpenseButton} onPress={handleDelete} activeOpacity={0.85}>
+          <Ionicons name="trash-outline" size={17} color={THEME.colors.debt} style={{ marginRight: 7 }} />
+          <Text style={styles.deleteExpenseText}>Permanently Delete Expense</Text>
+        </TouchableOpacity>
+      ) : null}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Main Hero Card */}
         <View style={styles.heroCard}>
@@ -147,8 +165,8 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
           <Text style={styles.cardTitle}>PAID BY</Text>
           <View style={styles.payerRow}>
             <MemberAvatar
-              name={expense.payerMember?.user.name || 'Member'}
-              avatarUrl={expense.payerMember?.user.avatarUrl}
+              name={expense.payerMember?.displayName || expense.payerMember?.user?.name || 'Member'}
+              avatarUrl={expense.payerMember?.user?.avatarUrl}
               size={44}
             />
             <View style={styles.payerInfo}>
@@ -178,14 +196,14 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>
-              SPLIT BREAKDOWN ({expense.allocations.length})
+              SPLIT BREAKDOWN ({(expense.allocations || []).length})
             </Text>
             <View style={styles.splitMethodPill}>
               <Text style={styles.splitMethodText}>{expense.splitMethod || 'EQUAL'}</Text>
             </View>
           </View>
 
-          {expense.allocations.map((alloc: any, idx: number) => {
+          {(expense.allocations || []).map((alloc: any, idx: number) => {
             const isYou = alloc.member?.userId === user?.id;
             return (
               <View
@@ -197,8 +215,8 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
               >
                 <View style={styles.allocMember}>
                   <MemberAvatar
-                    name={alloc.member?.user.name || 'Member'}
-                    avatarUrl={alloc.member?.user.avatarUrl}
+                    name={alloc.member?.displayName || alloc.member?.user?.name || 'Member'}
+                    avatarUrl={alloc.member?.user?.avatarUrl}
                     size={36}
                   />
                   <Text style={styles.allocName}>
@@ -270,6 +288,8 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  deleteExpenseButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: THEME.spacing.md, marginTop: 8, padding: 12, borderRadius: THEME.borderRadius.md, backgroundColor: THEME.colors.debtBg, borderWidth: 1, borderColor: THEME.colors.debt },
+  deleteExpenseText: { color: THEME.colors.debt, fontWeight: '700', fontSize: 13 },
   container: {
     flex: 1,
     backgroundColor: THEME.colors.background,

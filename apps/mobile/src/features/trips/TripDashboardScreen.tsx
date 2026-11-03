@@ -418,7 +418,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             <View style={styles.breakdownCol}>
               <Text style={styles.breakdownLabel}>TOTAL SPENT</Text>
               <Text style={styles.breakdownValue}>
-                ₹{((trip.totalSpentPaise || 0) / 100).toFixed(2)}
+                ₹{(((trip.totalSpentPaise ?? trip.totalExpensePaise ?? expenses.reduce((sum, item) => sum + (item.amountPaise || 0), 0)) || 0) / 100).toFixed(2)}
               </Text>
             </View>
           </View>
@@ -426,14 +426,14 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
         {/* Primary Action Buttons: Add Expense / Record Payment */}
         <View style={[styles.actionsRow, isNarrow && styles.actionsRowNarrow]}>
-          <TouchableOpacity
+          {!isTripClosed ? <TouchableOpacity
             style={[styles.actionBtn, styles.expenseBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => navigation.navigate('AddExpense', { tripId })}
             activeOpacity={0.85}
           >
             <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
             <Text style={styles.actionBtnText}>Add Expense</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> : null}
 
           <TouchableOpacity
             style={[styles.actionBtn, styles.paymentBtn, isNarrow && styles.actionBtnNarrow]}
