@@ -67,7 +67,7 @@ Run with a trip creator, ordinary member, and (where applicable) a dummy member:
 - Pending payer/creator can edit or permanently delete a payment; receiver can confirm/dispute; payer can cancel. Confirmed payment cannot be edited or hard-deleted.
 - Delete a trip as creator and verify it disappears for all participants and dependent records are removed. Non-creator receives 403.
 - Verify total spent equals the sum of non-deleted expense amounts in integer paise; payments are excluded.
-- Closed trips hide Add Expense and Record Payment while retaining settlement and export actions.
+- Closed trips hide Add Expense; Record Payment remains available because the backend permits settlement recording after trip closure. Non-active memberships cannot add expenses.
 
 ## 5. CI workflow
 

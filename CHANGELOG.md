@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Trip dashboard exposes a consistent `totalSpentPaise` value derived from non-deleted expenses.
-- Closed trips suppress new expense/payment creation actions.
+- Closed trips hide Add Expense for non-active trips or memberships while keeping Record Payment available for settlement workflows.
 - Detail screens handle nullable member profiles and optional data defensively.
 - Prisma transaction defaults remain 10s acquisition wait / 15s execution timeout; object-storage cleanup remains outside DB transactions.
 

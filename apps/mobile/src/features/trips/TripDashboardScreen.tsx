@@ -426,7 +426,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
 
         {/* Primary Action Buttons: Add Expense / Record Payment */}
         <View style={[styles.actionsRow, isNarrow && styles.actionsRowNarrow]}>
-          {trip.status !== 'CLOSED' ? <TouchableOpacity
+          {trip.status === 'ACTIVE' && trip.membershipStatus === 'ACTIVE' ? <TouchableOpacity
             style={[styles.actionBtn, styles.expenseBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => navigation.navigate('AddExpense', { tripId })}
             activeOpacity={0.85}
@@ -435,7 +435,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             <Text style={styles.actionBtnText}>Add Expense</Text>
           </TouchableOpacity> : null}
 
-          {trip.status !== 'CLOSED' ? <TouchableOpacity
+          <TouchableOpacity
             style={[styles.actionBtn, styles.paymentBtn, isNarrow && styles.actionBtnNarrow]}
             onPress={() => navigation.navigate('AddPayment', { tripId })}
             activeOpacity={0.85}
@@ -444,7 +444,7 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
             <Text style={[styles.actionBtnText, { color: THEME.colors.primary }]}>
               Record Payment
             </Text>
-          </TouchableOpacity> : null}
+          </TouchableOpacity>
         </View>
 
         {/* Shortcuts Bar: Settlement Plan & Export Report */}
