@@ -179,7 +179,6 @@ model TripMember {
 
   @@unique([tripId, userId])
   @@index([tripId, status])
-  @@index([tripId, isDeleted, status])
   @@index([userId])
   @@index([userId, status])
 }
@@ -291,6 +290,7 @@ model Payment {
   discounts        SettlementDiscount[]
 
   @@index([tripId, status])
+  @@index([tripId, isDeleted, status])
   @@index([tripId, updatedAt])
   @@index([payerMemberId])
   @@index([receiverMemberId])
