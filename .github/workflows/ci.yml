@@ -15,6 +15,21 @@ concurrency:
 
 jobs:
   validate:
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: tripcircle_ci
+          MYSQL_USER: ci
+          MYSQL_PASSWORD: ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci -pci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     name: Typecheck, financial tests and release manifest
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -45,6 +60,11 @@ jobs:
 
       - name: Workspace typecheck
         run: pnpm typecheck
+
+      - name: Apply database migrations
+        run: pnpm --filter @tripcircle/api db:migrate
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/tripcircle_ci
 
       - name: Financial regression tests
         run: pnpm test:financial
