@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import { CreatePaymentInput, ConfirmPaymentInput, DisputePaymentInput } from '@tripcircle/contracts';
 import { createOutboxEvent } from '../../lib/outbox';
 import { SettlementService } from '../settlements/service';
+import { StorageService } from '../../infrastructure/storage';
 
 export class PaymentService {
   static async createPayment(tripId: string, currentUserId: string, input: CreatePaymentInput) {
