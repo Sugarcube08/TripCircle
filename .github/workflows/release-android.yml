@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Semantic Version (e.g. 1.0.1)'
+        description: 'Semantic Version (e.g. 1.2.0-alpha)'
         required: false
-        default: '1.0.1'
+        default: '1.2.0-alpha'
       version_code:
         description: 'Android Version Code (e.g. 2)'
         required: false
@@ -17,7 +17,7 @@ on:
       release_notes:
         description: 'Release summary notes'
         required: false
-        default: 'Production release with exact paise financial ledger and live update distribution.'
+        default: 'TripCircle 1.2.0-alpha: expense/payment CRUD, detail crash fixes, ledger totals and transaction stability.'
 
 jobs:
   build-and-release:
@@ -87,7 +87,7 @@ jobs:
         run: |
           cd apps/mobile/android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
       - name: Locate Built APK and Compute Checksum
         id: apk_info
@@ -102,6 +102,9 @@ jobs:
           SHA256_HASH=$(sha256sum ./TripCircle-release.apk | awk '{print $1}')
           echo "sha256=$SHA256_HASH" >> $GITHUB_OUTPUT
           echo "SHA256: $SHA256_HASH"
+
+      - name: Generate Version Manifest
+        run: node scripts/generate-version-manifest.mjs --sha256 "${{ steps.apk_info.outputs.sha256 }}" --notes "TripCircle v1.2.0-alpha Android release" --notes "Expense/payment CRUD, detail crash and transaction stability fixes"
 
           # Determine Tag and Version
           REF_TAG="${{ github.ref_name }}"
@@ -128,5 +131,6 @@ jobs:
             - **SHA-256 Checksum:** `${{ steps.apk_info.outputs.sha256 }}`
           files: |
             TripCircle-release.apk
+            version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
