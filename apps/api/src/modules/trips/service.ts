@@ -32,52 +32,52 @@ export class TripService {
         },
       });
 
-      // Handle invitations
-      if (input.initialInvitedUserIds && input.initialInvitedUserIds.length > 0) {
-        for (const inviteeId of input.initialInvitedUserIds) {
-          if (inviteeId === userId) continue;
-          const invitedMember = await tx.tripMember.create({
-            data: {
-              tripId: trip.id,
-              userId: inviteeId,
-              role: 'MEMBER',
-              status: 'INVITED',
-            },
-          });
+      // Batch invitations and notifications to keep trip creation bounded.
+      const inviteeIds = Array.from(new Set(input.initialInvitedUserIds || [])).filter((id) => id !== userId);
+      if (inviteeIds.length > 0) {
+        await tx.tripMember.createMany({
+          data: inviteeIds.map((inviteeId) => ({
+            tripId: trip.id,
+            userId: inviteeId,
+            role: 'MEMBER',
+            status: 'INVITED',
+          })),
+        });
 
-          // Create notification for invitee
-          await tx.notification.create({
-            data: {
-              userId: inviteeId,
+        const invitedMembers = await tx.tripMember.findMany({
+          where: { tripId: trip.id, userId: { in: inviteeIds } },
+          select: { id: true, userId: true },
+        });
+        await tx.notification.createMany({
+          data: invitedMembers
+            .filter((member) => Boolean(member.userId))
+            .map((member) => ({
+              userId: member.userId!,
               tripId: trip.id,
               type: 'TRIP_INVITATION',
               title: `Invitation to ${trip.name}`,
               body: `You have been invited to join "${trip.name}".`,
-              data: { tripId: trip.id, invitationId: invitedMember.id },
-            },
-          });
-        }
+              data: { tripId: trip.id, invitationId: member.id },
+            })),
+        });
       }
 
-      // Handle initial offline / dummy members atomically within the transaction
-      if (input.initialDummyMembers && input.initialDummyMembers.length > 0) {
-        for (const dm of input.initialDummyMembers) {
-          const trimmedName = dm.name.trim();
-          if (!trimmedName) continue;
-          await tx.tripMember.create({
-            data: {
-              tripId: trip.id,
-              userId: null,
-              isDummy: true,
-              role: 'MEMBER',
-              status: 'ACTIVE',
-              displayName: trimmedName,
-              email: dm.email ? dm.email.toLowerCase().trim() : null,
-              phone: dm.phone ? dm.phone.trim() : null,
-              respondedAt: new Date(),
-            },
-          });
-        }
+      // Create offline members in one statement rather than one round-trip per member.
+      const dummyMembers = (input.initialDummyMembers || [])
+        .map((member) => ({
+          tripId: trip.id,
+          userId: null,
+          isDummy: true,
+          role: 'MEMBER' as const,
+          status: 'ACTIVE' as const,
+          displayName: member.name.trim(),
+          email: member.email ? member.email.toLowerCase().trim() : null,
+          phone: member.phone ? member.phone.trim() : null,
+          respondedAt: new Date(),
+        }))
+        .filter((member) => Boolean(member.displayName));
+      if (dummyMembers.length > 0) {
+        await tx.tripMember.createMany({ data: dummyMembers });
       }
 
       await tx.auditLog.create({
