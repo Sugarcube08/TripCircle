@@ -432,11 +432,13 @@ export class PaymentService {
     const member = await prisma.tripMember.findUnique({ where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true } });
     if (!member || (payment.payerMember.userId !== currentUserId && member.role !== 'CREATOR')) throw new Error('Forbidden: Only the payer or trip creator can permanently delete this payment');
     await prisma.$transaction(async (tx) => {
+      await tx.outboxEvent.deleteMany({ where: { aggregateType: 'PAYMENT', aggregateId: paymentId } });
       await tx.settlementDiscount.deleteMany({ where: { paymentId } });
       await tx.ledgerEntry.deleteMany({ where: { tripId, referenceId: paymentId } });
       await tx.payment.delete({ where: { id: paymentId } });
-      await tx.auditLog.create({ data: { userId: currentUserId, tripId, action: 'DELETE_PAYMENT', entityType: 'PAYMENT', entityId: paymentId } });
+      await tx.auditLog.create({ data: { userId: currentUserId, tripId, action: 'DELETE_PAYMENT', entityType: 'PAYMENT', entityId: paymentId, details: { amountPaise: payment.amountPaise, status: payment.status, permanent: true } } });
     }, { maxWait: 10000, timeout: 15000 });
+    if (payment.receiptUrl) void StorageService.deleteMediaByUrl(payment.receiptUrl).catch(() => undefined);
     return { id: paymentId, deleted: true };
   }
 

@@ -443,11 +443,19 @@ export class TripService {
   }
 
   static async deleteTrip(tripId: string, userId: string) {
-    const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { id: true, creatorId: true, coverImageUrl: true } });
+    const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { id: true, creatorId: true, coverImageUrl: true, name: true } });
     if (!trip) throw new Error('Trip not found');
     if (trip.creatorId !== userId) throw new Error('Forbidden: Only the trip creator can permanently delete this trip');
-    const receipts = await prisma.expense.findMany({ where: { tripId }, select: { receiptUrl: true } });
+    const [receipts, paymentReceipts, files] = await Promise.all([
+      prisma.expense.findMany({ where: { tripId }, select: { id: true, receiptUrl: true } }),
+      prisma.payment.findMany({ where: { tripId }, select: { id: true, receiptUrl: true } }),
+      prisma.fileMetadata.findMany({ where: { tripId }, select: { publicUrl: true } }),
+    ]);
     await prisma.$transaction(async (tx) => {
+      await tx.outboxEvent.deleteMany({ where: { OR: [
+        { aggregateType: 'EXPENSE', aggregateId: { in: receipts.map((row) => row.id) } },
+        { aggregateType: 'PAYMENT', aggregateId: { in: paymentReceipts.map((row) => row.id) } },
+      ] } });
       await tx.settlementDiscount.deleteMany({ where: { tripId } });
       await tx.ledgerEntry.deleteMany({ where: { tripId } });
       await tx.payment.deleteMany({ where: { tripId } });
@@ -455,9 +463,10 @@ export class TripService {
       await tx.tripMember.deleteMany({ where: { tripId } });
       await tx.notification.deleteMany({ where: { tripId } });
       await tx.fileMetadata.deleteMany({ where: { tripId } });
+      await tx.auditLog.create({ data: { userId, action: 'DELETE_TRIP', entityType: 'TRIP', entityId: tripId, details: { name: trip.name, permanent: true } } });
       await tx.trip.delete({ where: { id: tripId } });
     }, { maxWait: 10000, timeout: 20000 });
-    const urls = [trip.coverImageUrl, ...receipts.map((row) => row.receiptUrl)].filter((url): url is string => Boolean(url));
+    const urls = [trip.coverImageUrl, ...receipts.map((row) => row.receiptUrl), ...paymentReceipts.map((row) => row.receiptUrl), ...files.map((row) => row.publicUrl)].filter((url): url is string => Boolean(url));
     await Promise.allSettled(urls.map((url) => StorageService.deleteMediaByUrl(url)));
     return { id: tripId, deleted: true };
   }
