@@ -154,7 +154,7 @@ Dispute an unreceived or incorrect payment (Receiver only).
 - **Body:** `{ reason: string }`
 
 ### `DELETE /trips/:id/payments/:paymentId`
-Cancel a pending payment (Payer only). This is a status transition to `CANCELLED`, not a hard delete; terminal payment history remains auditable.
+Soft-delete a payment entry (payer or trip creator). Pending payments transition to `CANCELLED`; confirmed payments receive a zero-sum ledger reversal and active settlement calculations are recomputed. The payment row, original ledger postings, and deletion audit remain stored. Disputed/cancelled entries are hidden from active lists without changing their history.
 
 ---
 
