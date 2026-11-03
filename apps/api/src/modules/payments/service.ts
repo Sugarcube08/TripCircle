@@ -463,6 +463,10 @@ export class PaymentService {
             updatedAmountPaise: updated.amountPaise,
             previousPaymentMethod: payment.paymentMethod,
             updatedPaymentMethod: updated.paymentMethod,
+            previousNote: payment.note,
+            updatedNote: updated.note,
+            previousReceiptUrl: payment.receiptUrl,
+            updatedReceiptUrl: updated.receiptUrl,
           },
         },
       });
