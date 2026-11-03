@@ -241,7 +241,7 @@ export class ExpenseService {
     const updatedExpense = await prisma.$transaction(async (tx) => {
       const expense = await tx.expense.findUnique({
         where: { id: expenseId },
-        include: { payerMember: true, category: true },
+        include: { payerMember: true, category: true, allocations: true },
       });
 
       if (!expense || expense.tripId !== tripId) {
@@ -375,20 +375,55 @@ export class ExpenseService {
         },
       });
 
-      // 4. Record ledger entry for the edit
-      await tx.ledgerEntry.create({
-        data: {
+      // 4. Reverse the previous posting and apply the replacement posting.
+      // Each edit therefore remains a zero-sum ledger event across all members.
+      const editLedgerRows = [
+        {
           tripId,
-          eventType: 'EXPENSE_EDITED',
+          eventType: 'EXPENSE_EDITED' as const,
+          referenceId: expense.id,
+          memberId: expense.payerMemberId,
+          creditPaise: 0,
+          debitPaise: expense.amountPaise,
+          netChangePaise: -expense.amountPaise,
+          balanceAfterPaise: 0,
+          description: `Reversal of previous payer posting: ${expense.description}`,
+        },
+        ...expense.allocations.map((allocation) => ({
+          tripId,
+          eventType: 'EXPENSE_EDITED' as const,
+          referenceId: expense.id,
+          memberId: allocation.memberId,
+          creditPaise: allocation.sharePaise,
+          debitPaise: 0,
+          netChangePaise: allocation.sharePaise,
+          balanceAfterPaise: 0,
+          description: `Reversal of previous share: ${expense.description}`,
+        })),
+        {
+          tripId,
+          eventType: 'EXPENSE_EDITED' as const,
           referenceId: expense.id,
           memberId: input.payerMemberId,
           creditPaise: input.amountPaise,
           debitPaise: 0,
-          netChangePaise: input.amountPaise - expense.amountPaise,
+          netChangePaise: input.amountPaise,
           balanceAfterPaise: 0,
-          description: `Updated expense: ${normalizedDescription} (v${nextVersion})`,
+          description: `New payer posting: ${normalizedDescription} (v${nextVersion})`,
         },
-      });
+        ...calculatedAllocations.map((allocation) => ({
+          tripId,
+          eventType: 'EXPENSE_EDITED' as const,
+          referenceId: expense.id,
+          memberId: allocation.memberId,
+          creditPaise: 0,
+          debitPaise: allocation.sharePaise,
+          netChangePaise: -allocation.sharePaise,
+          balanceAfterPaise: 0,
+          description: `New expense share: ${normalizedDescription} (v${nextVersion})`,
+        })),
+      ];
+      await tx.ledgerEntry.createMany({ data: editLedgerRows });
 
       // 5. Outbox & Notifications
       await createOutboxEvent(tx, 'EXPENSE', expense.id, 'EXPENSE_EDITED', {
