@@ -76,6 +76,9 @@ Retrieve trip dashboard details, members list with individual net balances, and 
 ### `PUT /trips/:id`
 Update trip name, cover image, dates, or destination (Creator only).
 
+### `DELETE /trips/:id`
+Permanently delete the trip (Creator only). Cascades trip members, expenses, payments, settlement records, and ledger rows; deletes associated file metadata and attempts object-storage cleanup. This operation is irreversible.
+
 ### `POST /trips/:id/close`
 Close the trip (Creator only). Blocks new expenses while preserving balance records.
 
@@ -117,9 +120,12 @@ Add a new expense. Affects balances immediately without approval.
 Get expense details and chronological revision history snapshots.
 
 ### `PUT /trips/:id/expenses/:expenseId`
-Edit an expense.
+Edit an expense (submitter or trip creator). Every edit writes a revision and balanced reversal/replacement ledger postings.
 - **Body:** `{ payerMemberId, amountPaise, categoryId, description, splitMethod, allocations, expectedVersion, changeReason? }`
 - **Response:** `200 OK` on success, or `409 Conflict` if version mismatch.
+
+### `DELETE /trips/:id/expenses/:expenseId`
+Soft-delete an expense (submitter or trip creator). The expense is excluded from active totals and balances; its revision history remains available for audit, and the ledger receives a zero-sum reversal.
 
 ### `GET /categories`
 List available expense categories.
@@ -135,6 +141,11 @@ List all payment transfers in the trip.
 Record a new payment transfer. Created in `PENDING` status.
 - **Body:** `{ payerMemberId, receiverMemberId, amountPaise, paymentMethod, note?, receiptUrl?, idempotencyKey? }`
 
+### `PUT /trips/:id/payments/:paymentId`
+Edit a pending payment (payer or trip creator).
+- **Body:** `{ amountPaise, paymentMethod, note?, receiptUrl? }`
+- Confirmed, disputed, and cancelled payments are immutable.
+
 ### `POST /trips/:id/payments/:paymentId/confirm`
 Confirm payment receipt (Receiver only). Updates balances and records ledger entries.
 
@@ -143,7 +154,7 @@ Dispute an unreceived or incorrect payment (Receiver only).
 - **Body:** `{ reason: string }`
 
 ### `DELETE /trips/:id/payments/:paymentId`
-Cancel a pending payment (Payer only).
+Cancel a pending payment (Payer only). This is a status transition to `CANCELLED`, not a hard delete; terminal payment history remains auditable.
 
 ---
 
