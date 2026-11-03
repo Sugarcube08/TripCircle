@@ -144,7 +144,7 @@ Record a new payment transfer. Created in `PENDING` status.
 ### `PUT /trips/:id/payments/:paymentId`
 Edit a pending payment (payer or trip creator).
 - **Body:** `{ amountPaise, paymentMethod, note?, receiptUrl? }`
-- Confirmed, disputed, and cancelled payments are immutable.
+- Only pending payments can be edited; confirmed, disputed, and cancelled payments cannot be edited. The DELETE endpoint separately supports audited soft deletion.
 
 ### `POST /trips/:id/payments/:paymentId/confirm`
 Confirm payment receipt (Receiver only). Updates balances and records ledger entries.
