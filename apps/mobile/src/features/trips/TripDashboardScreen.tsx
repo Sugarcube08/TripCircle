@@ -141,7 +141,9 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   useEffect(() => {
     loadTripData(false);
     const unsubscribe = navigation.addListener('focus', () => {
-      loadTripData(false);
+      // Always refresh after returning from a detail/edit/delete flow; the 15s
+      // background throttle must not leave financial totals visibly stale.
+      loadTripData(true);
     });
     return unsubscribe;
   }, [navigation, loadTripData]);
