@@ -82,9 +82,6 @@ Close the trip (Creator only). Blocks new expenses while preserving balance reco
 ### `POST /trips/:id/reopen`
 Reopen a closed trip (Creator only).
 
-### `DELETE /trips/:id`
-Permanently delete a trip (creator only). Removes members, expenses, payments, discounts, ledger entries, notifications and file metadata in a bounded transaction; stored media cleanup runs after commit. Irreversible.
-
 ### `POST /trips/:id/leave`
 Leave a trip as an ordinary member. Retains existing obligations and payment rights.
 
@@ -119,9 +116,6 @@ Add a new expense. Affects balances immediately without approval.
 ### `GET /trips/:id/expenses/:expenseId`
 Get expense details and chronological revision history snapshots.
 
-### `DELETE /trips/:id/expenses/:expenseId`
-Permanently delete an expense. Only its submitter or the trip creator may delete it. Associated ledger entries are removed and an audit record is written; receipt cleanup runs after commit.
-
 ### `PUT /trips/:id/expenses/:expenseId`
 Edit an expense.
 - **Body:** `{ payerMemberId, amountPaise, categoryId, description, splitMethod, allocations, expectedVersion, changeReason? }`
@@ -140,12 +134,6 @@ List all payment transfers in the trip.
 ### `POST /trips/:id/payments`
 Record a new payment transfer. Created in `PENDING` status.
 - **Body:** `{ payerMemberId, receiverMemberId, amountPaise, paymentMethod, note?, receiptUrl?, idempotencyKey? }`
-
-### `PUT /trips/:id/payments/:paymentId`
-Edit a pending payment. Only its payer or trip creator may edit it. Body: `{ amountPaise, paymentMethod, note?, receiptUrl? }`. Confirmed payments cannot be edited.
-
-### `DELETE /trips/:id/payments/:paymentId/permanent`
-Permanently delete an unconfirmed payment. Only its payer or trip creator may delete it. Confirmed payments are immutable. The existing `DELETE /trips/:id/payments/:paymentId` endpoint continues to cancel a pending payment; it does not hard-delete it.
 
 ### `POST /trips/:id/payments/:paymentId/confirm`
 Confirm payment receipt (Receiver only). Updates balances and records ledger entries.

@@ -221,14 +221,6 @@ export const CreatePaymentSchema = z.object({
 );
 export type CreatePaymentInput = z.infer<typeof CreatePaymentSchema>;
 
-export const UpdatePaymentSchema = z.object({
-  amountPaise: z.number().int().min(FINANCIAL_LIMITS.MIN_AMOUNT_PAISE).max(FINANCIAL_LIMITS.MAX_AMOUNT_PAISE),
-  paymentMethod: z.enum(PAYMENT_METHODS),
-  note: z.string().max(500).optional().nullable(),
-  receiptUrl: z.string().optional().nullable(),
-});
-export type UpdatePaymentInput = z.infer<typeof UpdatePaymentSchema>;
-
 export const ConfirmPaymentSchema = z.object({
   note: z.string().max(200).optional(),
 });

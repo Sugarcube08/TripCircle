@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { PaymentService } from '@/modules/payments/service';
-import { UpdatePaymentSchema } from '@tripcircle/contracts';
 import { successResponse, handleApiError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
@@ -11,8 +10,8 @@ export async function GET(
   { params }: { params: { id: string; paymentId: string } }
 ) {
   try {
-    const authUser = await getAuthUser(req);
-    const payment = await PaymentService.getPaymentDetail(params.id, params.paymentId, authUser.id);
+    await getAuthUser(req);
+    const payment = await PaymentService.getPaymentDetail(params.id, params.paymentId);
     return successResponse(payment);
   } catch (err) {
     return handleApiError(err);
@@ -30,9 +29,4 @@ export async function DELETE(
   } catch (err) {
     return handleApiError(err);
   }
-}
-
-export async function PUT(req: NextRequest, { params }: { params: { id: string; paymentId: string } }) {
-  try { const authUser = await getAuthUser(req); const input = UpdatePaymentSchema.parse(await req.json()); return successResponse(await PaymentService.updatePendingPayment(params.id, params.paymentId, authUser.id, input)); }
-  catch (err) { return handleApiError(err); }
 }
