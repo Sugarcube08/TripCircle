@@ -10,8 +10,8 @@ export async function GET(
   { params }: { params: { id: string; paymentId: string } }
 ) {
   try {
-    await getAuthUser(req);
-    const payment = await PaymentService.getPaymentDetail(params.id, params.paymentId);
+    const authUser = await getAuthUser(req);
+    const payment = await PaymentService.getPaymentDetail(params.id, params.paymentId, authUser.id);
     return successResponse(payment);
   } catch (err) {
     return handleApiError(err);
