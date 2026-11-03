@@ -145,6 +145,6 @@ Expense deletion is a **soft delete**:
 - The reversal must sum to zero paise.
 - The original expense and revisions remain stored for audit.
 
-Payment deletion is intentionally not a physical delete. A pending payment can transition to `CANCELLED`; confirmed, disputed, and cancelled payment records remain immutable so the payment-confirmation audit trail cannot be silently rewritten.
+Payment deletion is a **soft delete**. Pending payments transition to `CANCELLED`; confirmed payments receive equal-and-opposite `PAYMENT_DELETED` postings and automatic sub-rupee waivers are reversed/recalculated before the active balance is recomputed. Disputed/cancelled entries are hidden from active lists without changing their status. The original payment and ledger postings remain for audit.
 
 Trip deletion is a creator-only hard delete. It removes trip-owned financial data and file metadata; it is distinct from expense soft deletion and must be presented with an explicit irreversible confirmation.
