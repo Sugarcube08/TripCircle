@@ -93,7 +93,10 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const isReceiver = payment.receiverMember?.userId === user?.id;
   const isPayer = payment.payerMember?.userId === user?.id;
   const isPending = payment.status === 'PENDING';
-  const canEdit = isPending && (isPayer || tripCreatorId === user?.id);
+  const isTripCreator = tripCreatorId === user?.id;
+  const canEdit = isPending && (isPayer || isTripCreator);
+  const canConfirmOrDispute = isPending && (isReceiver || (payment.receiverMember?.isDummy && isTripCreator));
+  const canCancel = isPending && (isPayer || (payment.payerMember?.isDummy && isTripCreator));
   const payerName = payment.payerMember?.displayName || payment.payerMember?.user?.name || 'Payer';
   const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
 
@@ -314,7 +317,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
         </View>
 
         {/* Action Controls for Receiver */}
-        {isPending && isReceiver && (
+        {canConfirmOrDispute && (
           <View style={styles.actionsContainer}>
             <TouchableOpacity
               style={[styles.btn, styles.confirmBtn]}
@@ -352,7 +355,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
         ) : null}
 
         {/* Action Controls for Payer */}
-        {isPending && isPayer && (
+        {canCancel && (
           <TouchableOpacity
             style={[styles.btn, styles.cancelBtn]}
             onPress={handleCancel}
