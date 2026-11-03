@@ -106,7 +106,7 @@ For an exhaustive anatomical breakdown and live screenshots from the Android cli
 - A payment starts as `PENDING`, unless an offline-member rule permits immediate confirmation.
 - Only a pending payment may be edited by its payer or the trip creator.
 - The receiver may confirm or dispute a pending payment; the payer may cancel it.
-- `CONFIRMED`, `DISPUTED`, and `CANCELLED` are terminal states. Payments are not hard-deleted because doing so would erase settlement evidence.
+- `CONFIRMED`, `DISPUTED`, and `CANCELLED` payment states are not rewritten during deletion. The payer or trip creator may soft-delete a payment entry; confirmed payments receive a ledger reversal and automatic sub-rupee waivers are recalculated. The original row and audit history remain stored.
 - Trip closure does not prevent settlement activity; it prevents new expense creation.
 
 ### Client rendering contract
