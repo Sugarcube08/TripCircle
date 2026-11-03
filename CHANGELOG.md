@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.2.0-alpha] - 2026-11-03
+
+### Added
+- Creator-only permanent trip deletion with relational cascade cleanup and post-commit object-storage cleanup.
+- Expense soft deletion for the submitter or trip creator; deleted expenses are excluded from active totals and balances while revisions remain auditable.
+- Pending payment editing for the payer or trip creator.
+- Conditional trip actions based on lifecycle and active membership state.
+
+### Changed
+- Expense edits now reverse the prior payer/allocation postings and apply replacement postings in a zero-sum ledger event.
+- Expense creation/editing validates active trip members as payers and beneficiaries; payment creation validates active payer/receiver membership.
+- Pending payment cancellation remains a status transition. Confirmed, disputed, and cancelled payments are immutable.
+- Prisma interactive transaction defaults increased to a 10-second acquisition wait and 15-second execution timeout; permanent trip deletion uses a bounded 30-second cascade transaction.
+- Trip dashboard total-spent rendering is aligned with the API's `totalSpentPaise` field.
+- Android release workflow now requires a successful release build and generates the release manifest with the produced APK checksum.
+
+### Fixed
+- Expense detail crashes when payer or beneficiary is an offline/dummy member with a null `user` relation.
+- Expense edit authorization UI now includes the trip creator, matching backend permissions.
+- Old receipt objects are retained while immutable expense revision records still reference them.
+- Payment idempotency keys cannot silently return a payment belonging to a different trip or payer/receiver pair.
+- Trip cover-image cleanup runs after the database update commits.
+
+### Validation
+- Added an integration test for soft expense deletion and zero-sum ledger reversal.
+- CI now provisions MySQL, applies Prisma migrations, typechecks workspaces, runs API tests, builds the API, typechecks mobile, and validates the version manifest.
+- Android build, runtime navigation, and remote-host database performance still require CI/device verification before release.
+
+---
+
 All notable changes to the TripCircle platform are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
