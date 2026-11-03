@@ -40,7 +40,7 @@ export async function PUT(
     const body = await req.json();
     const { z } = await import('zod');
     const schema = z.object({
-      amountPaise: z.number().int().positive().safe(),
+      amountPaise: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
       paymentMethod: z.enum(['UPI', 'CASH', 'OTHER']),
       note: z.string().max(2000).nullable().optional(),
       receiptUrl: z.string().url().nullable().optional(),
