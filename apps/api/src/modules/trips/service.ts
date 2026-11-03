@@ -122,7 +122,7 @@ export class TripService {
               },
             },
             payments: {
-              where: { status: 'CONFIRMED' },
+              where: { status: 'CONFIRMED', isDeleted: false },
               select: {
                 id: true,
                 payerMemberId: true,
@@ -245,7 +245,7 @@ export class TripService {
           },
         },
         payments: {
-          where: { status: 'CONFIRMED' },
+          where: { status: 'CONFIRMED', isDeleted: false },
           select: {
             id: true,
             payerMemberId: true,
