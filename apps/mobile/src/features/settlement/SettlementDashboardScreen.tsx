@@ -39,6 +39,7 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
   const [plan, setPlan] = useState<any>(initialPlan);
   const [loading, setLoading] = useState(!initialPlan);
   const [refreshing, setRefreshing] = useState(false);
+  const [canRecordPayment, setCanRecordPayment] = useState(false);
 
   // Discount modal state
   const [discountModalVisible, setDiscountModalVisible] = useState(false);
@@ -57,6 +58,15 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
     } catch {
       const cached = LocalDatabase.getSettlementPlan(tripId);
       if (cached) setPlan(cached);
+    }
+
+    try {
+      const trip = await apiRequest(`/trips/${tripId}`);
+      const currentMember = trip.members?.find((member: any) => member.id === trip.currentMemberId);
+      // Closed trips still permit settlements, but departed/invited members cannot initiate payments.
+      setCanRecordPayment(currentMember?.status === 'ACTIVE');
+    } catch {
+      setCanRecordPayment(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -256,21 +266,23 @@ export const SettlementDashboardScreen: React.FC<SettlementDashboardScreenProps>
                 </View>
                 <View style={styles.transferActionCol}>
                   <AmountText paise={t.amountPaise} size="medium" colorType="debt" />
-                  <TouchableOpacity
-                    style={styles.payBtn}
-                    onPress={() =>
-                      navigation.navigate('AddPayment', {
-                        tripId,
-                        defaultReceiverMemberId: t.toMemberId,
-                      })
-                    }
-                    activeOpacity={0.85}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Pay ${t.toUserName}`}
-                  >
-                    <Text style={styles.payBtnText}>Pay Now</Text>
-                  </TouchableOpacity>
+                  {canRecordPayment ? (
+                    <TouchableOpacity
+                      style={styles.payBtn}
+                      onPress={() =>
+                        navigation.navigate('AddPayment', {
+                          tripId,
+                          defaultReceiverMemberId: t.toMemberId,
+                        })
+                      }
+                      activeOpacity={0.85}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Pay ${t.toUserName}`}
+                    >
+                      <Text style={styles.payBtnText}>Pay Now</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </View>
             ))
