@@ -96,7 +96,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const isTripCreator = tripCreatorId === user?.id;
   const canEdit = isPending && (isPayer || isTripCreator);
   const canConfirmOrDispute = isPending && (isReceiver || (payment.receiverMember?.isDummy && isTripCreator));
-  const canDeletePayment = !payment.isDeleted && (isPayer || isTripCreator || (payment.payerMember?.isDummy && isTripCreator));
+  const canDeletePayment = !payment.isDeleted && (isPayer || isTripCreator);
   const payerName = payment.payerMember?.displayName || payment.payerMember?.user?.name || 'Payer';
   const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
 
@@ -361,7 +361,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
             activeOpacity={0.85}
           >
             <Ionicons name="trash-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
-            <Text style={styles.cancelBtnText}>Cancel Pending Payment</Text>
+            <Text style={styles.cancelBtnText}>Delete Payment</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
