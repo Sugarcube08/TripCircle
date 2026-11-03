@@ -45,6 +45,11 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   // Dispute modal state
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editAmount, setEditAmount] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editMethod, setEditMethod] = useState<'UPI' | 'CASH' | 'OTHER'>('UPI');
+  const [tripCreatorId, setTripCreatorId] = useState<string | null>(null);
 
   const loadPayment = useCallback(async () => {
     try {
@@ -61,7 +66,12 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   useEffect(() => {
     loadPayment();
-  }, [loadPayment]);
+    let active = true;
+    apiRequest(`/trips/${tripId}`)
+      .then((data) => { if (active) setTripCreatorId(data.creatorId || null); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [loadPayment, tripId]);
 
   if (loading) {
     return <LoadingIndicator message="Loading payment details..." />;
@@ -83,6 +93,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const isReceiver = payment.receiverMember?.userId === user?.id;
   const isPayer = payment.payerMember?.userId === user?.id;
   const isPending = payment.status === 'PENDING';
+  const canEdit = isPending && (isPayer || tripCreatorId === user?.id);
   const payerName = payment.payerMember?.displayName || payment.payerMember?.user?.name || 'Payer';
   const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
 
@@ -127,6 +138,39 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
       await dialog.alert('Payment Disputed', 'Payment has been disputed. Group balances remain unaltered.', 'info');
     } catch (err) {
       dialog.alert('Dispute Failed', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openEditModal = () => {
+    setEditAmount((payment.amountPaise / 100).toFixed(2));
+    setEditNote(payment.note || '');
+    setEditMethod(payment.paymentMethod || 'UPI');
+    setEditModalVisible(true);
+  };
+
+  const handleUpdatePayment = async () => {
+    const amountPaise = Math.round((Number.parseFloat(editAmount) || 0) * 100);
+    if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) {
+      dialog.alert('Invalid Amount', 'Enter a valid amount greater than zero.', 'warning');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const updated = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          amountPaise,
+          paymentMethod: editMethod,
+          note: editNote.trim() || null,
+        }),
+      });
+      setPayment(updated);
+      setEditModalVisible(false);
+      await dialog.alert('Payment Updated', 'The pending payment was updated and the change was recorded.', 'success');
+    } catch (err) {
+      dialog.alert('Update Failed', (err as Error).message, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -294,6 +338,19 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
           </View>
         )}
 
+        {/* Pending payment edits are permitted only before receiver confirmation. */}
+        {canEdit ? (
+          <TouchableOpacity
+            style={[styles.btn, styles.editPaymentBtn]}
+            onPress={openEditModal}
+            disabled={actionLoading}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="create-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.editPaymentBtnText}>Edit Pending Payment</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Action Controls for Payer */}
         {isPending && isPayer && (
           <TouchableOpacity
@@ -307,6 +364,59 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Edit Pending Payment Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="create-outline" size={22} color={THEME.colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.modalTitle}>Edit Pending Payment</Text>
+            </View>
+            <Text style={styles.modalSubtitle}>Only pending payments can be edited. Confirmed, disputed, and cancelled payments remain immutable.</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editAmount}
+              onChangeText={setEditAmount}
+              keyboardType="decimal-pad"
+              placeholder="Amount in ₹"
+              placeholderTextColor={THEME.colors.textLight}
+            />
+            <View style={styles.paymentMethodChoices}>
+              {(['UPI', 'CASH', 'OTHER'] as const).map((method) => (
+                <TouchableOpacity
+                  key={method}
+                  style={[styles.paymentMethodChoice, editMethod === method && styles.paymentMethodChoiceActive]}
+                  onPress={() => setEditMethod(method)}
+                >
+                  <Text style={[styles.paymentMethodChoiceText, editMethod === method && styles.paymentMethodChoiceTextActive]}>{method}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.editInput}
+              value={editNote}
+              onChangeText={setEditNote}
+              placeholder="Reference / note (optional)"
+              placeholderTextColor={THEME.colors.textLight}
+              multiline
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancelBtn]} onPress={() => setEditModalVisible(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalConfirmBtn]} onPress={handleUpdatePayment} disabled={actionLoading}>
+                <Text style={styles.modalConfirmText}>{actionLoading ? 'Saving…' : 'Save Changes'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Dispute Modal */}
       <Modal
@@ -574,6 +684,57 @@ const styles = StyleSheet.create({
     color: THEME.colors.debt,
     fontSize: 15,
     fontWeight: '700',
+  },
+  editPaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 46,
+    borderRadius: THEME.borderRadius.md,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primaryLight,
+  },
+  editPaymentBtnText: {
+    color: THEME.colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surfaceSubtle,
+    borderRadius: THEME.borderRadius.md,
+    padding: 12,
+    fontSize: 14,
+    marginBottom: 12,
+    color: THEME.colors.textPrimary,
+  },
+  paymentMethodChoices: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  paymentMethodChoice: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.borderRadius.md,
+  },
+  paymentMethodChoiceActive: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primaryLight,
+  },
+  paymentMethodChoiceText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.textSecondary,
+  },
+  paymentMethodChoiceTextActive: {
+    color: THEME.colors.primary,
   },
   cancelBtn: {
     flexDirection: 'row',
