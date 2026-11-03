@@ -17,6 +17,7 @@
 - Interactive transaction defaults remain extended to 15 seconds with a 10-second acquisition wait; external media cleanup stays outside database transactions.
 
 ### Changed
+- Adds a Prisma migration to make `TripMember.userId` nullable and add dummy-member metadata (`isDummy`, `displayName`, `email`, `phone`), aligning the database with the current Prisma model.
 - Release version is `1.2.0-alpha.1` (Android versionCode 2).
 - Added a dedicated pull-request CI workflow for contracts/API/mobile typechecking and API tests.
 

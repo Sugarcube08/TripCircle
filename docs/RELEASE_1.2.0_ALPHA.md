@@ -25,6 +25,10 @@
 
 The trip detail response now exposes `totalSpentPaise` as an alias for the authoritative sum of non-deleted expense amounts. The dashboard uses that field first, then the legacy `totalExpensePaise`, and only then a local expense-list fallback. Monetary values remain integer paise until display formatting.
 
+## Database migration
+
+Adds `20261103000000_support_dummy_trip_members` to align the deployed schema with the existing dummy/offline member model: nullable `TripMember.userId` plus `isDummy`, `displayName`, `email`, and `phone` fields. The migration preserves existing registered members and defaults their `isDummy` flag to false.
+
 ## Transaction behavior
 
 Prisma interactive transactions use a 10-second acquisition wait and 15-second execution timeout. External object-storage cleanup is kept outside database transactions. These limits are guardrails, not a replacement for keeping transactions short; remote database latency and connection-pool pressure still need monitoring.
