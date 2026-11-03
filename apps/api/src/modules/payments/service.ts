@@ -492,7 +492,15 @@ export class PaymentService {
     });
   }
 
-  static async listPayments(tripId: string) {
+  static async listPayments(tripId: string, currentUserId?: string) {
+    if (currentUserId) {
+      const membership = await prisma.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+        select: { id: true },
+      });
+      if (!membership) throw new Error('Forbidden: You are not a member of this trip');
+    }
+
     const payments = await prisma.payment.findMany({
       where: { tripId },
       include: {
@@ -505,7 +513,15 @@ export class PaymentService {
     return payments;
   }
 
-  static async getPaymentDetail(tripId: string, paymentId: string) {
+  static async getPaymentDetail(tripId: string, paymentId: string, currentUserId?: string) {
+    if (currentUserId) {
+      const membership = await prisma.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+        select: { id: true },
+      });
+      if (!membership) throw new Error('Forbidden: You are not a member of this trip');
+    }
+
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
