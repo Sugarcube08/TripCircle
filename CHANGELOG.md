@@ -6,12 +6,13 @@
 - Creator-only permanent trip deletion with relational cascade cleanup and post-commit object-storage cleanup.
 - Expense soft deletion for the submitter or trip creator; deleted expenses are excluded from active totals and balances while revisions remain auditable.
 - Pending payment editing for the payer or trip creator.
+- Audited payment-entry soft deletion; confirmed payments are removed from active calculations with zero-sum ledger reversal and automatic waiver recalculation.
 - Conditional trip actions based on lifecycle and active membership state.
 
 ### Changed
 - Expense edits now reverse the prior payer/allocation postings and apply replacement postings in a zero-sum ledger event.
 - Expense creation/editing validates active trip members as payers and beneficiaries; payment creation validates active payer/receiver membership.
-- Pending payment cancellation remains a status transition. Confirmed, disputed, and cancelled payments are immutable.
+- Payment deletion preserves original rows and ledger history; pending entries become cancelled, while confirmed entries are reversed and excluded from active totals.
 - Prisma interactive transaction defaults increased to a 10-second acquisition wait and 15-second execution timeout; permanent trip deletion uses a bounded 30-second cascade transaction.
 - Trip dashboard total-spent rendering is aligned with the API's `totalSpentPaise` field.
 - Android release workflow now requires a successful release build and generates the release manifest with the produced APK checksum.
