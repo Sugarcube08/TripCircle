@@ -96,6 +96,25 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
     }
   };
 
+  const handleDeleteTrip = async () => {
+    const confirmed = await dialog.confirm(
+      'Permanently Delete Trip',
+      'This permanently deletes the trip, members, expenses, payments, ledger records, and related metadata for every participant. This cannot be undone. Export a report first if you need a copy.',
+      { confirmText: 'Permanently Delete', destructive: true }
+    );
+    if (!confirmed) return;
+    try {
+      setActionLoading(true);
+      await apiRequest(`/trips/${tripId}`, { method: 'DELETE' });
+      await dialog.alert('Trip Deleted', 'The trip has been permanently deleted.', 'success');
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    } catch (err) {
+      dialog.alert('Delete Failed', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleLeaveTrip = async () => {
     const confirmed = await dialog.confirm(
       'Leave Trip',
@@ -242,6 +261,20 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
               <Text style={styles.leaveBtnText}>Leave Trip</Text>
             </TouchableOpacity>
           )}
+
+          {isCreator ? (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.deleteTripBtn]}
+              onPress={handleDeleteTrip}
+              disabled={actionLoading}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Permanently delete trip"
+            >
+              <Ionicons name="trash-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
+              <Text style={styles.deleteTripBtnText}>Permanently Delete Trip</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {actionLoading && <ActivityIndicator color={THEME.colors.primary} style={{ marginTop: 12 }} />}
         </View>
@@ -398,6 +431,17 @@ const styles = StyleSheet.create({
   reopenBtn: {
     backgroundColor: THEME.colors.primary,
     ...THEME.shadows.sm,
+  },
+  deleteTripBtn: {
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.debt,
+    backgroundColor: THEME.colors.debtBg,
+  },
+  deleteTripBtnText: {
+    color: THEME.colors.debt,
+    fontSize: 14,
+    fontWeight: '700',
   },
   leaveBtn: {
     borderWidth: 1.5,
