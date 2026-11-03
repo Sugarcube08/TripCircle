@@ -387,7 +387,7 @@ export class TripService {
       where: { id: tripId },
       include: {
         members: { select: { id: true, userId: true, role: true } },
-        expenses: { select: { receiptUrl: true } },
+        expenses: { select: { receiptUrl: true, revisions: { select: { receiptUrl: true } } } },
         files: { select: { publicUrl: true } },
       },
     });
@@ -400,7 +400,7 @@ export class TripService {
 
     const mediaUrls = [
       trip.coverImageUrl,
-      ...trip.expenses.map((expense) => expense.receiptUrl),
+      ...trip.expenses.flatMap((expense) => [expense.receiptUrl, ...expense.revisions.map((revision) => revision.receiptUrl)]),
       ...trip.files.map((file) => file.publicUrl),
     ].filter((url): url is string => Boolean(url));
 
@@ -415,7 +415,14 @@ export class TripService {
           details: { tripName: trip.name, mediaCount: mediaUrls.length },
         },
       });
-      await tx.fileMetadata.deleteMany({ where: { tripId } });
+      await tx.fileMetadata.deleteMany({
+        where: {
+          OR: [
+            { tripId },
+            ...(mediaUrls.length > 0 ? [{ publicUrl: { in: mediaUrls } }] : []),
+          ],
+        },
+      });
       await tx.trip.delete({ where: { id: tripId } });
     }, { maxWait: 10_000, timeout: 30_000 });
 
