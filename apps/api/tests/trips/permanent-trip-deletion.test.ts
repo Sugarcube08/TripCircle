@@ -4,8 +4,8 @@ import { AuthService } from '../../src/modules/auth/service';
 import { TripService } from '../../src/modules/trips/service';
 
 describe('Permanent trip deletion', () => {
-  let userId: string;
-  let tripId: string;
+  let userId: string | null = null;
+  let tripId: string | null = null;
 
   beforeAll(async () => {
     const suffix = Date.now();
@@ -26,7 +26,7 @@ describe('Permanent trip deletion', () => {
   });
 
   afterAll(async () => {
-    if (tripId) await prisma.trip.deleteMany({ where: { id: tripId } });
+    if (tripId) await prisma.trip.deleteMany({ where: { id: tripId! } });
     if (userId) await prisma.user.deleteMany({ where: { id: userId } });
   });
 
@@ -34,6 +34,6 @@ describe('Permanent trip deletion', () => {
     const result = await TripService.deleteTrip(tripId, userId);
     expect(result).toEqual({ id: tripId, deleted: true });
     expect(await prisma.trip.findUnique({ where: { id: tripId } })).toBeNull();
-    expect(await prisma.tripMember.count({ where: { tripId } })).toBe(0);
+    expect(await prisma.tripMember.count({ where: { tripId: tripId! } })).toBe(0);
   });
 });
