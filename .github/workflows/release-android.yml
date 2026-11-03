@@ -108,7 +108,7 @@ jobs:
           if [[ "$REF_TAG" =~ ^v ]]; then
             VER="${REF_TAG#v}"
           else
-            VER="${{ github.event.inputs.version_name || '1.0.1' }}"
+            VER="${{ github.event.inputs.version_name || '1.2.0-alpha' }}"
           fi
           echo "version=$VER" >> $GITHUB_OUTPUT
 
@@ -116,7 +116,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name || format('v{0}', steps.apk_info.outputs.version) }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.apk_info.outputs.version) || github.ref_name }}
           name: TripCircle v${{ steps.apk_info.outputs.version }}
           body: |
             ## TripCircle v${{ steps.apk_info.outputs.version }}

@@ -414,7 +414,33 @@ export class PaymentService {
     return payments;
   }
 
-  static async getPaymentDetail(tripId: string, paymentId: string) {
+  static async updatePendingPayment(tripId: string, paymentId: string, currentUserId: string, input: { amountPaise: number; paymentMethod: 'UPI' | 'CASH' | 'OTHER'; note?: string | null; receiptUrl?: string | null }) {
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({ where: { id: paymentId, tripId }, include: { payerMember: true } });
+      if (!payment) throw new Error('Payment not found');
+      if (payment.status !== 'PENDING') throw new Error('Only pending payments can be edited');
+      const member = await tx.tripMember.findUnique({ where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true } });
+      if (!member || (payment.payerMember.userId !== currentUserId && member.role !== 'CREATOR')) throw new Error('Forbidden: Only the payer or trip creator can edit this payment');
+      return tx.payment.update({ where: { id: paymentId }, data: { amountPaise: input.amountPaise, paymentMethod: input.paymentMethod, ...(input.note !== undefined ? { note: input.note } : {}), ...(input.receiptUrl !== undefined ? { receiptUrl: input.receiptUrl } : {}) }, include: { payerMember: { include: { user: true } }, receiverMember: { include: { user: true } } } });
+    }, { maxWait: 10000, timeout: 15000 });
+  }
+
+  static async deletePayment(tripId: string, paymentId: string, currentUserId: string) {
+    const payment = await prisma.payment.findFirst({ where: { id: paymentId, tripId }, include: { payerMember: true } });
+    if (!payment) throw new Error('Payment not found');
+    if (payment.status === 'CONFIRMED') throw new Error('Confirmed payments cannot be permanently deleted; preserve the financial audit trail and record a correcting transaction instead');
+    const member = await prisma.tripMember.findUnique({ where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true } });
+    if (!member || (payment.payerMember.userId !== currentUserId && member.role !== 'CREATOR')) throw new Error('Forbidden: Only the payer or trip creator can permanently delete this payment');
+    await prisma.$transaction(async (tx) => {
+      await tx.settlementDiscount.deleteMany({ where: { paymentId } });
+      await tx.ledgerEntry.deleteMany({ where: { tripId, referenceId: paymentId } });
+      await tx.payment.delete({ where: { id: paymentId } });
+      await tx.auditLog.create({ data: { userId: currentUserId, tripId, action: 'DELETE_PAYMENT', entityType: 'PAYMENT', entityId: paymentId } });
+    }, { maxWait: 10000, timeout: 15000 });
+    return { id: paymentId, deleted: true };
+  }
+
+  static async getPaymentDetail(tripId: string, paymentId: string, currentUserId: string) {
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -423,10 +449,10 @@ export class PaymentService {
       },
     });
 
-    if (!payment || payment.tripId !== tripId) {
-      throw new Error('Payment not found');
-    }
-
-    return payment;
+    if (!payment || payment.tripId !== tripId) throw new Error('Payment not found');
+    const member = await prisma.tripMember.findUnique({ where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true } });
+    if (!member) throw new Error('Forbidden: You are not a member of this trip');
+    const canManage = payment.payerMember.userId === currentUserId || member.role === 'CREATOR';
+    return { ...payment, permissions: { canEdit: canManage && payment.status === 'PENDING', canDelete: canManage && payment.status !== 'CONFIRMED' } };
   }
 }

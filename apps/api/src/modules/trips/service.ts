@@ -316,6 +316,7 @@ export class TripService {
       memberCount: trip.members.filter((m) => m.status === 'ACTIVE').length,
       expenseCount: trip.expenses.length,
       totalExpensePaise,
+      totalSpentPaise: totalExpensePaise,
       userNetBalancePaise,
       currentMemberId: currentMember.id,
       creator: trip.creator,
@@ -439,6 +440,26 @@ export class TripService {
     });
 
     return trip;
+  }
+
+  static async deleteTrip(tripId: string, userId: string) {
+    const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { id: true, creatorId: true, coverImageUrl: true } });
+    if (!trip) throw new Error('Trip not found');
+    if (trip.creatorId !== userId) throw new Error('Forbidden: Only the trip creator can permanently delete this trip');
+    const receipts = await prisma.expense.findMany({ where: { tripId }, select: { receiptUrl: true } });
+    await prisma.$transaction(async (tx) => {
+      await tx.settlementDiscount.deleteMany({ where: { tripId } });
+      await tx.ledgerEntry.deleteMany({ where: { tripId } });
+      await tx.payment.deleteMany({ where: { tripId } });
+      await tx.expense.deleteMany({ where: { tripId } });
+      await tx.tripMember.deleteMany({ where: { tripId } });
+      await tx.notification.deleteMany({ where: { tripId } });
+      await tx.fileMetadata.deleteMany({ where: { tripId } });
+      await tx.trip.delete({ where: { id: tripId } });
+    }, { maxWait: 10000, timeout: 20000 });
+    const urls = [trip.coverImageUrl, ...receipts.map((row) => row.receiptUrl)].filter((url): url is string => Boolean(url));
+    await Promise.allSettled(urls.map((url) => StorageService.deleteMediaByUrl(url)));
+    return { id: tripId, deleted: true };
   }
 
   static async leaveTrip(tripId: string, userId: string) {

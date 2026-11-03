@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Typecheck, financial tests and release manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @tripcircle/api exec prisma generate
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/tripcircle_ci
+
+      - name: Build shared contracts
+        run: pnpm --filter @tripcircle/contracts build
+
+      - name: Workspace typecheck
+        run: pnpm typecheck
+
+      - name: Financial regression tests
+        run: pnpm test:financial
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/tripcircle_ci
+          JWT_SECRET: ci-only-not-a-real-secret
+          NODE_ENV: test
+
+      - name: Validate release manifest
+        run: pnpm manifest:validate

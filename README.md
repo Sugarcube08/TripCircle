@@ -3,7 +3,7 @@
 **Effortless group travel expenses, transparent financial records, and mathematically verified settlements.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0-blue.svg)](https://github.com/Sugarcube08/TripCircle/releases)
+[![Release: v1.2.0-alpha](https://img.shields.io/badge/Release-v1.2.0--alpha-blue.svg)](https://github.com/Sugarcube08/TripCircle/releases)
 [![Platform: Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://github.com/Sugarcube08/TripCircle/releases/latest)
 [![Visual Guide](https://img.shields.io/badge/Documentation-Visual_Tour-10B981.svg)](docs/VISUAL_GUIDE.md)
 
