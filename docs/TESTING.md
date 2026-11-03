@@ -58,7 +58,7 @@ Simulates the complete 4-user acceptance scenario:
 
 ## Pull request CI (v1.2.0-alpha.1)
 
-The `.github/workflows/ci.yml` workflow runs on pull requests and pushes to the primary development branches. It installs the frozen pnpm workspace, generates the Prisma client against a disposable MySQL URL, typechecks the contracts/API/mobile workspaces, validates the release manifest, and runs the API Vitest suite. It deliberately does not require the Android SDK; Android APK packaging remains isolated in the tag/manual release workflow.
+The `.github/workflows/ci.yml` workflow runs on pull requests and pushes to the primary development branches. It starts an ephemeral MySQL 8 service, installs the frozen pnpm workspace, generates the Prisma client, applies migrations, typechecks the contracts/API/mobile workspaces, validates the release manifest, and runs the API Vitest suite against that database. It deliberately does not require the Android SDK; Android APK packaging remains isolated in the tag/manual release workflow.
 
 For a release candidate, run locally:
 

@@ -17,12 +17,28 @@ jobs:
   validate:
     name: Workspace validation
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: tripcircle
+          MYSQL_USER: test
+          MYSQL_PASSWORD: test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     env:
       DATABASE_URL: mysql://test:test@127.0.0.1:3306/tripcircle
       JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
       JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters
       NODE_ENV: test
+      DATABASE_CONNECTION_LIMIT: '5'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,6 +58,9 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @tripcircle/api exec prisma generate
+
+      - name: Apply database migrations
+        run: pnpm --filter @tripcircle/api db:migrate
 
       - name: Typecheck all workspaces
         run: pnpm typecheck
