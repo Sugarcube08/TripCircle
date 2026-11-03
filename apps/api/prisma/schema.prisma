@@ -179,6 +179,7 @@ model TripMember {
 
   @@unique([tripId, userId])
   @@index([tripId, status])
+  @@index([tripId, isDeleted, status])
   @@index([userId])
   @@index([userId, status])
 }
