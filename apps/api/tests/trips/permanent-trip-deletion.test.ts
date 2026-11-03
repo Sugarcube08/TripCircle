@@ -16,7 +16,7 @@ describe('Permanent trip deletion', () => {
       paymentQrUrl: 'https://example.com/trip-delete-qr.png',
     });
     userId = user.userId;
-    const trip = await TripService.createTrip(userId, {
+    const trip = await TripService.createTrip(userId!, {
       name: 'Trip To Delete',
       currency: 'INR',
       startDate: new Date().toISOString(),
@@ -31,9 +31,9 @@ describe('Permanent trip deletion', () => {
   });
 
   it('permanently deletes a creator-owned trip and cascaded members', async () => {
-    const result = await TripService.deleteTrip(tripId, userId);
+    const result = await TripService.deleteTrip(tripId!, userId!);
     expect(result).toEqual({ id: tripId, deleted: true });
-    expect(await prisma.trip.findUnique({ where: { id: tripId } })).toBeNull();
+    expect(await prisma.trip.findUnique({ where: { id: tripId! } })).toBeNull();
     expect(await prisma.tripMember.count({ where: { tripId: tripId! } })).toBe(0);
   });
 });
