@@ -73,6 +73,21 @@ export class ExpenseService {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
       }
 
+      const payer = await tx.tripMember.findFirst({
+        where: { id: input.payerMemberId, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (!payer) throw new Error('Invalid payer: choose an active member of this trip');
+
+      const beneficiaryIds = calculatedAllocations.map((allocation) => allocation.memberId);
+      const validMembers = await tx.tripMember.findMany({
+        where: { id: { in: beneficiaryIds }, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (validMembers.length !== new Set(beneficiaryIds).size) {
+        throw new Error('One or more beneficiaries are not active members of this trip');
+      }
+
       // Batched verification: all beneficiaries must be members of this trip
       const beneficiaryMemberIds = calculatedAllocations.map((a) => a.memberId);
       const validMembers = await tx.tripMember.findMany({
@@ -268,21 +283,6 @@ export class ExpenseService {
 
       if (!currentMember || (expense.submitterId !== currentUserId && currentMember.role !== 'CREATOR')) {
         throw new Error('Forbidden: You can only edit expenses you submitted');
-      }
-
-      const payer = await tx.tripMember.findFirst({
-        where: { id: input.payerMemberId, tripId, status: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (!payer) throw new Error('Invalid payer: choose an active member of this trip');
-
-      const beneficiaryIds = calculatedAllocations.map((allocation) => allocation.memberId);
-      const validMembers = await tx.tripMember.findMany({
-        where: { id: { in: beneficiaryIds }, tripId, status: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (validMembers.length !== new Set(beneficiaryIds).size) {
-        throw new Error('One or more beneficiaries are not active members of this trip');
       }
 
       // Calculate or validate allocations
