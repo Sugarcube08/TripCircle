@@ -1,3 +1,40 @@
+import { prisma } from '../../lib/prisma';
+import { CreateExpenseInput, EditExpenseInput, EXPENSE_CATEGORIES } from '@tripcircle/contracts';
+import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
+import { createOutboxEvent } from '../../lib/outbox';
+import { StorageService } from '../../infrastructure/storage';
+
+/**
+ * Normalizes an expense description at the backend boundary.
+ * If rawDescription is non-empty, trims and returns it.
+ * If omitted/cleared:
+ *  - when existingDescription is provided (editing without clearing), preserves it.
+ *  - otherwise falls back to category name, or 'Expense'.
+ */
+export function normalizeExpenseDescription(
+  rawDescription?: string | null,
+  categoryName?: string | null,
+  existingDescription?: string | null
+): string {
+  if (rawDescription === undefined && existingDescription) {
+    const trimmedExisting = existingDescription.trim();
+    if (trimmedExisting.length > 0) return trimmedExisting;
+  }
+
+  const trimmed = rawDescription?.trim();
+  if (trimmed && trimmed.length > 0) {
+    return trimmed;
+  }
+
+  const trimmedCategory = categoryName?.trim();
+  if (trimmedCategory && trimmedCategory.length > 0) {
+    return trimmedCategory;
+  }
+
+  return 'Expense';
+}
+
+export class ExpenseService {
 static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
     return prisma.$transaction(async (tx) => {
       // 1. Verify submitter is active member
