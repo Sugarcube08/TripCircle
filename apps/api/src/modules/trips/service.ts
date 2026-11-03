@@ -382,6 +382,47 @@ export class TripService {
     return updated;
   }
 
+  static async deleteTrip(tripId: string, userId: string) {
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        members: { select: { id: true, userId: true, role: true } },
+        expenses: { where: { isDeleted: false }, select: { receiptUrl: true } },
+        files: { select: { publicUrl: true } },
+      },
+    });
+    if (!trip) throw new Error('Trip not found');
+
+    const currentMember = trip.members.find((member) => member.userId === userId);
+    if (!currentMember || currentMember.role !== 'CREATOR') {
+      throw new Error('Forbidden: Only the trip creator can permanently delete this trip');
+    }
+
+    const mediaUrls = [
+      trip.coverImageUrl,
+      ...trip.expenses.map((expense) => expense.receiptUrl),
+      ...trip.files.map((file) => file.publicUrl),
+    ].filter((url): url is string => Boolean(url));
+
+    await prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          userId,
+          tripId,
+          action: 'DELETE_TRIP',
+          entityType: 'TRIP',
+          entityId: tripId,
+          details: { tripName: trip.name, mediaCount: mediaUrls.length },
+        },
+      });
+      await tx.trip.delete({ where: { id: tripId } });
+    });
+
+    // Object storage is external to MySQL; clean it only after the DB commit.
+    await Promise.allSettled(mediaUrls.map((url) => StorageService.deleteMediaByUrl(url)));
+    return { id: tripId, deleted: true };
+  }
+
   static async closeTrip(tripId: string, userId: string) {
     const member = await prisma.tripMember.findUnique({
       where: { tripId_userId: { tripId, userId } },
