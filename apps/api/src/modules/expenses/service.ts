@@ -79,6 +79,7 @@ export class ExpenseService {
         where: {
           id: { in: beneficiaryMemberIds },
           tripId,
+          status: 'ACTIVE',
         },
         select: { id: true },
       });
