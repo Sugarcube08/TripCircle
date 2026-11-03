@@ -5,11 +5,11 @@ import { TripService } from '../../src/modules/trips/service';
 import { PaymentService } from '../../src/modules/payments/service';
 
 describe('Pending payment edit lifecycle', () => {
-  let userA: { id: string };
-  let userB: { id: string };
-  let trip: { id: string };
-  let memberA: { id: string };
-  let memberB: { id: string };
+  let userA: any;
+  let userB: any;
+  let trip: any;
+  let memberA: any;
+  let memberB: any;
   let paymentId: string;
 
   beforeAll(async () => {
