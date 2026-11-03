@@ -181,7 +181,7 @@ function main() {
   }
 
   // 4. Construct manifest object
-  const defaultApkUrl = `https://github.com/Sugarcube08/TripCircle/releases/download/v${version}/TripCircle.apk`;
+  const defaultApkUrl = `https://github.com/Sugarcube08/TripCircle/releases/download/v${version}/TripCircle-release.apk`;
   const defaultReleaseUrl = `https://github.com/Sugarcube08/TripCircle/releases/tag/v${version}`;
 
   const manifest = {
@@ -192,7 +192,7 @@ function main() {
     releaseNotes,
     apkUrl: options.apkUrl || existingManifest?.apkUrl || defaultApkUrl,
     releaseUrl: options.releaseUrl || existingManifest?.releaseUrl || defaultReleaseUrl,
-    sha256: options.sha256 || existingManifest?.sha256 || '',
+    sha256: options.sha256 || '',
     mandatory: options.mandatory,
     publishedAt: new Date().toISOString(),
   };
