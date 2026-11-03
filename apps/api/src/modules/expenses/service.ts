@@ -2,7 +2,6 @@ import { prisma } from '../../lib/prisma';
 import { CreateExpenseInput, EditExpenseInput, EXPENSE_CATEGORIES } from '@tripcircle/contracts';
 import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
 import { createOutboxEvent } from '../../lib/outbox';
-import { StorageService } from '../../infrastructure/storage';
 
 /**
  * Normalizes an expense description at the backend boundary.
@@ -59,6 +58,9 @@ export class ExpenseService {
       });
       if (!payer || payer.tripId !== tripId) {
         throw new Error('Invalid payer: member not found in this trip');
+      }
+      if (payer.status !== 'ACTIVE') {
+        throw new Error('The payer must be an active trip member');
       }
 
       // 4. Calculate or validate allocations
@@ -237,7 +239,6 @@ export class ExpenseService {
     currentUserId: string,
     input: EditExpenseInput
   ) {
-    let obsoleteReceiptUrl: string | null = null;
     const updatedExpense = await prisma.$transaction(async (tx) => {
       const expense = await tx.expense.findUnique({
         where: { id: expenseId },
@@ -266,6 +267,21 @@ export class ExpenseService {
 
       if (!currentMember || (expense.submitterId !== currentUserId && currentMember.role !== 'CREATOR')) {
         throw new Error('Forbidden: You can only edit expenses you submitted');
+      }
+
+      const payer = await tx.tripMember.findFirst({
+        where: { id: input.payerMemberId, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (!payer) throw new Error('Invalid payer: choose an active member of this trip');
+
+      const beneficiaryIds = calculatedAllocations.map((allocation) => allocation.memberId);
+      const validMembers = await tx.tripMember.findMany({
+        where: { id: { in: beneficiaryIds }, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (validMembers.length !== new Set(beneficiaryIds).size) {
+        throw new Error('One or more beneficiaries are not active members of this trip');
       }
 
       // Calculate or validate allocations
@@ -308,14 +324,7 @@ export class ExpenseService {
         expense.description
       );
 
-      // If receiptUrl was replaced, remove previously saved receipt media
-      if (
-        input.receiptUrl !== undefined &&
-        expense.receiptUrl &&
-        input.receiptUrl !== expense.receiptUrl
-      ) {
-        obsoleteReceiptUrl = expense.receiptUrl;
-      }
+      // Keep prior receipt objects: immutable ExpenseRevision records reference them.
 
       const nextVersion = expense.version + 1;
 
@@ -437,12 +446,6 @@ export class ExpenseService {
       return updatedExpense;
     });
 
-    // Keep external object-storage I/O outside the database transaction.
-    if (obsoleteReceiptUrl) {
-      void StorageService.deleteMediaByUrl(obsoleteReceiptUrl).catch(() => {
-        // Cleanup is best-effort after the database update has committed.
-      });
-    }
     return updatedExpense;
   }
 
@@ -559,7 +562,7 @@ export class ExpenseService {
       },
     });
 
-    if (!expense || expense.tripId !== tripId) {
+    if (!expense || expense.tripId !== tripId || expense.isDeleted) {
       throw new Error('Expense not found');
     }
 
