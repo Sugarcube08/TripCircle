@@ -34,7 +34,6 @@ jobs:
     env:
       DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
       TEST_DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
-      NODE_ENV: test
 
     steps:
       - name: Checkout
