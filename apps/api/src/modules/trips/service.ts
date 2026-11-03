@@ -415,8 +415,9 @@ export class TripService {
           details: { tripName: trip.name, mediaCount: mediaUrls.length },
         },
       });
+      await tx.fileMetadata.deleteMany({ where: { tripId } });
       await tx.trip.delete({ where: { id: tripId } });
-    });
+    }, { maxWait: 10_000, timeout: 30_000 });
 
     // Object storage is external to MySQL; clean it only after the DB commit.
     await Promise.allSettled(mediaUrls.map((url) => StorageService.deleteMediaByUrl(url)));
