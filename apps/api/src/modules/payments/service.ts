@@ -19,6 +19,17 @@ export class PaymentService {
           if (existing.tripId !== tripId || existing.payerMemberId !== input.payerMemberId || existing.receiverMemberId !== input.receiverMemberId) {
             throw new Error('Idempotency key is already associated with a different payment');
           }
+          const requesterMembership = await tx.tripMember.findFirst({
+            where: { tripId, userId: currentUserId },
+            select: { role: true },
+          });
+          const isAuthorizedRetry =
+            existing.payerMember.userId === currentUserId ||
+            (existing.payerMember.isDummy && existing.receiverMember.userId === currentUserId) ||
+            requesterMembership?.role === 'CREATOR';
+          if (!isAuthorizedRetry) {
+            throw new Error('Forbidden: You are not authorized to access this payment');
+          }
           return existing;
         }
       }
