@@ -1,0 +1,250 @@
+name: Android CD (Build APK & AAB)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/contracts/**'
+      - '.github/workflows/cd-android.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - 'release'
+          - 'debug'
+      version_name:
+        description: 'Semantic Version override (leave blank to use app.json)'
+        required: false
+        default: ''
+      version_code:
+        description: 'Android Version Code override (leave blank to use app.json)'
+        required: false
+        default: ''
+
+concurrency:
+  group: cd-android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Build Android APK & AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Gradle Caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Resolve Version Metadata
+        id: meta
+        shell: bash
+        run: |
+          CURRENT_VERSION=$(node -p "require('./apps/mobile/app.json').expo.version || '1.2.0-alpha.1'")
+          CURRENT_CODE=$(node -p "require('./apps/mobile/app.json').expo.android?.versionCode || 2")
+          
+          REQ_VERSION="${{ github.event.inputs.version_name }}"
+          REQ_CODE="${{ github.event.inputs.version_code }}"
+          
+          VERSION="${REQ_VERSION:-$CURRENT_VERSION}"
+          VERSION_CODE="${REQ_CODE:-$CURRENT_CODE}"
+          
+          # Update apps/mobile/app.json if overrides were passed
+          node -e "
+            const fs = require('fs');
+            const p = 'apps/mobile/app.json';
+            const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            j.expo.version = '$VERSION';
+            if (!j.expo.android) j.expo.android = {};
+            j.expo.android.versionCode = Number('$VERSION_CODE');
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          "
+          
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+          echo "Resolved Version: v$VERSION (Build Code: $VERSION_CODE, Type: $BUILD_TYPE)"
+
+      - name: Install Workspace Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @tripcircle/api db:generate
+
+      - name: Build Shared Contracts
+        run: pnpm --filter @tripcircle/contracts build
+
+      - name: Prebuild Native Android Project
+        run: |
+          cd apps/mobile
+          npx expo prebuild --platform android --no-install
+
+      - name: Build Android APK
+        shell: bash
+        run: |
+          cd apps/mobile/android
+          chmod +x ./gradlew
+          BUILD_TYPE="${{ steps.meta.outputs.build_type }}"
+          if [ "$BUILD_TYPE" = "debug" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            ./gradlew assembleRelease --stacktrace
+          fi
+
+      - name: Build Android App Bundle (AAB)
+        shell: bash
+        run: |
+          cd apps/mobile/android
+          BUILD_TYPE="${{ steps.meta.outputs.build_type }}"
+          if [ "$BUILD_TYPE" = "debug" ]; then
+            ./gradlew bundleDebug --stacktrace
+          else
+            ./gradlew bundleRelease --stacktrace
+          fi
+
+      - name: Locate, Verify & Package Artifacts
+        id: package
+        shell: bash
+        run: |
+          mkdir -p dist/artifacts
+          
+          VERSION="${{ steps.meta.outputs.version }}"
+          BUILD_CODE="${{ steps.meta.outputs.version_code }}"
+          BUILD_TYPE="${{ steps.meta.outputs.build_type }}"
+          
+          # Find APK
+          APK_RAW=$(find apps/mobile/android/app/build/outputs/apk -name "*.apk" | grep -i "$BUILD_TYPE" | head -n 1)
+          if [ -z "$APK_RAW" ]; then
+            APK_RAW=$(find apps/mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
+          
+          # Find AAB
+          AAB_RAW=$(find apps/mobile/android/app/build/outputs/bundle -name "*.aab" | grep -i "$BUILD_TYPE" | head -n 1)
+          if [ -z "$AAB_RAW" ]; then
+            AAB_RAW=$(find apps/mobile/android/app/build/outputs/bundle -name "*.aab" | head -n 1)
+          fi
+          
+          if [ -z "$APK_RAW" ]; then
+            echo "::error::No APK built in output directories!"
+            exit 1
+          fi
+          
+          if [ -z "$AAB_RAW" ]; then
+            echo "::error::No AAB built in output directories!"
+            exit 1
+          fi
+          
+          APK_NAME="TripCircle-v${VERSION}-${BUILD_TYPE}.apk"
+          AAB_NAME="TripCircle-v${VERSION}-${BUILD_TYPE}.aab"
+          
+          cp "$APK_RAW" "dist/artifacts/$APK_NAME"
+          cp "$AAB_RAW" "dist/artifacts/$AAB_NAME"
+          
+          APK_SHA=$(sha256sum "dist/artifacts/$APK_NAME" | awk '{print $1}')
+          AAB_SHA=$(sha256sum "dist/artifacts/$AAB_NAME" | awk '{print $1}')
+          
+          APK_SIZE=$(ls -lh "dist/artifacts/$APK_NAME" | awk '{print $5}')
+          AAB_SIZE=$(ls -lh "dist/artifacts/$AAB_NAME" | awk '{print $5}')
+          
+          cat <<EOF > dist/artifacts/checksums.txt
+          TripCircle Build Verification
+          Version: v${VERSION} (Build ${BUILD_CODE})
+          Type: ${BUILD_TYPE}
+          Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          ${APK_SHA}  ${APK_NAME} (${APK_SIZE})
+          ${AAB_SHA}  ${AAB_NAME} (${AAB_SIZE})
+          EOF
+          
+          echo "apk_path=dist/artifacts/$APK_NAME" >> $GITHUB_OUTPUT
+          echo "aab_path=dist/artifacts/$AAB_NAME" >> $GITHUB_OUTPUT
+          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+          echo "aab_name=$AAB_NAME" >> $GITHUB_OUTPUT
+          echo "apk_sha=$APK_SHA" >> $GITHUB_OUTPUT
+          echo "aab_sha=$AAB_SHA" >> $GITHUB_OUTPUT
+          echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
+          echo "aab_size=$AAB_SIZE" >> $GITHUB_OUTPUT
+          
+          # Generate GitHub Step Summary Markdown
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          ## 📱 TripCircle Android Build Artifacts (v${VERSION})
+
+          | Artifact | Format | Size | SHA-256 Checksum |
+          | :--- | :--- | :--- | :--- |
+          | **${APK_NAME}** | Direct Install APK | \`${APK_SIZE}\` | \`${APK_SHA}\` |
+          | **${AAB_NAME}** | Google Play Bundle | \`${AAB_SIZE}\` | \`${AAB_SHA}\` |
+
+          ### ⬇️ How to Download
+          1. Scroll down to the **Artifacts** section at the bottom of this run summary page.
+          2. Download **\`TripCircle-APK\`** to install directly on your Android device.
+          3. Download **\`TripCircle-AAB\`** for upload to Google Play Console.
+          EOF
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripCircle-APK
+          path: ${{ steps.package.outputs.apk_path }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripCircle-AAB
+          path: ${{ steps.package.outputs.aab_path }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Combined Artifact Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripCircle-Android-All
+          path: dist/artifacts/
+          retention-days: 30
+          if-no-files-found: error

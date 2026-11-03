@@ -122,13 +122,13 @@ jobs:
           cd apps/mobile
           npx expo prebuild --platform android --no-install
 
-      - name: Build Android Release APK
+      - name: Build Android Release APK and AAB
         run: |
           cd apps/mobile/android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease bundleRelease --stacktrace
 
-      - name: Locate Built APK and Compute Checksum
+      - name: Locate Built Artifacts and Compute Checksums
         id: apk_info
         run: |
           APK_PATH=$(find apps/mobile/android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
@@ -136,11 +136,22 @@ jobs:
             echo "ERROR: APK not found!"
             exit 1
           fi
+          AAB_PATH=$(find apps/mobile/android/app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          if [ -z "$AAB_PATH" ]; then
+            echo "ERROR: AAB not found!"
+            exit 1
+          fi
           echo "Found APK at: $APK_PATH"
+          echo "Found AAB at: $AAB_PATH"
           cp "$APK_PATH" ./TripCircle-release.apk
-          SHA256_HASH=$(sha256sum ./TripCircle-release.apk | awk '{print $1}')
-          echo "sha256=$SHA256_HASH" >> $GITHUB_OUTPUT
-          echo "SHA256: $SHA256_HASH"
+          cp "$AAB_PATH" ./TripCircle-release.aab
+          
+          SHA256_APK=$(sha256sum ./TripCircle-release.apk | awk '{print $1}')
+          SHA256_AAB=$(sha256sum ./TripCircle-release.aab | awk '{print $1}')
+          echo "sha256=$SHA256_APK" >> $GITHUB_OUTPUT
+          echo "sha256_aab=$SHA256_AAB" >> $GITHUB_OUTPUT
+          echo "APK SHA256: $SHA256_APK"
+          echo "AAB SHA256: $SHA256_AAB"
 
           # Determine Tag and Version
           REF_TAG="${{ github.ref_name }}"
@@ -151,6 +162,20 @@ jobs:
           fi
           echo "version=$VER" >> $GITHUB_OUTPUT
 
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripCircle-Release-APK
+          path: TripCircle-release.apk
+          retention-days: 30
+
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripCircle-Release-AAB
+          path: TripCircle-release.aab
+          retention-days: 30
+
       - name: Generate release version manifest
         run: |
           node scripts/generate-version-manifest.mjs \
@@ -160,7 +185,6 @@ jobs:
             --sha256 "${{ steps.apk_info.outputs.sha256 }}" \
             --apk-url "https://github.com/${{ github.repository }}/releases/download/v${{ steps.apk_info.outputs.version }}/TripCircle-release.apk" \
             --release-url "https://github.com/${{ github.repository }}/releases/tag/v${{ steps.apk_info.outputs.version }}"
-
 
       - name: Create GitHub Release
         id: create_release
@@ -174,10 +198,13 @@ jobs:
             ${{ github.event.inputs.release_notes || 'Release build with paise-exact financial ledger, secure R2 pre-registration QR onboarding, and in-app updates.' }}
             
             ### Artifact Integrity Verification
-            - **Filename:** `TripCircle-release.apk`
-            - **SHA-256 Checksum:** `${{ steps.apk_info.outputs.sha256 }}`
+            - **APK Filename:** `TripCircle-release.apk`
+            - **APK SHA-256:** `${{ steps.apk_info.outputs.sha256 }}`
+            - **AAB Filename:** `TripCircle-release.aab`
+            - **AAB SHA-256:** `${{ steps.apk_info.outputs.sha256_aab }}`
           files: |
             TripCircle-release.apk
+            TripCircle-release.aab
             version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
