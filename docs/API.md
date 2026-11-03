@@ -77,7 +77,7 @@ Retrieve trip dashboard details, members list with individual net balances, and 
 Update trip name, cover image, dates, or destination (Creator only).
 
 ### `DELETE /trips/:id`
-Permanently delete a trip (Creator only). This is destructive and removes its financial records, memberships, notifications, and trip file metadata.
+Permanently delete the trip (Creator only). Cascades trip members, expenses, payments, settlement records, and ledger rows; deletes associated file metadata and attempts object-storage cleanup. This operation is irreversible.
 
 ### `POST /trips/:id/close`
 Close the trip (Creator only). Blocks new expenses while preserving balance records.
@@ -120,12 +120,15 @@ Add a new expense. Affects balances immediately without approval.
 Get expense details and chronological revision history snapshots.
 
 ### `PUT /trips/:id/expenses/:expenseId`
-Edit an expense (submitter or trip creator).
+Edit an expense (submitter or trip creator). Every edit writes a revision and balanced reversal/replacement ledger postings.
 
 ### `DELETE /trips/:id/expenses/:expenseId`
-Permanently delete an expense (submitter or trip creator), including its allocations, revision snapshots, and ledger entries.
+Soft delete an expense (submitter or trip creator). Reverses active balances in a zero-sum ledger event, removes the expense from active totals, and preserves revision history for auditing.
 - **Body:** `{ payerMemberId, amountPaise, categoryId, description, splitMethod, allocations, expectedVersion, changeReason? }`
 - **Response:** `200 OK` on success, or `409 Conflict` if version mismatch.
+
+### `DELETE /trips/:id/expenses/:expenseId`
+Soft-delete an expense (submitter or trip creator). The expense is excluded from active totals and balances; its revision history remains available for audit, and the ledger receives a zero-sum reversal.
 
 ### `GET /categories`
 List available expense categories.
@@ -142,10 +145,12 @@ Record a new payment transfer. Usually `PENDING`; transfers involving offline/du
 - **Body:** `{ payerMemberId, receiverMemberId, amountPaise, paymentMethod, note?, receiptUrl?, idempotencyKey? }`
 
 ### `PUT /trips/:id/payments/:paymentId`
-Edit a pending payment (payer or trip creator). Confirmed, disputed, and cancelled payments are immutable.
+Edit a pending payment (payer or trip creator).
+- **Body:** `{ amountPaise, paymentMethod, note?, receiptUrl? }`
+- Only pending payments can be edited; confirmed, disputed, and cancelled payments are immutable.
 
-### `DELETE /trips/:id/payments/:paymentId/permanent`
-Permanently delete a payment (payer or trip creator), including related settlement discounts and ledger entries. The existing `DELETE /trips/:id/payments/:paymentId` endpoint continues to cancel a pending payment.
+### `DELETE /trips/:id/payments/:paymentId`
+Audited soft deletion for a payment entry (payer or trip creator). Pending payments become cancelled; confirmed payments undergo zero-sum ledger reversal and automatic sub-rupee waiver recalculation while preserving audit history. Compatible with `DELETE /trips/:id/payments/:paymentId/permanent`.
 
 ### `POST /trips/:id/payments/:paymentId/confirm`
 Confirm payment receipt (Receiver only). Updates balances and records ledger entries.
@@ -155,7 +160,7 @@ Dispute an unreceived or incorrect payment (Receiver only).
 - **Body:** `{ reason: string }`
 
 ### `DELETE /trips/:id/payments/:paymentId`
-Cancel a pending payment (Payer only).
+Soft-delete a payment entry (payer or trip creator). Pending payments transition to `CANCELLED`; confirmed payments receive a zero-sum ledger reversal and active settlement calculations are recomputed. The payment row, original ledger postings, and deletion audit remain stored. Disputed/cancelled entries are hidden from active lists without changing their history.
 
 ---
 

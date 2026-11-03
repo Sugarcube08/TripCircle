@@ -49,6 +49,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   // Dispute modal state
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
+  const [tripCreatorId, setTripCreatorId] = useState<string | null>(null);
 
   const loadPayment = useCallback(async () => {
     try {
@@ -65,7 +66,12 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 
   useEffect(() => {
     loadPayment();
-  }, [loadPayment]);
+    let active = true;
+    apiRequest(`/trips/${tripId}`)
+      .then((data) => { if (active) setTripCreatorId(data.creatorId || null); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [loadPayment, tripId]);
 
   if (loading) {
     return <LoadingIndicator message="Loading payment details..." />;
@@ -87,54 +93,12 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
   const isReceiver = payment.receiverMember?.userId === user?.id;
   const isPayer = payment.payerMember?.userId === user?.id;
   const isPending = payment.status === 'PENDING';
-  const canEdit = payment.permissions?.canEdit ?? (isPending && isPayer);
-  const canDelete = payment.permissions?.canDelete ?? isPayer;
+  const isTripCreator = tripCreatorId === user?.id;
+  const canEdit = payment.permissions?.canEdit ?? (isPending && (isPayer || isTripCreator));
+  const canConfirmOrDispute = isPending && (isReceiver || (payment.receiverMember?.isDummy && isTripCreator));
+  const canDeletePayment = payment.permissions?.canDelete ?? (!payment.isDeleted && (isPayer || isTripCreator));
   const payerName = payment.payerMember?.displayName || payment.payerMember?.user?.name || 'Payer';
   const receiverName = payment.receiverMember?.displayName || payment.receiverMember?.user?.name || 'Receiver';
-
-  const openEdit = () => {
-    setEditAmount((payment.amountPaise / 100).toFixed(2));
-    setEditNote(payment.note || '');
-    setEditMethod(payment.paymentMethod);
-    setEditModalVisible(true);
-  };
-
-  const handleUpdate = async () => {
-    const amountPaise = Math.round(Number(editAmount) * 100);
-    if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) {
-      dialog.alert('Invalid Amount', 'Enter a valid payment amount greater than zero.', 'warning');
-      return;
-    }
-    try {
-      setActionLoading(true);
-      const updated = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ amountPaise, paymentMethod: editMethod, note: editNote.trim() || null }),
-      });
-      setPayment(updated);
-      setEditModalVisible(false);
-      await dialog.alert('Payment Updated', 'The pending payment entry was updated.', 'success');
-    } catch (err) {
-      dialog.alert('Update Failed', (err as Error).message, 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handlePermanentDelete = async () => {
-    const confirmed = await dialog.confirm('Permanently Delete Payment', 'This removes the payment entry and associated settlement discounts and ledger rows. This cannot be undone.', { confirmText: 'Delete Payment', destructive: true });
-    if (!confirmed) return;
-    try {
-      setActionLoading(true);
-      await apiRequest(`/trips/${tripId}/payments/${paymentId}/permanent`, { method: 'DELETE' });
-      await dialog.alert('Payment Deleted', 'The payment entry was permanently deleted.', 'success');
-      navigation.goBack();
-    } catch (err) {
-      dialog.alert('Delete Failed', (err as Error).message, 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const handleConfirm = async () => {
     const confirmed = await dialog.confirm(
@@ -182,24 +146,55 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
     }
   };
 
-  const handleCancel = async () => {
-    const confirmed = await dialog.confirm(
-      'Cancel Payment',
-      'Are you sure you want to cancel this pending payment submission?',
-      { confirmText: 'Yes, Cancel', destructive: true }
-    );
+  const openEditModal = () => {
+    setEditAmount((payment.amountPaise / 100).toFixed(2));
+    setEditNote(payment.note || '');
+    setEditMethod(payment.paymentMethod || 'UPI');
+    setEditModalVisible(true);
+  };
 
-    if (!confirmed) return;
-
+  const handleUpdatePayment = async () => {
+    const amountPaise = Math.round((Number.parseFloat(editAmount) || 0) * 100);
+    if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) {
+      dialog.alert('Invalid Amount', 'Enter a valid amount greater than zero.', 'warning');
+      return;
+    }
     try {
       setActionLoading(true);
-      const cancelled = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
-        method: 'DELETE',
+      const updated = await apiRequest(`/trips/${tripId}/payments/${paymentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          amountPaise,
+          paymentMethod: editMethod,
+          note: editNote.trim() || null,
+        }),
       });
-      setPayment(cancelled);
-      await dialog.alert('Payment Cancelled', 'The pending payment was cancelled.', 'info');
+      setPayment(updated);
+      setEditModalVisible(false);
+      await dialog.alert('Payment Updated', 'The pending payment was updated and the change was recorded.', 'success');
     } catch (err) {
-      dialog.alert('Cancellation Failed', (err as Error).message, 'error');
+      dialog.alert('Update Failed', (err as Error).message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeletePayment = async () => {
+    const confirmed = await dialog.confirm(
+      'Delete Payment Entry',
+      payment.status === 'CONFIRMED'
+        ? 'This removes the payment from active totals and reverses its ledger effect. The original payment and reversal remain in the audit trail.'
+        : 'This removes the payment from active payment lists. Its record remains in the audit trail.',
+      { confirmText: 'Delete Payment', destructive: true }
+    );
+    if (!confirmed || actionLoading) return;
+    try {
+      setActionLoading(true);
+      await apiRequest(`/trips/${tripId}/payments/${paymentId}`, { method: 'DELETE' });
+      await dialog.alert('Payment Deleted', 'The payment entry was removed from active trip calculations.', 'success');
+      navigation.goBack();
+    } catch (err) {
+      dialog.alert('Delete Failed', (err as Error).message, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -211,8 +206,6 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
       <ScreenHeader title="Payment Details" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {canEdit ? <TouchableOpacity style={[styles.btn, styles.editPaymentBtn]} onPress={openEdit} disabled={actionLoading}><Ionicons name="create-outline" size={18} color={THEME.colors.primary} /><Text style={styles.editPaymentText}> Edit Pending Payment</Text></TouchableOpacity> : null}
-        {canDelete ? <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={handlePermanentDelete} disabled={actionLoading}><Ionicons name="trash-outline" size={18} color={THEME.colors.debt} /><Text style={styles.cancelBtnText}> Permanently Delete Entry</Text></TouchableOpacity> : null}
 
         {/* Main Status & Amount Card */}
         <View style={styles.heroCard}>
@@ -323,7 +316,7 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
         </View>
 
         {/* Action Controls for Receiver */}
-        {isPending && isReceiver && (
+        {canConfirmOrDispute && (
           <View style={styles.actionsContainer}>
             <TouchableOpacity
               style={[styles.btn, styles.confirmBtn]}
@@ -347,37 +340,81 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
           </View>
         )}
 
+        {/* Pending payment edits are permitted only before receiver confirmation. */}
+        {canEdit ? (
+          <TouchableOpacity
+            style={[styles.btn, styles.editPaymentBtn]}
+            onPress={openEditModal}
+            disabled={actionLoading}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="create-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.editPaymentBtnText}>Edit Pending Payment</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Action Controls for Payer */}
-        {isPending && isPayer && (
+        {canDeletePayment && (
           <TouchableOpacity
             style={[styles.btn, styles.cancelBtn]}
-            onPress={handleCancel}
+            onPress={handleDeletePayment}
             disabled={actionLoading}
             activeOpacity={0.85}
           >
             <Ionicons name="trash-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
-            <Text style={styles.cancelBtnText}>Cancel Pending Payment</Text>
+            <Text style={styles.cancelBtnText}>Delete Payment</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
 
-      <Modal visible={editModalVisible} animationType="slide" transparent onRequestClose={() => setEditModalVisible(false)}>
+      {/* Edit Pending Payment Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}><Text style={styles.modalTitle}>Edit Pending Payment</Text></View>
-            <Text style={styles.modalSubtitle}>Only pending transfers can be edited. Confirmed transfers remain immutable to protect the ledger.</Text>
-            <TextInput style={styles.modalInput} value={editAmount} onChangeText={setEditAmount} keyboardType="decimal-pad" placeholder="Amount (₹)" placeholderTextColor={THEME.colors.textLight} />
-            <View style={styles.editMethodRow}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="create-outline" size={22} color={THEME.colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.modalTitle}>Edit Pending Payment</Text>
+            </View>
+            <Text style={styles.modalSubtitle}>Only pending payments can be edited. Confirmed, disputed, and cancelled payments remain immutable.</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editAmount}
+              onChangeText={setEditAmount}
+              keyboardType="decimal-pad"
+              placeholder="Amount in ₹"
+              placeholderTextColor={THEME.colors.textLight}
+            />
+            <View style={styles.paymentMethodChoices}>
               {(['UPI', 'CASH', 'OTHER'] as const).map((method) => (
-                <TouchableOpacity key={method} style={[styles.editMethodChip, editMethod === method && styles.editMethodChipActive]} onPress={() => setEditMethod(method)}>
-                  <Text style={[styles.editMethodText, editMethod === method && styles.editMethodTextActive]}>{method}</Text>
+                <TouchableOpacity
+                  key={method}
+                  style={[styles.paymentMethodChoice, editMethod === method && styles.paymentMethodChoiceActive]}
+                  onPress={() => setEditMethod(method)}
+                >
+                  <Text style={[styles.paymentMethodChoiceText, editMethod === method && styles.paymentMethodChoiceTextActive]}>{method}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TextInput style={styles.modalInput} value={editNote} onChangeText={setEditNote} placeholder="Reference / note (optional)" placeholderTextColor={THEME.colors.textLight} />
+            <TextInput
+              style={styles.editInput}
+              value={editNote}
+              onChangeText={setEditNote}
+              placeholder="Reference / note (optional)"
+              placeholderTextColor={THEME.colors.textLight}
+              multiline
+            />
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalCancelBtn]} onPress={() => setEditModalVisible(false)}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalConfirmBtn]} onPress={handleUpdate} disabled={actionLoading}><Text style={styles.modalConfirmText}>Save Changes</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancelBtn]} onPress={() => setEditModalVisible(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalConfirmBtn]} onPress={handleUpdatePayment} disabled={actionLoading}>
+                <Text style={styles.modalConfirmText}>{actionLoading ? 'Saving…' : 'Save Changes'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -434,13 +471,6 @@ export const PaymentDetailScreen: React.FC<PaymentDetailScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  editMethodRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  editMethodChip: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: THEME.colors.border },
-  editMethodChipActive: { backgroundColor: THEME.colors.primaryLight, borderColor: THEME.colors.primary },
-  editMethodText: { color: THEME.colors.textSecondary, fontWeight: '600' },
-  editMethodTextActive: { color: THEME.colors.primary, fontWeight: '700' },
-  editPaymentBtn: { backgroundColor: THEME.colors.primaryLight, borderWidth: 1, borderColor: THEME.colors.primary, marginBottom: 8 },
-  editPaymentText: { color: THEME.colors.primary, fontWeight: '700' },
   container: {
     flex: 1,
     backgroundColor: THEME.colors.background,
@@ -656,6 +686,57 @@ const styles = StyleSheet.create({
     color: THEME.colors.debt,
     fontSize: 15,
     fontWeight: '700',
+  },
+  editPaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 46,
+    borderRadius: THEME.borderRadius.md,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primaryLight,
+  },
+  editPaymentBtnText: {
+    color: THEME.colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surfaceSubtle,
+    borderRadius: THEME.borderRadius.md,
+    padding: 12,
+    fontSize: 14,
+    marginBottom: 12,
+    color: THEME.colors.textPrimary,
+  },
+  paymentMethodChoices: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  paymentMethodChoice: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.borderRadius.md,
+  },
+  paymentMethodChoiceActive: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primaryLight,
+  },
+  paymentMethodChoiceText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.textSecondary,
+  },
+  paymentMethodChoiceTextActive: {
+    color: THEME.colors.primary,
   },
   cancelBtn: {
     flexDirection: 'row',

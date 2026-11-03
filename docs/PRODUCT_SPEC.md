@@ -84,3 +84,30 @@ For an exhaustive anatomical breakdown and live screenshots from the Android cli
 | **Member Profile** | `screenshots/Individual_Trip_Balance_Profile.jpg` | Person-to-person bilateral obligations and comprehensive out-of-pocket statistics. |
 | **User Profile** | `screenshots/Profile.jpg` | Personal account credentials, UPI payment QR code configuration, and version verification. |
 
+
+---
+
+## 8. Lifecycle, Permissions & Conditional Actions (v1.2.0-alpha)
+
+### Trip lifecycle
+- **ACTIVE trip:** active members may add expenses and record settlement payments.
+- **CLOSED trip:** new expenses are blocked and the mobile client hides the Add Expense action. Active members may still record settlement payments, confirm/dispute pending transfers, and export reports.
+- **Trip creator:** may close/reopen a trip, edit trip details, and permanently delete the trip.
+- **Ordinary member:** may leave the trip; a departed member cannot create new financial entries.
+- **Permanent deletion:** creator-only and irreversible. Trip-owned relational data and file metadata are removed; object-storage cleanup runs after the database commit.
+
+### Expense lifecycle
+- Expenses affect balances immediately after creation.
+- The submitter or trip creator may edit an active expense. Optimistic version checks prevent overwriting concurrent edits.
+- The submitter or trip creator may soft-delete an expense. It is excluded from active totals and balance calculations; the expense and revisions remain for audit. A zero-sum ledger reversal records the removal.
+- Historical receipt objects are retained while revision records reference them.
+
+### Payment lifecycle
+- A payment starts as `PENDING`, unless an offline-member rule permits immediate confirmation.
+- Only a pending payment may be edited by its payer or the trip creator.
+- The receiver may confirm or dispute a pending payment; the payer may cancel it.
+- `CONFIRMED`, `DISPUTED`, and `CANCELLED` payment states are not rewritten during deletion. The payer or trip creator may soft-delete a payment entry; confirmed payments receive a ledger reversal and automatic sub-rupee waivers are recalculated. The original row and audit history remain stored.
+- Trip closure does not prevent settlement activity; it prevents new expense creation.
+
+### Client rendering contract
+The mobile UI must render actions from server-backed `trip.status`, `membershipStatus`, `role`, `expense.submitterId`, and `payment.status`, not from optimistic assumptions. Loading, empty, unavailable, and stale-cache states must be distinct. Missing `user` relations for offline/dummy members are valid data and must render using `displayName` fallbacks rather than throwing.

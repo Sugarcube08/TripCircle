@@ -28,7 +28,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string; expenseId: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string; expenseId: string } }
+) {
   try {
     const authUser = await getAuthUser(req);
     const result = await ExpenseService.deleteExpense(params.id, params.expenseId, authUser.id);

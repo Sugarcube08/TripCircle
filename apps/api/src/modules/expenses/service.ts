@@ -2,7 +2,6 @@ import { prisma } from '../../lib/prisma';
 import { CreateExpenseInput, EditExpenseInput, EXPENSE_CATEGORIES } from '@tripcircle/contracts';
 import { calculateEqualSplit, validateUnequalSplit } from '../financial/calculator';
 import { createOutboxEvent } from '../../lib/outbox';
-import { StorageService } from '../../infrastructure/storage';
 
 /**
  * Normalizes an expense description at the backend boundary.
@@ -35,7 +34,7 @@ export function normalizeExpenseDescription(
 }
 
 export class ExpenseService {
-  static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
+static async createExpense(tripId: string, currentUserId: string, input: CreateExpenseInput) {
     return prisma.$transaction(async (tx) => {
       // 1. Verify submitter is active member
       const submitterMember = await tx.tripMember.findUnique({
@@ -60,6 +59,9 @@ export class ExpenseService {
       if (!payer || payer.tripId !== tripId) {
         throw new Error('Invalid payer: member not found in this trip');
       }
+      if (payer.status !== 'ACTIVE') {
+        throw new Error('The payer must be an active trip member');
+      }
 
       // 4. Calculate or validate allocations
       let calculatedAllocations: { memberId: string; sharePaise: number }[] = [];
@@ -77,6 +79,7 @@ export class ExpenseService {
         where: {
           id: { in: beneficiaryMemberIds },
           tripId,
+          status: 'ACTIVE',
         },
         select: { id: true },
       });
@@ -237,11 +240,10 @@ export class ExpenseService {
     currentUserId: string,
     input: EditExpenseInput
   ) {
-    let obsoleteReceiptUrl: string | null = null;
     const updatedExpense = await prisma.$transaction(async (tx) => {
       const expense = await tx.expense.findUnique({
         where: { id: expenseId },
-        include: { payerMember: true, category: true },
+        include: { payerMember: true, category: true, allocations: true },
       });
 
       if (!expense || expense.tripId !== tripId) {
@@ -277,6 +279,21 @@ export class ExpenseService {
         calculatedAllocations = validateUnequalSplit(input.amountPaise, input.allocations);
       }
 
+      const payer = await tx.tripMember.findFirst({
+        where: { id: input.payerMemberId, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (!payer) throw new Error('Invalid payer: choose an active member of this trip');
+
+      const beneficiaryIds = calculatedAllocations.map((allocation) => allocation.memberId);
+      const validMembers = await tx.tripMember.findMany({
+        where: { id: { in: beneficiaryIds }, tripId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (validMembers.length !== new Set(beneficiaryIds).size) {
+        throw new Error('One or more beneficiaries are not active members of this trip');
+      }
+
       // Category lookup - supports UUID id or standard category key
       let resolvedCategoryId = expense.categoryId;
       let categoryName = expense.category?.name;
@@ -308,14 +325,7 @@ export class ExpenseService {
         expense.description
       );
 
-      // If receiptUrl was replaced, remove previously saved receipt media
-      if (
-        input.receiptUrl !== undefined &&
-        expense.receiptUrl &&
-        input.receiptUrl !== expense.receiptUrl
-      ) {
-        obsoleteReceiptUrl = expense.receiptUrl;
-      }
+      // Keep prior receipt objects: immutable ExpenseRevision records reference them.
 
       const nextVersion = expense.version + 1;
 
@@ -375,20 +385,55 @@ export class ExpenseService {
         },
       });
 
-      // 4. Record ledger entry for the edit
-      await tx.ledgerEntry.create({
-        data: {
+      // 4. Reverse the previous posting and apply the replacement posting.
+      // Each edit therefore remains a zero-sum ledger event across all members.
+      const editLedgerRows = [
+        {
           tripId,
-          eventType: 'EXPENSE_EDITED',
+          eventType: 'EXPENSE_EDITED' as const,
+          referenceId: expense.id,
+          memberId: expense.payerMemberId,
+          creditPaise: 0,
+          debitPaise: expense.amountPaise,
+          netChangePaise: -expense.amountPaise,
+          balanceAfterPaise: 0,
+          description: `Reversal of previous payer posting: ${expense.description}`,
+        },
+        ...expense.allocations.map((allocation) => ({
+          tripId,
+          eventType: 'EXPENSE_EDITED' as const,
+          referenceId: expense.id,
+          memberId: allocation.memberId,
+          creditPaise: allocation.sharePaise,
+          debitPaise: 0,
+          netChangePaise: allocation.sharePaise,
+          balanceAfterPaise: 0,
+          description: `Reversal of previous share: ${expense.description}`,
+        })),
+        {
+          tripId,
+          eventType: 'EXPENSE_EDITED' as const,
           referenceId: expense.id,
           memberId: input.payerMemberId,
           creditPaise: input.amountPaise,
           debitPaise: 0,
-          netChangePaise: input.amountPaise - expense.amountPaise,
+          netChangePaise: input.amountPaise,
           balanceAfterPaise: 0,
-          description: `Updated expense: ${normalizedDescription} (v${nextVersion})`,
+          description: `New payer posting: ${normalizedDescription} (v${nextVersion})`,
         },
-      });
+        ...calculatedAllocations.map((allocation) => ({
+          tripId,
+          eventType: 'EXPENSE_EDITED' as const,
+          referenceId: expense.id,
+          memberId: allocation.memberId,
+          creditPaise: 0,
+          debitPaise: allocation.sharePaise,
+          netChangePaise: -allocation.sharePaise,
+          balanceAfterPaise: 0,
+          description: `New expense share: ${normalizedDescription} (v${nextVersion})`,
+        })),
+      ];
+      await tx.ledgerEntry.createMany({ data: editLedgerRows });
 
       // 5. Outbox & Notifications
       await createOutboxEvent(tx, 'EXPENSE', expense.id, 'EXPENSE_EDITED', {
@@ -402,19 +447,90 @@ export class ExpenseService {
       return updatedExpense;
     });
 
-    // Keep external object-storage I/O outside the database transaction.
-    if (obsoleteReceiptUrl) {
-      void StorageService.deleteMediaByUrl(obsoleteReceiptUrl).catch(() => {
-        // Cleanup is best-effort after the database update has committed.
-      });
-    }
     return updatedExpense;
+  }
+
+  static async deleteExpense(tripId: string, expenseId: string, currentUserId: string) {
+    return prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.findUnique({
+        where: { id: expenseId },
+        include: { allocations: true },
+      });
+
+      if (!expense || expense.tripId !== tripId || expense.isDeleted) {
+        throw new Error('Expense not found');
+      }
+
+      const currentMember = await tx.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+      });
+      if (!currentMember || (expense.submitterId !== currentUserId && currentMember.role !== 'CREATOR')) {
+        throw new Error('Forbidden: Only the expense submitter or trip creator can delete this expense');
+      }
+
+      const deleted = await tx.expense.update({
+        where: { id: expense.id },
+        data: { isDeleted: true },
+      });
+
+      // Reverse the original double-entry postings. Keep the expense, revisions,
+      // and ledger history for auditability while removing it from live balances.
+      await tx.ledgerEntry.create({
+        data: {
+          tripId,
+          eventType: 'EXPENSE_DELETED',
+          referenceId: expense.id,
+          memberId: expense.payerMemberId,
+          creditPaise: 0,
+          debitPaise: expense.amountPaise,
+          netChangePaise: -expense.amountPaise,
+          balanceAfterPaise: 0,
+          description: `Reversal: deleted expense ${expense.description}`,
+        },
+      });
+
+      if (expense.allocations.length > 0) {
+        await tx.ledgerEntry.createMany({
+          data: expense.allocations.map((allocation) => ({
+            tripId,
+            eventType: 'EXPENSE_DELETED' as const,
+            referenceId: expense.id,
+            memberId: allocation.memberId,
+            creditPaise: allocation.sharePaise,
+            debitPaise: 0,
+            netChangePaise: allocation.sharePaise,
+            balanceAfterPaise: 0,
+            description: `Reversal: removed share for ${expense.description}`,
+          })),
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: currentUserId,
+          tripId,
+          action: 'DELETE_EXPENSE',
+          entityType: 'EXPENSE',
+          entityId: expense.id,
+          details: { amountPaise: expense.amountPaise, version: expense.version },
+        },
+      });
+
+      await createOutboxEvent(tx, 'EXPENSE', expense.id, 'EXPENSE_DELETED', {
+        expenseId: expense.id,
+        tripId,
+        amountPaise: expense.amountPaise,
+      });
+
+      return deleted;
+    });
   }
 
   static async listExpenses(tripId: string, currentUserId?: string) {
     if (currentUserId) {
       const membership = await prisma.tripMember.findUnique({
-        where: { tripId_userId: { tripId, userId: currentUserId } }, select: { id: true },
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+        select: { id: true },
       });
       if (!membership) throw new Error('Forbidden: You are not a member of this trip');
     }
@@ -438,6 +554,13 @@ export class ExpenseService {
   }
 
   static async getExpenseDetail(tripId: string, expenseId: string, currentUserId?: string) {
+    if (currentUserId) {
+      const membership = await prisma.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+        select: { id: true },
+      });
+      if (!membership) throw new Error('Forbidden: You are not a member of this trip');
+    }
     const expense = await prisma.expense.findUnique({
       where: { id: expenseId },
       include: {
@@ -454,7 +577,7 @@ export class ExpenseService {
       },
     });
 
-    if (!expense || expense.tripId !== tripId) {
+    if (!expense || expense.tripId !== tripId || expense.isDeleted) {
       throw new Error('Expense not found');
     }
 
@@ -464,29 +587,5 @@ export class ExpenseService {
     if (currentUserId && !currentMember) throw new Error('Forbidden: You are not a member of this trip');
     const canManage = Boolean(currentUserId && (expense.submitterId === currentUserId || currentMember?.role === 'CREATOR'));
     return { ...expense, permissions: { canEdit: canManage, canDelete: canManage } };
-  }
-
-  static async deleteExpense(tripId: string, expenseId: string, currentUserId: string) {
-    const expense = await prisma.expense.findFirst({
-      where: { id: expenseId, tripId },
-      select: { id: true, submitterId: true, receiptUrl: true, description: true },
-    });
-    if (!expense) throw new Error('Expense not found');
-    const member = await prisma.tripMember.findUnique({
-      where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true },
-    });
-    if (!member || (expense.submitterId !== currentUserId && member.role !== 'CREATOR')) {
-      throw new Error('Forbidden: Only the expense submitter or trip creator can delete this expense');
-    }
-    await prisma.$transaction(async (tx) => {
-      await tx.ledgerEntry.deleteMany({ where: { tripId, referenceId: expenseId } });
-      await tx.outboxEvent.deleteMany({ where: { aggregateId: expenseId } });
-      await tx.expense.delete({ where: { id: expenseId } });
-      await tx.auditLog.create({
-        data: { userId: currentUserId, tripId, action: 'DELETE_EXPENSE', entityType: 'EXPENSE', entityId: expenseId, details: { description: expense.description } },
-      });
-    });
-    if (expense.receiptUrl) void StorageService.deleteMediaByUrl(expense.receiptUrl).catch(() => undefined);
-    return { id: expenseId, deleted: true };
   }
 }

@@ -40,6 +40,7 @@ function extractPdfText(buffer: Buffer): string {
 describe('Report Export Engine & Notification Architecture Verification', () => {
   let exportUser: any;
   let exportTrip: any;
+  let exportCategoryId: string | null = null;
   let exportMember: any;
   let dummyMember: any;
 
@@ -54,7 +55,15 @@ describe('Report Export Engine & Notification Architecture Verification', () => 
       },
     });
 
-    const cat = await prisma.expenseCategory.findFirst();
+    const cat = await prisma.expenseCategory.create({
+      data: {
+        key: `test_export_${Date.now()}`,
+        name: 'Export Test Category',
+        icon: 'receipt',
+        isSystem: false,
+      },
+    });
+    exportCategoryId = cat.id;
 
     exportTrip = await prisma.trip.create({
       data: {
@@ -169,6 +178,9 @@ describe('Report Export Engine & Notification Architecture Verification', () => 
       await prisma.notification.deleteMany({ where: { tripId: exportTrip.id } });
       await prisma.tripMember.deleteMany({ where: { tripId: exportTrip.id } });
       await prisma.trip.deleteMany({ where: { id: exportTrip.id } });
+    }
+    if (exportCategoryId) {
+      await prisma.expenseCategory.deleteMany({ where: { id: exportCategoryId } });
     }
     if (exportUser) {
       await prisma.pushDeviceToken.deleteMany({ where: { userId: exportUser.id } });

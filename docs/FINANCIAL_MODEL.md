@@ -125,3 +125,26 @@ The exact integer paise model is visually surfaced to users on mobile without ex
    - Verified payments (`UPI · CONFIRMED`) are badged distinctly from category expenses (*Activities & Entertainment: ₹250.00*, *Accommodation: ₹500.00*, *Fuel: ₹250.00*).
    - Direct transfers strictly update balances only after transitioning to `CONFIRMED`. Unconfirmed or disputed payments never affect ledger sums.
 
+
+---
+
+## 8. Expense Revisions, Deletion Reversals & Ledger Conservation
+
+An expense edit is recorded as four posting groups inside one database transaction:
+1. Reverse the previous payer credit.
+2. Reverse each previous beneficiary debit.
+3. Apply the new payer credit.
+4. Apply the new beneficiary debits.
+
+The sum of `netChangePaise` across the edit event must remain zero. The expense revision snapshot is retained so the previous amount, payer, category, split method, and allocations remain auditable.
+
+Expense deletion is a **soft delete**:
+- `Expense.isDeleted` becomes `true`.
+- Active expense queries and trip balance calculations exclude the record.
+- The ledger receives a reversal: debit the former payer by the original amount and credit each former beneficiary by their original share.
+- The reversal must sum to zero paise.
+- The original expense and revisions remain stored for audit.
+
+Payment deletion is a **soft delete**. Pending payments transition to `CANCELLED`; confirmed payments receive equal-and-opposite `PAYMENT_DELETED` postings and automatic sub-rupee waivers are reversed/recalculated before the active balance is recomputed. Disputed/cancelled entries are hidden from active lists without changing their status. The original payment and ledger postings remain for audit.
+
+Trip deletion is a creator-only hard delete. It removes trip-owned financial data and file metadata; it is distinct from expense soft deletion and must be presented with an explicit irreversible confirmation.

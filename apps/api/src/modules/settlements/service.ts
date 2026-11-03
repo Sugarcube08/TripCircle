@@ -24,7 +24,7 @@ export class SettlementService {
         include: {
           members: { include: { user: true } },
           expenses: { where: { isDeleted: false }, include: { allocations: true } },
-          payments: true,
+          payments: { where: { isDeleted: false } },
           discounts: true,
         },
       });
@@ -168,6 +168,7 @@ export class SettlementService {
           },
         },
         payments: {
+          where: { isDeleted: false },
           select: {
             id: true,
             payerMemberId: true,

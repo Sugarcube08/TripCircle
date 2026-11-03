@@ -19,12 +19,21 @@ export async function GET(
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string; paymentId: string } }) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string; paymentId: string } }
+) {
   try {
     const authUser = await getAuthUser(req);
-    const input = UpdatePaymentSchema.parse(await req.json());
-    const payment = await PaymentService.updatePendingPayment(params.id, params.paymentId, authUser.id, input);
-    return successResponse(payment);
+    const body = await req.json();
+    const input = UpdatePaymentSchema.parse(body);
+    const updated = await PaymentService.updatePendingPayment(
+      params.id,
+      params.paymentId,
+      authUser.id,
+      input
+    );
+    return successResponse(updated);
   } catch (err) {
     return handleApiError(err);
   }
@@ -36,8 +45,8 @@ export async function DELETE(
 ) {
   try {
     const authUser = await getAuthUser(req);
-    const cancelled = await PaymentService.cancelPayment(params.id, params.paymentId, authUser.id);
-    return successResponse(cancelled);
+    const deleted = await PaymentService.deletePayment(params.id, params.paymentId, authUser.id);
+    return successResponse(deleted);
   } catch (err) {
     return handleApiError(err);
   }

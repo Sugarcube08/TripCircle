@@ -32,52 +32,52 @@ export class TripService {
         },
       });
 
-      // Handle invitations
-      if (input.initialInvitedUserIds && input.initialInvitedUserIds.length > 0) {
-        for (const inviteeId of input.initialInvitedUserIds) {
-          if (inviteeId === userId) continue;
-          const invitedMember = await tx.tripMember.create({
-            data: {
-              tripId: trip.id,
-              userId: inviteeId,
-              role: 'MEMBER',
-              status: 'INVITED',
-            },
-          });
+      // Batch invitations and notifications to keep trip creation bounded.
+      const inviteeIds = Array.from(new Set(input.initialInvitedUserIds || [])).filter((id) => id !== userId);
+      if (inviteeIds.length > 0) {
+        await tx.tripMember.createMany({
+          data: inviteeIds.map((inviteeId) => ({
+            tripId: trip.id,
+            userId: inviteeId,
+            role: 'MEMBER',
+            status: 'INVITED',
+          })),
+        });
 
-          // Create notification for invitee
-          await tx.notification.create({
-            data: {
-              userId: inviteeId,
+        const invitedMembers = await tx.tripMember.findMany({
+          where: { tripId: trip.id, userId: { in: inviteeIds } },
+          select: { id: true, userId: true },
+        });
+        await tx.notification.createMany({
+          data: invitedMembers
+            .filter((member) => Boolean(member.userId))
+            .map((member) => ({
+              userId: member.userId!,
               tripId: trip.id,
               type: 'TRIP_INVITATION',
               title: `Invitation to ${trip.name}`,
               body: `You have been invited to join "${trip.name}".`,
-              data: { tripId: trip.id, invitationId: invitedMember.id },
-            },
-          });
-        }
+              data: { tripId: trip.id, invitationId: member.id },
+            })),
+        });
       }
 
-      // Handle initial offline / dummy members atomically within the transaction
-      if (input.initialDummyMembers && input.initialDummyMembers.length > 0) {
-        for (const dm of input.initialDummyMembers) {
-          const trimmedName = dm.name.trim();
-          if (!trimmedName) continue;
-          await tx.tripMember.create({
-            data: {
-              tripId: trip.id,
-              userId: null,
-              isDummy: true,
-              role: 'MEMBER',
-              status: 'ACTIVE',
-              displayName: trimmedName,
-              email: dm.email ? dm.email.toLowerCase().trim() : null,
-              phone: dm.phone ? dm.phone.trim() : null,
-              respondedAt: new Date(),
-            },
-          });
-        }
+      // Create offline members in one statement rather than one round-trip per member.
+      const dummyMembers = (input.initialDummyMembers || [])
+        .map((member) => ({
+          tripId: trip.id,
+          userId: null,
+          isDummy: true,
+          role: 'MEMBER' as const,
+          status: 'ACTIVE' as const,
+          displayName: member.name.trim(),
+          email: member.email ? member.email.toLowerCase().trim() : null,
+          phone: member.phone ? member.phone.trim() : null,
+          respondedAt: new Date(),
+        }))
+        .filter((member) => Boolean(member.displayName));
+      if (dummyMembers.length > 0) {
+        await tx.tripMember.createMany({ data: dummyMembers });
       }
 
       await tx.auditLog.create({
@@ -122,7 +122,7 @@ export class TripService {
               },
             },
             payments: {
-              where: { status: 'CONFIRMED' },
+              where: { status: 'CONFIRMED', isDeleted: false },
               select: {
                 id: true,
                 payerMemberId: true,
@@ -246,7 +246,7 @@ export class TripService {
           },
         },
         payments: {
-          where: { status: 'CONFIRMED' },
+          where: { status: 'CONFIRMED', isDeleted: false },
           select: {
             id: true,
             payerMemberId: true,
@@ -361,14 +361,6 @@ export class TripService {
       select: { coverImageUrl: true },
     });
 
-    if (
-      input.coverImageUrl !== undefined &&
-      existingTrip?.coverImageUrl &&
-      input.coverImageUrl !== existingTrip.coverImageUrl
-    ) {
-      await StorageService.deleteMediaByUrl(existingTrip.coverImageUrl);
-    }
-
     const updated = await prisma.trip.update({
       where: { id: tripId },
       data: {
@@ -380,7 +372,72 @@ export class TripService {
       },
     });
 
+    if (
+      input.coverImageUrl !== undefined &&
+      existingTrip?.coverImageUrl &&
+      input.coverImageUrl !== existingTrip.coverImageUrl
+    ) {
+      await StorageService.deleteMediaByUrl(existingTrip.coverImageUrl).catch(() => undefined);
+    }
+
     return updated;
+  }
+
+  static async deleteTrip(tripId: string, userId: string) {
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        members: { select: { id: true, userId: true, role: true } },
+        expenses: { select: { receiptUrl: true, revisions: { select: { receiptUrl: true } } } },
+        files: { select: { publicUrl: true } },
+      },
+    });
+    if (!trip) throw new Error('Trip not found');
+
+    const currentMember = trip.members.find((member) => member.userId === userId);
+    if (!currentMember || currentMember.role !== 'CREATOR') {
+      throw new Error('Forbidden: Only the trip creator can permanently delete this trip');
+    }
+
+    const mediaUrls = [
+      trip.coverImageUrl,
+      ...trip.expenses.flatMap((expense) => [expense.receiptUrl, ...expense.revisions.map((revision) => revision.receiptUrl)]),
+      ...trip.files.map((file) => file.publicUrl),
+    ].filter((url): url is string => Boolean(url));
+
+    await prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          userId,
+          tripId,
+          action: 'DELETE_TRIP',
+          entityType: 'TRIP',
+          entityId: tripId,
+          details: { tripName: trip.name, mediaCount: mediaUrls.length },
+        },
+      });
+      await tx.fileMetadata.deleteMany({
+        where: {
+          OR: [
+            { tripId },
+            ...(mediaUrls.length > 0 ? [{ publicUrl: { in: mediaUrls } }] : []),
+          ],
+        },
+      });
+      await tx.trip.delete({ where: { id: tripId } });
+    }, { maxWait: 10_000, timeout: 30_000 });
+
+    // Object storage is external to MySQL; clean it only after the DB commit.
+    const cleanupResults = await Promise.allSettled(
+      mediaUrls.map((url) => StorageService.deleteMediaByUrl(url))
+    );
+    const failedCleanupCount = cleanupResults.filter((result) => result.status === 'rejected').length;
+    if (failedCleanupCount > 0) {
+      console.warn(
+        `[TripService] Trip ${tripId} was deleted, but ${failedCleanupCount} of ${mediaUrls.length} media objects could not be removed.`
+      );
+    }
+    return { id: tripId, deleted: true, mediaCleanupFailures: failedCleanupCount };
   }
 
   static async closeTrip(tripId: string, userId: string) {
@@ -441,36 +498,6 @@ export class TripService {
     });
 
     return trip;
-  }
-
-
-  static async deleteTrip(tripId: string, userId: string) {
-    const trip = await prisma.trip.findUnique({
-      where: { id: tripId }, select: { id: true, creatorId: true, coverImageUrl: true },
-    });
-    if (!trip) throw new Error('Trip not found');
-    if (trip.creatorId !== userId) throw new Error('Forbidden: Only the trip creator can permanently delete this trip');
-    const [expenses, files] = await Promise.all([
-      prisma.expense.findMany({ where: { tripId }, select: { id: true, receiptUrl: true } }),
-      prisma.fileMetadata.findMany({ where: { tripId }, select: { publicUrl: true } }),
-    ]);
-    await prisma.$transaction(async (tx) => {
-      const paymentRows = await tx.payment.findMany({ where: { tripId }, select: { id: true } });
-      const aggregateIds = [...expenses.map((e) => e.id), ...paymentRows.map((p) => p.id)];
-      if (aggregateIds.length) await tx.outboxEvent.deleteMany({ where: { aggregateId: { in: aggregateIds } } });
-      await tx.settlementDiscount.deleteMany({ where: { tripId } });
-      await tx.ledgerEntry.deleteMany({ where: { tripId } });
-      await tx.payment.deleteMany({ where: { tripId } });
-      await tx.expense.deleteMany({ where: { tripId } });
-      await tx.tripMember.deleteMany({ where: { tripId } });
-      await tx.notification.deleteMany({ where: { tripId } });
-      await tx.fileMetadata.deleteMany({ where: { tripId } });
-      await tx.trip.delete({ where: { id: tripId } });
-    }, { timeout: 15000, maxWait: 10000 });
-    const mediaUrls = [trip.coverImageUrl, ...expenses.map((e) => e.receiptUrl), ...files.map((f) => f.publicUrl)]
-      .filter((v): v is string => Boolean(v));
-    await Promise.allSettled(mediaUrls.map((url) => StorageService.deleteMediaByUrl(url)));
-    return { id: tripId, deleted: true };
   }
 
   static async leaveTrip(tripId: string, userId: string) {

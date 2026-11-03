@@ -41,6 +41,8 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
   const [expense, setExpense] = useState<any>(initialCached);
   const [loading, setLoading] = useState(!initialCached);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
+  const [tripCreatorId, setTripCreatorId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadExpense = useCallback(async () => {
     try {
@@ -61,6 +63,14 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
     return unsubscribe;
   }, [navigation, loadExpense]);
 
+  useEffect(() => {
+    let active = true;
+    apiRequest(`/trips/${tripId}`)
+      .then((data) => { if (active) setTripCreatorId(data.creatorId || null); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [tripId]);
+
   if (loading) {
     return <LoadingIndicator message="Loading expense details..." />;
   }
@@ -79,17 +89,26 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
     );
   }
 
-  const canEdit = expense.permissions?.canEdit ?? (expense.submitterId === user?.id);
+  const canEdit = expense.permissions?.canEdit ?? (expense.submitterId === user?.id || tripCreatorId === user?.id);
   const canDelete = expense.permissions?.canDelete ?? canEdit;
+
   const handleDelete = async () => {
-    const confirmed = await dialog.confirm('Permanently Delete Expense', 'This removes the expense, its allocations, revision history, and ledger entries. This cannot be undone.', { confirmText: 'Delete Expense', destructive: true });
-    if (!confirmed) return;
+    const confirmed = await dialog.confirm(
+      'Delete Expense',
+      'This removes the expense from active trip totals and balances. The record and revision history remain in the audit trail.',
+      { confirmText: 'Delete Expense', destructive: true }
+    );
+    if (!confirmed || deleting) return;
     try {
+      setDeleting(true);
       await apiRequest(`/trips/${tripId}/expenses/${expenseId}`, { method: 'DELETE' });
-      await dialog.alert('Expense Deleted', 'The expense was permanently deleted.', 'success');
+      LocalDatabase.saveExpenses(tripId, LocalDatabase.getExpenses(tripId).filter((item) => item.id !== expenseId));
+      await dialog.alert('Expense Deleted', 'The expense has been removed from active trip calculations.', 'success');
       navigation.goBack();
     } catch (err) {
       dialog.alert('Delete Failed', (err as Error).message, 'error');
+    } finally {
+      setDeleting(false);
     }
   };
   const catConfig = getCategoryConfig(expense.category?.name || expense.category?.key);
@@ -108,14 +127,25 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Expense Details</Text>
         {canEdit ? (
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => navigation.navigate('EditExpense', { tripId, expenseId })}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="create-outline" size={16} color={THEME.colors.primaryDark} style={{ marginRight: 4 }} />
-            <Text style={styles.editText}>Edit</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => navigation.navigate('EditExpense', { tripId, expenseId })}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={16} color={THEME.colors.primaryDark} style={{ marginRight: 4 }} />
+              <Text style={styles.editText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.deleteBtn, deleting && { opacity: 0.5 }]}
+              onPress={handleDelete}
+              disabled={deleting}
+              activeOpacity={0.8}
+              accessibilityLabel="Delete expense"
+            >
+              <Ionicons name="trash-outline" size={16} color={THEME.colors.debt} />
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={{ width: 40 }} />
         )}
@@ -165,13 +195,13 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
           <Text style={styles.cardTitle}>PAID BY</Text>
           <View style={styles.payerRow}>
             <MemberAvatar
-              name={expense.payerMember?.displayName || expense.payerMember?.user?.name || 'Member'}
+              name={expense.payerMember?.displayName || expense.payerMember?.user?.name || 'Offline Member'}
               avatarUrl={expense.payerMember?.user?.avatarUrl}
               size={44}
             />
             <View style={styles.payerInfo}>
               <Text style={styles.payerName}>
-                {expense.payerMember?.user?.name} {expense.payerMember?.userId === user?.id ? '(You)' : ''}
+                {expense.payerMember?.displayName || expense.payerMember?.user?.name || 'Offline Member'} {expense.payerMember?.userId === user?.id ? '(You)' : ''}
               </Text>
               <Text style={styles.payerSub}>Paid the full bill upfront</Text>
             </View>
@@ -196,7 +226,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>
-              SPLIT BREAKDOWN ({(expense.allocations || []).length})
+              SPLIT BREAKDOWN ({expense.allocations?.length || 0})
             </Text>
             <View style={styles.splitMethodPill}>
               <Text style={styles.splitMethodText}>{expense.splitMethod || 'EQUAL'}</Text>
@@ -210,17 +240,17 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
                 key={alloc.id || alloc.memberId || idx}
                 style={[
                   styles.allocRow,
-                  idx === expense.allocations.length - 1 && { borderBottomWidth: 0 },
+                  idx === (expense.allocations?.length || 0) - 1 && { borderBottomWidth: 0 },
                 ]}
               >
                 <View style={styles.allocMember}>
                   <MemberAvatar
-                    name={alloc.member?.displayName || alloc.member?.user?.name || 'Member'}
+                    name={alloc.member?.displayName || alloc.member?.user?.name || 'Offline Member'}
                     avatarUrl={alloc.member?.user?.avatarUrl}
                     size={36}
                   />
                   <Text style={styles.allocName}>
-                    {alloc.member?.user?.name} {isYou ? '(You)' : ''}
+                    {alloc.member?.displayName || alloc.member?.user?.name || 'Offline Member'} {isYou ? '(You)' : ''}
                   </Text>
                 </View>
                 <AmountText
@@ -315,6 +345,19 @@ const styles = StyleSheet.create({
     ...THEME.typography.h2,
     fontSize: 18,
     color: THEME.colors.textPrimary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deleteBtn: {
+    width: 34,
+    height: 34,
+    marginLeft: 6,
+    borderRadius: THEME.borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.debtBg,
   },
   editBtn: {
     flexDirection: 'row',

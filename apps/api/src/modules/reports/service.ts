@@ -43,6 +43,7 @@ export class ReportService {
           orderBy: { expenseDate: 'asc' },
         },
         payments: {
+          where: { isDeleted: false },
           include: {
             payerMember: { include: { user: true } },
             receiverMember: { include: { user: true } },

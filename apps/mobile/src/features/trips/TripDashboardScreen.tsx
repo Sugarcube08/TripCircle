@@ -141,7 +141,9 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   useEffect(() => {
     loadTripData(false);
     const unsubscribe = navigation.addListener('focus', () => {
-      loadTripData(false);
+      // Always refresh after returning from a detail/edit/delete flow; the 15s
+      // background throttle must not leave financial totals visibly stale.
+      loadTripData(true);
     });
     return unsubscribe;
   }, [navigation, loadTripData]);
@@ -253,6 +255,10 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
   }
 
   const isTripClosed = trip.status === 'CLOSED';
+  const currentMembership = trip.members?.find((member: any) => member.id === trip.currentMemberId);
+  const canRecordExpenses = !isTripClosed && currentMembership?.status === 'ACTIVE';
+  // Settlements must remain possible after trip closure, while departed members cannot initiate them.
+  const canRecordPayments = currentMembership?.status === 'ACTIVE';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -430,28 +436,34 @@ export const TripDashboardScreen: React.FC<TripDashboardScreenProps> = ({
           </View>
         </View>
 
-        {/* Primary Action Buttons: Add Expense / Record Payment */}
-        <View style={[styles.actionsRow, isNarrow && styles.actionsRowNarrow]}>
-          {!isTripClosed ? <TouchableOpacity
-            style={[styles.actionBtn, styles.expenseBtn, isNarrow && styles.actionBtnNarrow]}
-            onPress={() => navigation.navigate('AddExpense', { tripId })}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.actionBtnText}>Add Expense</Text>
-          </TouchableOpacity> : null}
+        {/* Primary actions are rendered from authoritative trip/membership state. */}
+        {canRecordExpenses || canRecordPayments ? (
+          <View style={[styles.actionsRow, isNarrow && styles.actionsRowNarrow]}>
+            {canRecordExpenses ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.expenseBtn, isNarrow && styles.actionBtnNarrow]}
+                onPress={() => navigation.navigate('AddExpense', { tripId })}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.actionBtnText}>Add Expense</Text>
+              </TouchableOpacity>
+            ) : null}
 
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.paymentBtn, isNarrow && styles.actionBtnNarrow]}
-            onPress={() => navigation.navigate('AddPayment', { tripId })}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="paper-plane" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
-            <Text style={[styles.actionBtnText, { color: THEME.colors.primary }]}>
-              Record Payment
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {canRecordPayments ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.paymentBtn, isNarrow && styles.actionBtnNarrow, !canRecordExpenses && { flex: 1 }]}
+                onPress={() => navigation.navigate('AddPayment', { tripId })}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="paper-plane" size={18} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.actionBtnText, { color: THEME.colors.primary }]}>
+                  Record Payment
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Shortcuts Bar: Settlement Plan & Export Report */}
         <View style={styles.secondaryActionsRow}>
