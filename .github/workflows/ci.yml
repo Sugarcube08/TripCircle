@@ -66,6 +66,11 @@ jobs:
         env:
           DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/tripcircle_ci
 
+      - name: Synchronize disposable CI database with Prisma schema
+        run: pnpm --filter @tripcircle/api exec prisma db push --accept-data-loss
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/tripcircle_ci
+
       - name: Financial regression tests
         run: pnpm test:financial
         env:
