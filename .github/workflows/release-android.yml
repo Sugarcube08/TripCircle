@@ -92,9 +92,9 @@ jobs:
       - name: Locate Built APK and Compute Checksum
         id: apk_info
         run: |
-          APK_PATH=$(find apps/mobile/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          APK_PATH=$(find apps/mobile/android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "ERROR: APK not found!"
+            echo "ERROR: Release APK not found!"
             exit 1
           fi
           echo "Found APK at: $APK_PATH"
@@ -102,6 +102,17 @@ jobs:
           SHA256_HASH=$(sha256sum ./TripCircle-release.apk | awk '{print $1}')
           echo "sha256=$SHA256_HASH" >> $GITHUB_OUTPUT
           echo "SHA256: $SHA256_HASH"
+          if [[ "$GITHUB_REF_NAME" =~ ^v ]]; then
+            VER="${GITHUB_REF_NAME#v}"
+          else
+            VER="${{ github.event.inputs.version_name || '1.2.0-alpha' }}"
+          fi
+          APP_VER=$(node -p "require('./apps/mobile/app.json').expo.version")
+          if [ "$VER" != "$APP_VER" ]; then
+            echo "Requested release version $VER does not match apps/mobile/app.json version $APP_VER"
+            exit 1
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Generate Version Manifest
         run: node scripts/generate-version-manifest.mjs --sha256 "${{ steps.apk_info.outputs.sha256 }}" --notes "TripCircle v1.2.0-alpha Android release" --notes "Expense/payment CRUD, detail crash and transaction stability fixes"
