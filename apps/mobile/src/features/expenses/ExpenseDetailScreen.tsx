@@ -171,7 +171,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
             />
             <View style={styles.payerInfo}>
               <Text style={styles.payerName}>
-                {expense.payerMember?.user.name} {expense.payerMember?.userId === user?.id ? '(You)' : ''}
+                {expense.payerMember?.user?.name} {expense.payerMember?.userId === user?.id ? '(You)' : ''}
               </Text>
               <Text style={styles.payerSub}>Paid the full bill upfront</Text>
             </View>
@@ -220,7 +220,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
                     size={36}
                   />
                   <Text style={styles.allocName}>
-                    {alloc.member?.user.name} {isYou ? '(You)' : ''}
+                    {alloc.member?.user?.name} {isYou ? '(You)' : ''}
                   </Text>
                 </View>
                 <AmountText
