@@ -25,6 +25,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: tripcircle
+          MYSQL_USER: tripcircle
+          MYSQL_PASSWORD: tripcircle_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -utripcircle -ptripcircle_pass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
+      TEST_DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
 
     steps:
       - name: Checkout Source Code
@@ -81,6 +99,12 @@ jobs:
 
       - name: Install Monorepo Dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @tripcircle/api db:generate
+
+      - name: Apply Database Migrations
+        run: pnpm --filter @tripcircle/api db:migrate
 
       - name: Typecheck Packages & Apps
         run: pnpm typecheck
