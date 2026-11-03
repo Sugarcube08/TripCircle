@@ -54,6 +54,7 @@ enum LedgerEventType {
   EXPENSE_EDITED
   EXPENSE_DELETED
   PAYMENT_CONFIRMED
+  PAYMENT_DELETED
   SETTLEMENT_DISCOUNT
 }
 
@@ -270,6 +271,7 @@ model Payment {
   payerMemberId    String
   receiverMemberId String
   amountPaise      Int // Exact paise
+  isDeleted        Boolean             @default(false)
   paymentMethod    PaymentMethod       @default(UPI)
   status           PaymentStatus       @default(PENDING)
   receiptUrl       String?             @db.Text
