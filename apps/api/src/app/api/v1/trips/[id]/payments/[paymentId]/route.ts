@@ -24,8 +24,8 @@ export async function DELETE(
 ) {
   try {
     const authUser = await getAuthUser(req);
-    const cancelled = await PaymentService.cancelPayment(params.id, params.paymentId, authUser.id);
-    return successResponse(cancelled);
+    const deleted = await PaymentService.deletePayment(params.id, params.paymentId, authUser.id);
+    return successResponse(deleted);
   } catch (err) {
     return handleApiError(err);
   }
