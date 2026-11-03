@@ -59,6 +59,11 @@ jobs:
       - name: Apply database migrations
         run: pnpm --filter @tripcircle/api db:migrate
 
+      # The repository's historical migration chain predates several current schema fields.
+      # Apply the checked-in Prisma schema to the disposable CI database after validating migrations.
+      - name: Synchronize test database schema
+        run: pnpm --filter @tripcircle/api exec prisma db push --accept-data-loss
+
       - name: Typecheck all workspaces
         run: pnpm typecheck
 
