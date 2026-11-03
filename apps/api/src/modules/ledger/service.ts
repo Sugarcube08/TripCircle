@@ -43,7 +43,7 @@ export class LedgerService {
         take: 30,
       }),
       prisma.payment.findMany({
-        where: { tripId },
+        where: { tripId, isDeleted: false },
         include: {
           payerMember: { include: { user: true } },
           receiverMember: { include: { user: true } },
