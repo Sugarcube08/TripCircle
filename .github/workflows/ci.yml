@@ -24,8 +24,8 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: tripcircle
-          MYSQL_USER: test
-          MYSQL_PASSWORD: test
+          MYSQL_USER: tripcircle
+          MYSQL_PASSWORD: tripcircle_pass
         ports:
           - 3306:3306
         options: >-
@@ -34,7 +34,8 @@ jobs:
           --health-timeout=5s
           --health-retries=12
     env:
-      DATABASE_URL: mysql://test:test@127.0.0.1:3306/tripcircle
+      DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
+      TEST_DATABASE_URL: mysql://tripcircle:tripcircle_pass@127.0.0.1:3306/tripcircle
       JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
       JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters
       NODE_ENV: test
