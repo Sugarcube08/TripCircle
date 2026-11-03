@@ -420,8 +420,16 @@ export class TripService {
     }, { maxWait: 10_000, timeout: 30_000 });
 
     // Object storage is external to MySQL; clean it only after the DB commit.
-    await Promise.allSettled(mediaUrls.map((url) => StorageService.deleteMediaByUrl(url)));
-    return { id: tripId, deleted: true };
+    const cleanupResults = await Promise.allSettled(
+      mediaUrls.map((url) => StorageService.deleteMediaByUrl(url))
+    );
+    const failedCleanupCount = cleanupResults.filter((result) => result.status === 'rejected').length;
+    if (failedCleanupCount > 0) {
+      console.warn(
+        `[TripService] Trip ${tripId} was deleted, but ${failedCleanupCount} of ${mediaUrls.length} media objects could not be removed.`
+      );
+    }
+    return { id: tripId, deleted: true, mediaCleanupFailures: failedCleanupCount };
   }
 
   static async closeTrip(tripId: string, userId: string) {
