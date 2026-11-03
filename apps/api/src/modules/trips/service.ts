@@ -360,14 +360,6 @@ export class TripService {
       select: { coverImageUrl: true },
     });
 
-    if (
-      input.coverImageUrl !== undefined &&
-      existingTrip?.coverImageUrl &&
-      input.coverImageUrl !== existingTrip.coverImageUrl
-    ) {
-      await StorageService.deleteMediaByUrl(existingTrip.coverImageUrl);
-    }
-
     const updated = await prisma.trip.update({
       where: { id: tripId },
       data: {
@@ -379,6 +371,14 @@ export class TripService {
       },
     });
 
+    if (
+      input.coverImageUrl !== undefined &&
+      existingTrip?.coverImageUrl &&
+      input.coverImageUrl !== existingTrip.coverImageUrl
+    ) {
+      await StorageService.deleteMediaByUrl(existingTrip.coverImageUrl).catch(() => undefined);
+    }
+
     return updated;
   }
 
@@ -387,7 +387,7 @@ export class TripService {
       where: { id: tripId },
       include: {
         members: { select: { id: true, userId: true, role: true } },
-        expenses: { where: { isDeleted: false }, select: { receiptUrl: true } },
+        expenses: { select: { receiptUrl: true } },
         files: { select: { publicUrl: true } },
       },
     });
