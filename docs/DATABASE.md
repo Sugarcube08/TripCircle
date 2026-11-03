@@ -136,7 +136,17 @@ pnpm --filter @tripcircle/api db:seed
 
 ---
 
-## 5. Remote Database & Operational Configuration
+## 5. Migration Baseline Drift (v1.2.0-alpha)
+
+The checked-in initial migration (`20261028000000_init`) predates parts of the current Prisma schema. For example, the current `TripMember` model contains `isDummy` and nullable/dummy-member identity fields that are absent from the original migration. Applying `prisma migrate deploy` alone to a fresh database therefore does not currently guarantee schema parity.
+
+The pull-request CI workflow applies recorded migrations and then runs `prisma db push --accept-data-loss` **only against its disposable MySQL test database** so integration tests exercise the current Prisma schema. This is a CI bootstrap workaround, not a production migration strategy.
+
+**Production deployment caution:** do not use `db push` to work around this drift in production. Before provisioning a fresh production database from migration history, generate, review, and commit a forward migration that reconciles the current schema with the recorded migration baseline. Existing production databases should be checked for schema parity before release.
+
+---
+
+## 6. Remote Database & Operational Configuration
 
 ### Supported Managed MySQL Providers
 - AWS RDS MySQL 8.0
