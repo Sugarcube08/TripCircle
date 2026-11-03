@@ -32,7 +32,9 @@ describe('Permanent trip deletion', () => {
 
   it('permanently deletes a creator-owned trip and cascaded members', async () => {
     const result = await TripService.deleteTrip(tripId!, userId!);
-    expect(result).toEqual({ id: tripId, deleted: true });
+    expect(result.id).toBe(tripId);
+    expect(result.deleted).toBe(true);
+    expect(result.mediaCleanupFailures).toBe(0);
     expect(await prisma.trip.findUnique({ where: { id: tripId! } })).toBeNull();
     expect(await prisma.tripMember.count({ where: { tripId: tripId! } })).toBe(0);
   });
