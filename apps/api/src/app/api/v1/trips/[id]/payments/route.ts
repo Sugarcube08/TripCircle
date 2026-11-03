@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await getAuthUser(req);
-    const payments = await PaymentService.listPayments(params.id);
+    const payments = await PaymentService.listPayments(params.id, authUser.id);
     return successResponse(payments);
   } catch (err) {
     return handleApiError(err);
