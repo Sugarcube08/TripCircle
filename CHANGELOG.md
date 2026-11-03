@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0-alpha] - 2026-11-03
+
+### Added
+- Permission-aware expense and payment detail actions driven by server capabilities.
+- Creator-only permanent trip deletion and authorized expense deletion.
+- Pending payment editing and permanent deletion for unconfirmed payments.
+
+### Changed
+- Trip dashboard exposes a consistent `totalSpentPaise` value derived from non-deleted expenses.
+- Closed trips hide Add Expense for non-active trips or memberships while keeping Record Payment available for settlement workflows.
+- Detail screens handle nullable member profiles and optional data defensively.
+- Prisma transaction defaults remain 10s acquisition wait / 15s execution timeout; object-storage cleanup remains outside DB transactions.
+
+### Security & Integrity
+- Confirmed payments cannot be hard-deleted; they retain the financial audit trail.
+- Expense/payment mutations are authorized server-side.
+- Trip deletion is creator-only and removes dependent financial records transactionally.
+
+### CI & Documentation
+- Added PR CI for workspace typechecking, financial tests and manifest validation.
+- Updated Android release defaults and removed silent debug-APK fallback.
+- Updated API and regression-testing documentation.
+
+---
+
 ## [1.0.0] - 2026-10-30
 
 ### Initial Production Release

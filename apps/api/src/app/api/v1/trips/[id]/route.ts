@@ -27,3 +27,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return handleApiError(err);
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  try { const authUser = await getAuthUser(req); return successResponse(await TripService.deleteTrip(params.id, authUser.id)); }
+  catch (err) { return handleApiError(err); }
+}

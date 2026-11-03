@@ -431,7 +431,7 @@ export class ExpenseService {
     return expenses;
   }
 
-  static async getExpenseDetail(tripId: string, expenseId: string) {
+  static async getExpenseDetail(tripId: string, expenseId: string, currentUserId: string) {
     const expense = await prisma.expense.findUnique({
       where: { id: expenseId },
       include: {
@@ -448,10 +448,25 @@ export class ExpenseService {
       },
     });
 
-    if (!expense || expense.tripId !== tripId) {
-      throw new Error('Expense not found');
-    }
+    if (!expense || expense.tripId !== tripId || expense.isDeleted) throw new Error('Expense not found');
+    const member = await prisma.tripMember.findUnique({ where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true } });
+    if (!member) throw new Error('Forbidden: You are not a member of this trip');
+    const canManage = expense.submitterId === currentUserId || member.role === 'CREATOR';
+    return { ...expense, permissions: { canEdit: canManage, canDelete: canManage } };
+  }
 
-    return expense;
+  static async deleteExpense(tripId: string, expenseId: string, currentUserId: string) {
+    const expense = await prisma.expense.findFirst({ where: { id: expenseId, tripId, isDeleted: false }, select: { id: true, submitterId: true, receiptUrl: true, description: true, version: true } });
+    if (!expense) throw new Error('Expense not found');
+    const member = await prisma.tripMember.findUnique({ where: { tripId_userId: { tripId, userId: currentUserId } }, select: { role: true } });
+    if (!member || (expense.submitterId !== currentUserId && member.role !== 'CREATOR')) throw new Error('Forbidden: Only the submitter or trip creator can permanently delete this expense');
+    await prisma.$transaction(async (tx) => {
+      await tx.outboxEvent.deleteMany({ where: { aggregateType: 'EXPENSE', aggregateId: expenseId } });
+      await tx.ledgerEntry.deleteMany({ where: { tripId, referenceId: expenseId } });
+      await tx.expense.delete({ where: { id: expenseId } });
+      await tx.auditLog.create({ data: { userId: currentUserId, tripId, action: 'DELETE_EXPENSE', entityType: 'EXPENSE', entityId: expenseId, details: { description: expense.description, version: expense.version, permanent: true } } });
+    }, { maxWait: 10000, timeout: 15000 });
+    if (expense.receiptUrl) void StorageService.deleteMediaByUrl(expense.receiptUrl).catch(() => undefined);
+    return { id: expenseId, deleted: true };
   }
 }

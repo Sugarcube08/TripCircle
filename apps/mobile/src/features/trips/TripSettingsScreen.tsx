@@ -96,6 +96,14 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
     }
   };
 
+  const handleDeleteTrip = async () => {
+    const confirmed = await dialog.confirm('Permanently Delete Trip', 'This permanently deletes the trip, all members, expenses, payments, discounts, ledger entries and trip files for every participant. This cannot be undone.', { confirmText: 'Delete Trip Forever', destructive: true });
+    if (!confirmed) return;
+    try { setActionLoading(true); await apiRequest(`/trips/${tripId}`, { method: 'DELETE' }); await dialog.alert('Trip Deleted', 'The trip and its records were permanently deleted.', 'success'); navigation.navigate('Main'); }
+    catch (err) { dialog.alert('Delete Failed', (err as Error).message, 'error'); }
+    finally { setActionLoading(false); }
+  };
+
   const handleLeaveTrip = async () => {
     const confirmed = await dialog.confirm(
       'Leave Trip',
@@ -123,6 +131,7 @@ export const TripSettingsScreen: React.FC<TripSettingsScreenProps> = ({
       <ScreenHeader title="Trip Settings" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {isCreator ? <TouchableOpacity onPress={handleDeleteTrip} disabled={actionLoading} activeOpacity={0.85} style={{ backgroundColor: '#B42318', borderRadius: 12, padding: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><Ionicons name="trash-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} /><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Permanently Delete Trip</Text></TouchableOpacity> : null}
         {/* Overview Info Card */}
         <Text style={styles.sectionHeader}>OVERVIEW</Text>
         <View style={styles.card}>

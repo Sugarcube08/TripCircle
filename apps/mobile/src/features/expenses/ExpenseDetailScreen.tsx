@@ -79,7 +79,14 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
     );
   }
 
-  const canEdit = expense.submitterId === user?.id;
+  const canEdit = expense.permissions?.canEdit ?? expense.submitterId === user?.id;
+  const canDelete = expense.permissions?.canDelete ?? canEdit;
+  const handleDelete = async () => {
+    const confirmed = await dialog.confirm('Permanently Delete Expense', 'This permanently removes this expense and its ledger entries. This cannot be undone.', { confirmText: 'Delete Expense', destructive: true });
+    if (!confirmed) return;
+    try { await apiRequest(`/trips/${tripId}/expenses/${expenseId}`, { method: 'DELETE' }); await dialog.alert('Expense Deleted', 'The expense was permanently deleted.', 'success'); navigation.goBack(); }
+    catch (err) { dialog.alert('Delete Failed', (err as Error).message, 'error'); }
+  };
   const catConfig = getCategoryConfig(expense.category?.name || expense.category?.key);
 
   return (
@@ -110,6 +117,7 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {canDelete ? <TouchableOpacity onPress={handleDelete} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: THEME.colors.debt, marginBottom: 12 }}><Ionicons name="trash-outline" size={16} color={THEME.colors.debt} /><Text style={{ color: THEME.colors.debt, fontWeight: '700', marginLeft: 6 }}>Permanently Delete Expense</Text></TouchableOpacity> : null}
         {/* Main Hero Card */}
         <View style={styles.heroCard}>
           <View style={[styles.categoryBadge, { backgroundColor: catConfig.bg }]}>
@@ -147,13 +155,13 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
           <Text style={styles.cardTitle}>PAID BY</Text>
           <View style={styles.payerRow}>
             <MemberAvatar
-              name={expense.payerMember?.user.name || 'Member'}
-              avatarUrl={expense.payerMember?.user.avatarUrl}
+              name={expense.payerMember?.user?.name || 'Member'}
+              avatarUrl={expense.payerMember?.user?.avatarUrl}
               size={44}
             />
             <View style={styles.payerInfo}>
               <Text style={styles.payerName}>
-                {expense.payerMember?.user.name} {expense.payerMember?.userId === user?.id ? '(You)' : ''}
+                {expense.payerMember?.user?.name} {expense.payerMember?.userId === user?.id ? '(You)' : ''}
               </Text>
               <Text style={styles.payerSub}>Paid the full bill upfront</Text>
             </View>
@@ -178,31 +186,31 @@ export const ExpenseDetailScreen: React.FC<ExpenseDetailScreenProps> = ({
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>
-              SPLIT BREAKDOWN ({expense.allocations.length})
+              SPLIT BREAKDOWN ({(expense.allocations || []).length})
             </Text>
             <View style={styles.splitMethodPill}>
               <Text style={styles.splitMethodText}>{expense.splitMethod || 'EQUAL'}</Text>
             </View>
           </View>
 
-          {expense.allocations.map((alloc: any, idx: number) => {
+          {(expense.allocations || []).map((alloc: any, idx: number) => {
             const isYou = alloc.member?.userId === user?.id;
             return (
               <View
                 key={alloc.id || alloc.memberId || idx}
                 style={[
                   styles.allocRow,
-                  idx === expense.allocations.length - 1 && { borderBottomWidth: 0 },
+                  idx === (expense.allocations || []).length - 1 && { borderBottomWidth: 0 },
                 ]}
               >
                 <View style={styles.allocMember}>
                   <MemberAvatar
-                    name={alloc.member?.user.name || 'Member'}
-                    avatarUrl={alloc.member?.user.avatarUrl}
+                    name={alloc.member?.displayName || alloc.member?.user?.name || 'Member'}
+                    avatarUrl={alloc.member?.user?.avatarUrl}
                     size={36}
                   />
                   <Text style={styles.allocName}>
-                    {alloc.member?.user.name} {isYou ? '(You)' : ''}
+                    {alloc.member?.user?.name} {isYou ? '(You)' : ''}
                   </Text>
                 </View>
                 <AmountText

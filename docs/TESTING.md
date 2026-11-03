@@ -54,3 +54,21 @@ Simulates the complete 4-user acceptance scenario:
 4. **User C** corrects payment details and submits a new payment, which A confirms. Balances update immediately.
 5. **User B** settles remaining debt to A with an agreed ₹1 cash coin discount, which A accepts.
 6. The settlement plan confirms `isSettled: true` and all member balances equal 0 paise.
+
+
+## 4. CRUD and permission regression checks
+
+Run with a trip creator, ordinary member, and (where applicable) a dummy member:
+
+- Open expense and payment details from the ledger and activity feed. Confirm nullable member profiles do not crash rendering.
+- Only an expense submitter or creator sees Edit/Delete; unauthorized API mutations return 403.
+- Edit an expense and verify stale expectedVersion requests fail without duplicating ledger effects.
+- Delete an expense and verify it disappears from lists, totals and ledger while an audit record remains.
+- Pending payer/creator can edit or permanently delete a payment; receiver can confirm/dispute; payer can cancel. Confirmed payment cannot be edited or hard-deleted.
+- Delete a trip as creator and verify it disappears for all participants and dependent records are removed. Non-creator receives 403.
+- Verify total spent equals the sum of non-deleted expense amounts in integer paise; payments are excluded.
+- Closed trips hide Add Expense; Record Payment remains available because the backend permits settlement recording after trip closure. Non-active memberships cannot add expenses.
+
+## 5. CI workflow
+
+Pull requests and pushes to `main` run workspace typechecking, financial unit tests, and release-manifest validation. Android release builds run on version tags or manual dispatch and fail if the release APK cannot be built; a debug APK is not silently substituted.

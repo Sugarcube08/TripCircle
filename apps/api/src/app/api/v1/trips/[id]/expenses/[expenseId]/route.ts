@@ -11,8 +11,8 @@ export async function GET(
   { params }: { params: { id: string; expenseId: string } }
 ) {
   try {
-    await getAuthUser(req);
-    const expense = await ExpenseService.getExpenseDetail(params.id, params.expenseId);
+    const authUser = await getAuthUser(req);
+    const expense = await ExpenseService.getExpenseDetail(params.id, params.expenseId, authUser.id);
     return successResponse(expense);
   } catch (err) {
     return handleApiError(err);
@@ -37,4 +37,9 @@ export async function PUT(
   } catch (err) {
     return handleApiError(err);
   }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string; expenseId: string } }) {
+  try { const authUser = await getAuthUser(req); return successResponse(await ExpenseService.deleteExpense(params.id, params.expenseId, authUser.id)); }
+  catch (err) { return handleApiError(err); }
 }
