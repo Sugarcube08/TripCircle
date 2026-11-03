@@ -6,7 +6,8 @@ export class SyncService {
   static async pullChanges(
     userId: string,
     lastSyncTimestamp?: string,
-    requestedTripIds?: string[]
+    requestedTripIds?: string[],
+    includeTripDetails = true
   ) {
     const sinceDate = lastSyncTimestamp ? new Date(lastSyncTimestamp) : new Date(0);
     const syncTime = new Date().toISOString();
@@ -15,7 +16,9 @@ export class SyncService {
     const myTripsResponse = await TripService.getMyTrips(userId);
 
     // 2. Determine target trips for detailed sync (incremental optimization)
-    const targetTrips = requestedTripIds && requestedTripIds.length > 0
+    const targetTrips = !includeTripDetails
+      ? []
+      : requestedTripIds && requestedTripIds.length > 0
       ? myTripsResponse.trips.filter((t) => requestedTripIds.includes(t.id))
       : sinceDate.getTime() > 0
       ? myTripsResponse.trips.filter((t) => new Date(t.lastActivityAt) >= sinceDate)

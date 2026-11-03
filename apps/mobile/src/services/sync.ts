@@ -4,6 +4,7 @@ import { LocalDatabase } from '../storage/db';
 export interface SyncOptions {
   force?: boolean;
   requestedTripIds?: string[];
+  includeTripDetails?: boolean;
   signal?: AbortSignal;
 }
 
@@ -54,6 +55,7 @@ export async function performSync(options: SyncOptions = {}): Promise<SyncResult
         body: JSON.stringify({
           lastSyncTimestamp: cache.lastSyncTimestamp || undefined,
           requestedTripIds: options.requestedTripIds,
+          ...(options.includeTripDetails === undefined ? {} : { includeTripDetails: options.includeTripDetails }),
         }),
         signal: options.signal,
         timeoutMs: 20000,
