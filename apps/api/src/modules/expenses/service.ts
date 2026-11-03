@@ -411,6 +411,82 @@ export class ExpenseService {
     return updatedExpense;
   }
 
+  static async deleteExpense(tripId: string, expenseId: string, currentUserId: string) {
+    return prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.findUnique({
+        where: { id: expenseId },
+        include: { allocations: true },
+      });
+
+      if (!expense || expense.tripId !== tripId || expense.isDeleted) {
+        throw new Error('Expense not found');
+      }
+
+      const currentMember = await tx.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+      });
+      if (!currentMember || (expense.submitterId !== currentUserId && currentMember.role !== 'CREATOR')) {
+        throw new Error('Forbidden: Only the expense submitter or trip creator can delete this expense');
+      }
+
+      const deleted = await tx.expense.update({
+        where: { id: expense.id },
+        data: { isDeleted: true },
+      });
+
+      // Reverse the original double-entry postings. Keep the expense, revisions,
+      // and ledger history for auditability while removing it from live balances.
+      await tx.ledgerEntry.create({
+        data: {
+          tripId,
+          eventType: 'EXPENSE_DELETED',
+          referenceId: expense.id,
+          memberId: expense.payerMemberId,
+          creditPaise: 0,
+          debitPaise: expense.amountPaise,
+          netChangePaise: -expense.amountPaise,
+          balanceAfterPaise: 0,
+          description: `Reversal: deleted expense ${expense.description}`,
+        },
+      });
+
+      if (expense.allocations.length > 0) {
+        await tx.ledgerEntry.createMany({
+          data: expense.allocations.map((allocation) => ({
+            tripId,
+            eventType: 'EXPENSE_DELETED' as const,
+            referenceId: expense.id,
+            memberId: allocation.memberId,
+            creditPaise: allocation.sharePaise,
+            debitPaise: 0,
+            netChangePaise: allocation.sharePaise,
+            balanceAfterPaise: 0,
+            description: `Reversal: removed share for ${expense.description}`,
+          })),
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: currentUserId,
+          tripId,
+          action: 'DELETE_EXPENSE',
+          entityType: 'EXPENSE',
+          entityId: expense.id,
+          details: { amountPaise: expense.amountPaise, version: expense.version },
+        },
+      });
+
+      await createOutboxEvent(tx, 'EXPENSE', expense.id, 'EXPENSE_DELETED', {
+        expenseId: expense.id,
+        tripId,
+        amountPaise: expense.amountPaise,
+      });
+
+      return deleted;
+    });
+  }
+
   static async listExpenses(tripId: string) {
     const expenses = await prisma.expense.findMany({
       where: {
