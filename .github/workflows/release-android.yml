@@ -9,7 +9,7 @@ on:
       version_name:
         description: 'Semantic Version (e.g. 1.0.1)'
         required: false
-        default: '1.0.1'
+        default: '1.2.0-alpha'
       version_code:
         description: 'Android Version Code (e.g. 2)'
         required: false
@@ -17,7 +17,7 @@ on:
       release_notes:
         description: 'Release summary notes'
         required: false
-        default: 'Production release with exact paise financial ledger and live update distribution.'
+        default: 'TripCircle 1.2.0-alpha: lifecycle-aware actions, safe expense details, editable pending payments, and auditable deletion.'
 
 jobs:
   build-and-release:
@@ -38,7 +38,7 @@ jobs:
           node-version: 20
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 10
 
@@ -69,6 +69,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Set release version metadata
+        shell: bash
+        run: |
+          VERSION="${{ github.event.inputs.version_name }}"
+          if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          VERSION_CODE="${{ github.event.inputs.version_code }}"
+          if [ -z "$VERSION_CODE" ]; then VERSION_CODE=$(node -p "require('./apps/mobile/app.json').expo.android.versionCode"); fi
+          node -e "const fs=require('fs'); const p='apps/mobile/app.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.expo.version='$VERSION'; j.expo.android.versionCode=Number('$VERSION_CODE'); fs.writeFileSync(p, JSON.stringify(j,null,2)+'\\n');"
+          echo "Building TripCircle v$VERSION (Android build $VERSION_CODE)"
+
       - name: Install Monorepo Dependencies
         run: pnpm install --frozen-lockfile
 
@@ -87,7 +97,7 @@ jobs:
         run: |
           cd apps/mobile/android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
       - name: Locate Built APK and Compute Checksum
         id: apk_info
@@ -112,6 +122,17 @@ jobs:
           fi
           echo "version=$VER" >> $GITHUB_OUTPUT
 
+      - name: Generate release version manifest
+        run: |
+          node scripts/generate-version-manifest.mjs \
+            --notes "Lifecycle-aware trip actions and permanent trip deletion." \
+            --notes "Expense and pending-payment edit/delete workflows with audit-safe financial history." \
+            --notes "Offline-member expense detail crash fix and corrected total-spent metric." \
+            --sha256 "${{ steps.apk_info.outputs.sha256 }}" \
+            --apk-url "https://github.com/${{ github.repository }}/releases/download/v${{ steps.apk_info.outputs.version }}/TripCircle-release.apk" \
+            --release-url "https://github.com/${{ github.repository }}/releases/tag/v${{ steps.apk_info.outputs.version }}"
+
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -127,6 +148,6 @@ jobs:
             - **Filename:** `TripCircle-release.apk`
             - **SHA-256 Checksum:** `${{ steps.apk_info.outputs.sha256 }}`
           files: |
-            TripCircle-release.apk
+            TripCircle-release.apk\n            version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
