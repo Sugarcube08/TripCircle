@@ -24,7 +24,7 @@
 - Trip cover-image cleanup runs after the database update commits.
 
 ### Validation
-- Added an integration test for soft expense deletion and zero-sum ledger reversal.
+- Added integration coverage for expense deletion/total reconciliation, pending-payment edit and immutability, and permanent trip deletion.
 - CI now provisions MySQL, applies Prisma migrations, typechecks workspaces, runs API tests, builds the API, typechecks mobile, and validates the version manifest.
 - Android build, runtime navigation, and remote-host database performance still require CI/device verification before release.
 
