@@ -16,6 +16,9 @@ export class PaymentService {
           },
         });
         if (existing) {
+          if (existing.tripId !== tripId || existing.payerMemberId !== input.payerMemberId || existing.receiverMemberId !== input.receiverMemberId) {
+            throw new Error('Idempotency key is already associated with a different payment');
+          }
           return existing;
         }
       }
@@ -29,6 +32,9 @@ export class PaymentService {
       if (!payer || payer.tripId !== tripId) {
         throw new Error('Invalid payer: member not found in this trip');
       }
+      if (payer.status !== 'ACTIVE') {
+        throw new Error('The payer must be an active trip member');
+      }
 
       // 3. Verify receiver belongs to trip
       const receiver = await tx.tripMember.findUnique({
@@ -38,6 +44,9 @@ export class PaymentService {
 
       if (!receiver || receiver.tripId !== tripId) {
         throw new Error('Invalid receiver: member not found in this trip');
+      }
+      if (receiver.status !== 'ACTIVE') {
+        throw new Error('The receiver must be an active trip member');
       }
 
       if (payer.id === receiver.id) {
