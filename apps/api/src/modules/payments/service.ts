@@ -401,6 +401,73 @@ export class PaymentService {
     });
   }
 
+  static async updatePendingPayment(
+    tripId: string,
+    paymentId: string,
+    currentUserId: string,
+    input: { amountPaise: number; paymentMethod: 'UPI' | 'CASH' | 'OTHER'; note?: string | null; receiptUrl?: string | null }
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: { payerMember: true },
+      });
+      if (!payment || payment.tripId !== tripId) throw new Error('Payment not found');
+      if (payment.status !== 'PENDING') {
+        throw new Error('Only pending payments can be edited. Confirmed, disputed, and cancelled payments are immutable.');
+      }
+
+      const currentMember = await tx.tripMember.findUnique({
+        where: { tripId_userId: { tripId, userId: currentUserId } },
+      });
+      const isPayer = payment.payerMember.userId === currentUserId;
+      if (!isPayer && currentMember?.role !== 'CREATOR') {
+        throw new Error('Forbidden: Only the payer or trip creator can edit a pending payment');
+      }
+      if (!Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0) {
+        throw new Error('Payment amount must be a positive integer number of paise');
+      }
+
+      const updated = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          amountPaise: input.amountPaise,
+          paymentMethod: input.paymentMethod,
+          ...(input.note !== undefined ? { note: input.note } : {}),
+          ...(input.receiptUrl !== undefined ? { receiptUrl: input.receiptUrl } : {}),
+        },
+        include: {
+          payerMember: { include: { user: true } },
+          receiverMember: { include: { user: true } },
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: currentUserId,
+          tripId,
+          action: 'EDIT_PENDING_PAYMENT',
+          entityType: 'PAYMENT',
+          entityId: payment.id,
+          details: {
+            previousAmountPaise: payment.amountPaise,
+            updatedAmountPaise: updated.amountPaise,
+            previousPaymentMethod: payment.paymentMethod,
+            updatedPaymentMethod: updated.paymentMethod,
+          },
+        },
+      });
+
+      await createOutboxEvent(tx, 'PAYMENT', payment.id, 'PAYMENT_UPDATED', {
+        paymentId: payment.id,
+        tripId,
+        amountPaise: updated.amountPaise,
+      });
+
+      return updated;
+    });
+  }
+
   static async listPayments(tripId: string) {
     const payments = await prisma.payment.findMany({
       where: { tripId },
