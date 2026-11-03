@@ -316,6 +316,7 @@ export class TripService {
       memberCount: trip.members.filter((m) => m.status === 'ACTIVE').length,
       expenseCount: trip.expenses.length,
       totalExpensePaise,
+      totalSpentPaise: totalExpensePaise,
       userNetBalancePaise,
       currentMemberId: currentMember.id,
       creator: trip.creator,
