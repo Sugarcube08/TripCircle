@@ -387,7 +387,7 @@ export class PaymentService {
         },
       });
 
-      if (!payment || payment.tripId !== tripId) {
+      if (!payment || payment.tripId !== tripId || payment.isDeleted) {
         throw new Error('Payment not found');
       }
 
