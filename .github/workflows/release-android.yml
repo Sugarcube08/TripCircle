@@ -106,6 +106,9 @@ jobs:
       - name: Apply Database Migrations
         run: pnpm --filter @tripcircle/api db:migrate
 
+      - name: Synchronize Test Database Schema
+        run: pnpm --filter @tripcircle/api exec prisma db push --accept-data-loss
+
       - name: Typecheck Packages & Apps
         run: pnpm typecheck
 
