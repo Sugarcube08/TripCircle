@@ -197,6 +197,10 @@ describe('P0: Optional Expense Description End-to-End', () => {
       expect(createdExpense.id).toBeDefined();
       expect(createdExpense.description).toBe('Dining & Drinks');
 
+      const tripDetail = await TripService.getTripDetail(testTrip.id, testUserA.id);
+      expect(tripDetail.totalSpentPaise).toBe(4000);
+      expect(tripDetail.totalExpensePaise).toBe(4000);
+
       // B. Verify ExpenseRevision record
       const revision = await prisma.expenseRevision.findFirst({
         where: { expenseId: createdExpense.id, version: 1 },
@@ -284,6 +288,7 @@ describe('P0: Optional Expense Description End-to-End', () => {
   });
   describe('5. Expense deletion and ledger reversal', () => {
     it('removes a deleted expense from active lists and records a zero-sum reversal', async () => {
+      const totalBeforeDelete = (await TripService.getTripDetail(testTrip.id, testUserA.id)).totalSpentPaise;
       const expense = await ExpenseService.createExpense(testTrip.id, testUserA.id, {
         payerMemberId: memberA.id,
         amountPaise: 2500,
@@ -298,6 +303,9 @@ describe('P0: Optional Expense Description End-to-End', () => {
 
       const deleted = await ExpenseService.deleteExpense(testTrip.id, expense.id, testUserA.id);
       expect(deleted.isDeleted).toBe(true);
+
+      const totalAfterDelete = (await TripService.getTripDetail(testTrip.id, testUserA.id)).totalSpentPaise;
+      expect(totalAfterDelete).toBe(totalBeforeDelete);
 
       const activeExpenses = await ExpenseService.listExpenses(testTrip.id);
       expect(activeExpenses.some((item) => item.id === expense.id)).toBe(false);
