@@ -4,7 +4,7 @@ ALTER TABLE `Payment`
 CREATE INDEX `Payment_tripId_isDeleted_status_idx`
   ON `Payment`(`tripId`, `isDeleted`, `status`);
 
--- Add an explicit ledger event for reversing a soft-deleted expense.
+-- Add explicit ledger events for reversing soft-deleted expenses and payments.
 ALTER TABLE `LedgerEntry`
   MODIFY `eventType` ENUM(
     'EXPENSE_CREATED',
