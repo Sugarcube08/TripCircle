@@ -54,6 +54,7 @@ export async function performSync(options: SyncOptions = {}): Promise<SyncResult
         method: 'POST',
         body: JSON.stringify({
           lastSyncTimestamp: cache.lastSyncTimestamp || undefined,
+          tripIds: options.requestedTripIds,
           requestedTripIds: options.requestedTripIds,
           ...(options.includeTripDetails === undefined ? {} : { includeTripDetails: options.includeTripDetails }),
         }),

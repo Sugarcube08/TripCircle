@@ -265,8 +265,9 @@ export type RespondDiscountInput = z.infer<typeof RespondDiscountSchema>;
 // --- Sync Schema ---
 
 export const SyncPullSchema = z.object({
-  lastSyncTimestamp: z.string().optional(),
+  lastSyncTimestamp: z.string().nullish(),
   tripIds: z.array(z.string()).optional(),
+  requestedTripIds: z.array(z.string()).optional(),
   // Summary-only sync avoids downloading full trip ledgers on the Trips screen.
   includeTripDetails: z.boolean().optional(),
 });

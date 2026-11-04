@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
     const validated = SyncPullSchema.parse(body);
     const result = await SyncService.pullChanges(
       authUser.id,
-      validated.lastSyncTimestamp,
-      validated.tripIds,
+      validated.lastSyncTimestamp ?? undefined,
+      validated.tripIds || validated.requestedTripIds,
       validated.includeTripDetails
     );
     return successResponse(result);
