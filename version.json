@@ -13,9 +13,9 @@
     "Trip dashboard total spent now uses the backend totalSpentPaise contract.",
     "Improved transaction limits and database write batching for remote MySQL reliability."
   ],
-  "apkUrl": "https://github.com/Sugarcube08/TripCircle/releases/download/v1.2.0-alpha.1/TripCircle-release.apk",
+  "apkUrl": "https://github.com/Sugarcube08/TripCircle/releases/download/v1.2.0-alpha.1/TripCircle-v1.2.0-alpha.1-release.apk",
   "releaseUrl": "https://github.com/Sugarcube08/TripCircle/releases/tag/v1.2.0-alpha.1",
-  "sha256": "",
+  "sha256": "608505b8ce3006745e341fbc01911445bed9bfe5d9416615f40455c4302ad5b3",
   "mandatory": false,
   "publishedAt": "2026-11-03T12:00:00.000Z"
 }
