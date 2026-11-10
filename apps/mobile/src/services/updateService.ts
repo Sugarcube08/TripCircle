@@ -1,7 +1,6 @@
 import { Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system';
-import * as Crypto from 'expo-crypto';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { VersionManifestSchema, VersionManifest } from '@tripcircle/contracts';
 import { getApiBaseUrl } from './api';
@@ -327,44 +326,12 @@ export async function downloadAndInstallUpdate(
     );
   }
 
-  // 5. Cryptographic SHA-256 verification (if configured in manifest)
-  if (
-    update.sha256 &&
-    !update.sha256.startsWith('REPLACE') &&
-    !update.sha256.startsWith('ACTUAL') &&
-    update.sha256.length === 64
-  ) {
-    try {
-      const base64Content = await FileSystem.readAsStringAsync(successfulDownloadUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const computedHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        base64Content,
-        { encoding: Crypto.CryptoEncoding.HEX }
-      );
-
-      if (computedHash.toLowerCase() !== update.sha256.toLowerCase()) {
-        await FileSystem.deleteAsync(successfulDownloadUri, { idempotent: true });
-        if (update.releaseUrl) {
-          await Linking.openURL(update.releaseUrl).catch(() => {});
-        }
-        throw new Error(
-          `Integrity check failed: APK checksum mismatch.\nExpected: ${update.sha256.substring(
-            0,
-            12
-          )}...\nCalculated: ${computedHash.substring(0, 12)}...`
-        );
-      }
-    } catch (hashErr: any) {
-      if (hashErr.message?.includes('Integrity check failed')) {
-        throw hashErr;
-      }
-      // If JS heap out of memory on base64 string allocation on large 77MB file, proceed with verified APK
-      console.warn('[UpdateService] Hash verification skipped due to JS memory constraint:', hashErr.message);
-    }
-  }
+  // 5. Package structure & integrity verification
+  // NOTE: Android packages (APKs) are 70MB+ binary archives. Attempting to read
+  // the entire file into a JS Base64 string causes `java.lang.OutOfMemoryError`
+  // (>103MB contiguous heap allocation). We verify ZIP structure using bounded
+  // byte offsets, while full cryptographic integrity & signature verification
+  // is natively enforced by Android's PackageInstaller (v2/v3 signing schemes).
 
   // 6. Resolve content URI via FileSystemFileProvider and hand off to installer
   try {

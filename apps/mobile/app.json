@@ -23,6 +23,7 @@
       },
       "package": "app.tripcircle.mobile",
       "versionCode": 3,
+      "largeHeap": true,
       "permissions": [
         "INTERNET",
         "READ_EXTERNAL_STORAGE",
