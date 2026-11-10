@@ -94,11 +94,13 @@ export const UpdatePromptModal: React.FC = () => {
 
           <View style={styles.versionBadgesRow}>
             <View style={styles.versionBadgeCurrent}>
-              <Text style={styles.versionBadgeCurrentText}>Current: v{updateResult.installedVersion}</Text>
+              <Text style={styles.versionBadgeCurrentText}>
+                Current: v{updateResult.installedVersion} (b{updateResult.installedVersionCode})
+              </Text>
             </View>
             <Ionicons name="arrow-forward" size={14} color={THEME.colors.textMuted} />
             <View style={styles.versionBadgeNew}>
-              <Text style={styles.versionBadgeNewText}>v{update.version}</Text>
+              <Text style={styles.versionBadgeNewText}>v{update.version} (b{update.versionCode})</Text>
             </View>
           </View>
 

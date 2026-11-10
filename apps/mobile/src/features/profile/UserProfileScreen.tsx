@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
 import { clearTokens, getRefreshToken } from '../../storage/secureStore';
 import { LocalDatabase } from '../../storage/db';
-import { checkForAppUpdate } from '../../services/updateService';
+import { checkForAppUpdate, getInstalledVersionInfo } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { AmountText } from '../../components/AmountText';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
@@ -286,13 +286,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
           <TouchableOpacity
             style={[styles.optionRow, styles.lastOptionRow]}
-            onPress={() =>
+            onPress={() => {
+              const { version, versionCode } = getInstalledVersionInfo();
               dialog.alert(
                 'About TripCircle',
-                'TripCircle v1.0.0\n\nExact Integer Paise Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture',
+                `TripCircle v${version} (Build ${versionCode})\n\nExact Integer Paise Accounting\nImmutable Audit Ledger & Settlement Engine\nLocal-first SQLite Sync Architecture`,
                 'info'
-              )
-            }
+              );
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.optionLeft}>
@@ -310,6 +311,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <Ionicons name="log-out-outline" size={18} color={THEME.colors.debt} style={{ marginRight: 6 }} />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
+
+        {/* Installed Version Footer */}
+        <View style={styles.versionFooter}>
+          <Text style={styles.versionFooterText}>
+            TripCircle v{getInstalledVersionInfo().version} (Build {getInstalledVersionInfo().versionCode})
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Payment QR Modal */}
@@ -610,5 +618,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  versionFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingBottom: 24,
+  },
+  versionFooterText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.3,
   },
 });

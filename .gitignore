@@ -45,3 +45,8 @@ pnpm-debug.log*
 .idea/
 .vscode/
 
+# Build artifacts & releases
+*.apk
+*.aab
+releases/
+
