@@ -90,8 +90,8 @@ jobs:
         id: meta
         shell: bash
         run: |
-          CURRENT_VERSION=$(node -p "require('./apps/mobile/app.json').expo.version || '1.2.0-alpha.1'")
-          CURRENT_CODE=$(node -p "require('./apps/mobile/app.json').expo.android?.versionCode || 2")
+          CURRENT_VERSION=$(node -p "require('./apps/mobile/app.json').expo.version || '1.2.5'")
+          CURRENT_CODE=$(node -p "require('./apps/mobile/app.json').expo.android?.versionCode || 3")
           
           REQ_VERSION="${{ github.event.inputs.version_name }}"
           REQ_CODE="${{ github.event.inputs.version_code }}"

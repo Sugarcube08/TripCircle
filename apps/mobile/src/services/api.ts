@@ -1,4 +1,11 @@
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../storage/secureStore';
+import {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+  notifySessionExpired,
+  isTokenExpiringSoon,
+} from '../storage/secureStore';
 import { LocalDatabase } from '../storage/db';
 
 /**
@@ -153,7 +160,7 @@ export interface RequestOptions extends RequestInit {
   _isRetry?: boolean;
 }
 
-// Single active token refresh promise shared across all concurrent 401 requests
+// Single active token refresh promise shared across all concurrent requests
 let activeRefreshPromise: Promise<string | null> | null = null;
 
 async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null> {
@@ -167,6 +174,7 @@ async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null
       if (!refreshToken) {
         await clearTokens();
         LocalDatabase.resetMemory();
+        notifySessionExpired();
         return null;
       }
 
@@ -177,8 +185,14 @@ async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null
       });
 
       if (!refreshRes.ok) {
-        await clearTokens();
-        LocalDatabase.resetMemory();
+        // Only clear tokens and terminate session if server explicitly rejects with 401/403
+        // (Invalid, expired or revoked refresh token)
+        if (refreshRes.status === 401 || refreshRes.status === 403) {
+          await clearTokens();
+          LocalDatabase.resetMemory();
+          notifySessionExpired();
+        }
+        // Transient server errors (5xx) must NOT wipe user tokens or log them out!
         return null;
       }
 
@@ -191,12 +205,17 @@ async function requestSharedTokenRefresh(baseUrl: string): Promise<string | null
         return newAccess;
       }
 
+      // Malformed server response with 200 OK but missing tokens
       await clearTokens();
       LocalDatabase.resetMemory();
+      notifySessionExpired();
       return null;
-    } catch {
-      await clearTokens();
-      LocalDatabase.resetMemory();
+    } catch (err) {
+      // Network exceptions (offline, airplane mode, timeout, DNS resolution failure)
+      // Preserves stored credentials so offline queue and retry mechanisms function smoothly!
+      if (isDev) {
+        console.warn('⚠️ Network failure during token refresh; keeping cached session:', err);
+      }
       return null;
     } finally {
       activeRefreshPromise = null;
@@ -233,7 +252,18 @@ export async function apiRequest<T = any>(
   }
 
   if (requiresAuth) {
-    const token = await getAccessToken();
+    let token = await getAccessToken();
+    const refreshToken = await getRefreshToken();
+
+    // Proactive refresh: if access token is missing or expiring within 30 seconds,
+    // and we have a valid refresh token, refresh proactively before making the request.
+    if ((!token || isTokenExpiringSoon(token)) && refreshToken && !options._isRetry) {
+      const refreshedToken = await requestSharedTokenRefresh(baseUrl);
+      if (refreshedToken) {
+        token = refreshedToken;
+      }
+    }
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }

@@ -82,7 +82,9 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ user, setUser }) =
             <Stack.Screen name="AddExpense">
               {(props) => <AddExpenseScreen {...props} user={user} />}
             </Stack.Screen>
-            <Stack.Screen name="EditExpense" component={EditExpenseScreen} />
+            <Stack.Screen name="EditExpense">
+              {(props) => <EditExpenseScreen {...props} user={user} />}
+            </Stack.Screen>
             <Stack.Screen name="ExpenseDetail">
               {(props) => <ExpenseDetailScreen {...props} user={user} />}
             </Stack.Screen>

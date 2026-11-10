@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import fs from 'fs';
 import zlib from 'zlib';
 import ExcelJS from 'exceljs';
 import { prisma } from '../../src/lib/prisma';

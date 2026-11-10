@@ -1,6 +1,6 @@
 {
   "name": "@tripcircle/mobile",
-  "version": "1.2.0-alpha.1",
+  "version": "1.2.5",
   "private": true,
   "main": "index.js",
   "scripts": {

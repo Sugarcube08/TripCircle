@@ -15,32 +15,39 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { apiRequest, uploadImageFromUri, ApiError } from '../../services/api';
+import { EXPENSE_CATEGORIES, calculateEqualSplit } from '@tripcircle/contracts';
+import { apiRequest, getOnlineStatus, uploadImageFromUri, ApiError } from '../../services/api';
 import { resolveMediaUrl } from '../../utils/media';
-import { calculateEqualSplit, validateUnequalSplit } from '@tripcircle/contracts';
 import { MemberAvatar } from '../../components/MemberAvatar';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
-import { ScreenHeader, SegmentedControl, dialog } from '../../components/ui';
-import { THEME } from '../../theme';
+import { ScreenHeader, dialog } from '../../components/ui';
+import { THEME, getCategoryConfig } from '../../theme';
 
 interface EditExpenseScreenProps {
   route: any;
   navigation: any;
+  user?: any;
 }
 
 export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   route,
   navigation,
+  user,
 }) => {
   const { tripId, expenseId } = route.params;
   const [expense, setExpense] = useState<any>(null);
   const [amountRupees, setAmountRupees] = useState('');
   const [description, setDescription] = useState('');
-  const [changeReason, setChangeReason] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('FOOD');
+  const [payerMemberId, setPayerMemberId] = useState<string>('');
   const [splitMethod, setSplitMethod] = useState<'EQUAL' | 'UNEQUAL'>('EQUAL');
   const [members, setMembers] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [selectedBeneficiaryIds, setSelectedBeneficiaryIds] = useState<string[]>([]);
   const [unequalShares, setUnequalShares] = useState<Record<string, string>>({});
+  const [location, setLocation] = useState('');
+  const [note, setNote] = useState('');
+  const [changeReason, setChangeReason] = useState('');
   const [existingReceiptUrl, setExistingReceiptUrl] = useState<string | null>(null);
   const [newReceiptUri, setNewReceiptUri] = useState<string | null>(null);
   const [removeReceipt, setRemoveReceipt] = useState(false);
@@ -73,25 +80,36 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
   useEffect(() => {
     async function loadData() {
       try {
-        const [exp, tripData] = await Promise.all([
+        const [exp, tripData, catsData] = await Promise.all([
           apiRequest(`/trips/${tripId}/expenses/${expenseId}`),
           apiRequest(`/trips/${tripId}`),
+          apiRequest('/categories').catch(() => []),
         ]);
 
         setExpense(exp);
         setAmountRupees((exp.amountPaise / 100).toFixed(2));
-        setDescription(exp.description);
-        setSplitMethod(exp.splitMethod);
-        setMembers(tripData.members.filter((m: any) => m.status === 'ACTIVE'));
+        setDescription(exp.description || '');
+        setSelectedCategory(exp.categoryId || exp.category?.key || exp.category?.id || 'FOOD');
+        setPayerMemberId(exp.payerMemberId);
+        setSplitMethod(exp.splitMethod || 'EQUAL');
+        setLocation(exp.location || '');
+        setNote(exp.note || '');
+
+        const activeMembers = tripData.members.filter((m: any) => m.status === 'ACTIVE');
+        setMembers(activeMembers);
+
+        const validCats = Array.isArray(catsData) && catsData.length > 0 ? catsData : [];
+        setCategories(validCats);
+
         if (exp.receiptUrl) {
           setExistingReceiptUrl(exp.receiptUrl);
         }
 
-        const allocatedIds = exp.allocations.map((a: any) => a.memberId);
+        const allocatedIds = (exp.allocations || []).map((a: any) => a.memberId);
         setSelectedBeneficiaryIds(allocatedIds);
 
         const sharesMap: Record<string, string> = {};
-        for (const a of exp.allocations) {
+        for (const a of exp.allocations || []) {
           sharesMap[a.memberId] = (a.sharePaise / 100).toFixed(2);
         }
         setUnequalShares(sharesMap);
@@ -118,31 +136,98 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
     }
   };
 
+  const selectAllBeneficiaries = () => {
+    setSelectedBeneficiaryIds(members.map((m) => m.id));
+  };
+
+  const handleSplitMethodChange = (newMethod: 'EQUAL' | 'UNEQUAL') => {
+    setSplitMethod(newMethod);
+    if (newMethod === 'UNEQUAL' && totalAmountPaise > 0 && selectedBeneficiaryIds.length > 0) {
+      const currentSum = selectedBeneficiaryIds.reduce((sum, id) => {
+        return sum + Math.round((parseFloat(unequalShares[id]) || 0) * 100);
+      }, 0);
+      if (currentSum !== totalAmountPaise) {
+        try {
+          const equalAllocs = calculateEqualSplit(totalAmountPaise, selectedBeneficiaryIds);
+          const newShares: Record<string, string> = { ...unequalShares };
+          for (const a of equalAllocs) {
+            newShares[a.memberId] = (a.sharePaise / 100).toFixed(2);
+          }
+          setUnequalShares(newShares);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  };
+
+  // Unequal allocation calculations
+  const totalAllocatedPaise = splitMethod === 'UNEQUAL'
+    ? selectedBeneficiaryIds.reduce((sum, id) => {
+        const val = Math.round((parseFloat(unequalShares[id]) || 0) * 100);
+        return sum + val;
+      }, 0)
+    : totalAmountPaise;
+
+  const unallocatedPaise = totalAmountPaise - totalAllocatedPaise;
+
+  const addQuickAmount = (increment: number) => {
+    const current = parseFloat(amountRupees) || 0;
+    setAmountRupees((current + increment).toString());
+  };
+
   const handleUpdate = async () => {
     if (saving) return;
 
+    if (!getOnlineStatus()) {
+      dialog.alert('Offline Mode', 'Transaction updates require active network connectivity.', 'warning');
+      return;
+    }
+
     if (!amountRupees || totalAmountPaise <= 0) {
-      dialog.alert('Required', 'Please enter a valid amount.', 'warning');
+      dialog.alert('Amount Required', 'Please enter a valid expense amount.', 'warning');
+      return;
+    }
+
+    if (!payerMemberId) {
+      dialog.alert('Payer Required', 'Please select who paid for this expense.', 'warning');
+      return;
+    }
+
+    if (selectedBeneficiaryIds.length === 0) {
+      dialog.alert('Beneficiaries Required', 'Please select at least one person sharing this expense.', 'warning');
       return;
     }
 
     let allocations: { memberId: string; sharePaise: number }[] = [];
 
     if (splitMethod === 'EQUAL') {
-      allocations = calculateEqualSplit(totalAmountPaise, selectedBeneficiaryIds);
+      try {
+        allocations = calculateEqualSplit(totalAmountPaise, selectedBeneficiaryIds);
+      } catch (err) {
+        dialog.alert('Calculation Error', (err as Error).message, 'error');
+        return;
+      }
     } else {
+      if (unallocatedPaise !== 0) {
+        dialog.alert(
+          'Allocation Mismatch',
+          `The sum of all member shares must exactly equal ₹${(totalAmountPaise / 100).toFixed(2)}. Currently ${unallocatedPaise > 0 ? `remaining: ₹${(unallocatedPaise / 100).toFixed(2)}` : `exceeded by ₹${(Math.abs(unallocatedPaise) / 100).toFixed(2)}`}.`,
+          'warning'
+        );
+        return;
+      }
+
       allocations = selectedBeneficiaryIds.map((id) => ({
         memberId: id,
         sharePaise: Math.round((parseFloat(unequalShares[id]) || 0) * 100),
       }));
-
-      try {
-        validateUnequalSplit(totalAmountPaise, allocations);
-      } catch (err) {
-        dialog.alert('Allocation Mismatch', (err as Error).message, 'warning');
-        return;
-      }
     }
+
+    const cat = categories.find((c) => c.key === selectedCategory || c.id === selectedCategory)
+      || categories.find((c) => c.id)
+      || categories[0];
+    const categoryId = cat?.id || cat?.key || selectedCategory || 'FOOD';
 
     try {
       setSaving(true);
@@ -161,15 +246,17 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
       await apiRequest(`/trips/${tripId}/expenses/${expenseId}`, {
         method: 'PUT',
         body: JSON.stringify({
-          payerMemberId: expense.payerMemberId,
+          payerMemberId,
           description: description.trim() || undefined,
           amountPaise: totalAmountPaise,
-          categoryId: expense.categoryId,
+          categoryId,
           splitMethod,
           allocations,
           expectedVersion: expense.version,
           changeReason: changeReason.trim() || undefined,
           receiptUrl: finalReceiptUrl,
+          location: location.trim() || undefined,
+          note: note.trim() || undefined,
         }),
       });
 
@@ -216,13 +303,13 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
           <View style={styles.noticeBanner}>
             <Ionicons name="information-circle-outline" size={18} color={THEME.colors.primary} style={{ marginRight: 8 }} />
             <Text style={styles.noticeText}>
-              Editing will create version {expense?.version + 1} with an immutable audit log.
+              Editing will create version {(expense?.version || 1) + 1} with an immutable audit log.
             </Text>
           </View>
 
           {/* Amount Box */}
           <View style={styles.amountCard}>
-            <Text style={styles.sectionHeader}>AMOUNT</Text>
+            <Text style={styles.amountLabel}>EXPENSE AMOUNT</Text>
             <View style={styles.amountInputRow}>
               <Text style={styles.currencySymbol}>₹</Text>
               <TextInput
@@ -230,11 +317,64 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
                 value={amountRupees}
                 onChangeText={setAmountRupees}
                 keyboardType="decimal-pad"
-                placeholder="0"
+                placeholder="0.00"
                 placeholderTextColor={THEME.colors.textLight}
               />
             </View>
+            {/* Quick Increment Chips */}
+            <View style={styles.quickChipsRow}>
+              {[100, 250, 500, 1000].map((inc) => (
+                <TouchableOpacity
+                  key={inc}
+                  style={styles.quickChip}
+                  onPress={() => addQuickAmount(inc)}
+                >
+                  <Text style={styles.quickChipText}>+{inc}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
+
+          {/* Category Strip */}
+          <Text style={styles.sectionHeader}>CATEGORY</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+          >
+            {(categories.length > 0 ? categories : EXPENSE_CATEGORIES).map((cat: any) => {
+              const catKey = cat.key || cat.id;
+              const isSelected = selectedCategory === catKey || selectedCategory === cat.id;
+              const cfg = getCategoryConfig(catKey);
+              return (
+                <TouchableOpacity
+                  key={cat.id || cat.key}
+                  style={[
+                    styles.categoryPill,
+                    isSelected && { backgroundColor: cfg.bg, borderColor: cfg.color, borderWidth: 1.5 },
+                  ]}
+                  onPress={() => setSelectedCategory(cat.key || cat.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.categoryIconCircle, { backgroundColor: isSelected ? cfg.color : '#F1F5F9' }]}>
+                    <Ionicons
+                      name={cfg.icon}
+                      size={16}
+                      color={isSelected ? '#FFFFFF' : THEME.colors.textSecondary}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.categoryPillText,
+                      isSelected && { color: cfg.color, fontWeight: '700' },
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           {/* Description */}
           <Text style={styles.sectionHeader}>DESCRIPTION (OPTIONAL)</Text>
@@ -250,36 +390,125 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
             />
           </View>
 
-          {/* Reason for Edit */}
-          <Text style={styles.sectionHeader}>REASON FOR EDIT (AUDIT TRAIL)</Text>
-          <View style={styles.inputCard}>
-            <Ionicons name="create-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.inputField}
-              placeholder="e.g. Corrected dinner tip, adjusted beneficiaries"
-              placeholderTextColor={THEME.colors.textLight}
-              value={changeReason}
-              onChangeText={setChangeReason}
-            />
+          {/* Paid By (Payee Selector) */}
+          <Text style={styles.sectionHeader}>PAID BY</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.membersRow}
+          >
+            {members.map((m) => {
+              const isSelected = payerMemberId === m.id;
+              const isYou = m.userId === user?.id;
+              const memberName = m.displayName || m.user?.name || 'Member';
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.payerCard, isSelected && styles.selectedPayerCard]}
+                  onPress={() => setPayerMemberId(m.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.avatarWrapper}>
+                    <MemberAvatar name={memberName} avatarUrl={m.user?.avatarUrl} size={44} />
+                    {isSelected && (
+                      <View style={styles.selectedBadge}>
+                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={[styles.payerName, isSelected && styles.selectedPayerName]}
+                    numberOfLines={1}
+                  >
+                    {isYou ? 'You' : memberName.split(' ')[0]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Split Section */}
+          <View style={styles.splitHeaderRow}>
+            <Text style={styles.sectionHeader}>SPLIT WITH</Text>
+            <TouchableOpacity onPress={selectAllBeneficiaries} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.selectAllLink}>Select Everyone</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Split Method Toggle */}
-          <Text style={styles.sectionHeader}>SPLIT METHOD</Text>
-          <SegmentedControl
-            options={[
-              { id: 'EQUAL', label: 'Equal Split', icon: 'pie-chart-outline' },
-              { id: 'UNEQUAL', label: 'Unequal Split', icon: 'options-outline' },
-            ]}
-            selectedId={splitMethod}
-            onSelect={(id) => setSplitMethod(id as 'EQUAL' | 'UNEQUAL')}
-            style={{ marginBottom: THEME.spacing.md }}
-          />
+          <View style={styles.methodToggleCard}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, splitMethod === 'EQUAL' && styles.activeToggleBtn]}
+              onPress={() => handleSplitMethodChange('EQUAL')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="pie-chart-outline"
+                size={16}
+                color={splitMethod === 'EQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.toggleText, splitMethod === 'EQUAL' && styles.activeToggleText]}>
+                Equal Split
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.toggleBtn, splitMethod === 'UNEQUAL' && styles.activeToggleBtn]}
+              onPress={() => handleSplitMethodChange('UNEQUAL')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="options-outline"
+                size={16}
+                color={splitMethod === 'UNEQUAL' ? THEME.colors.primaryDark : THEME.colors.textMuted}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.toggleText, splitMethod === 'UNEQUAL' && styles.activeToggleText]}>
+                Unequal Split
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Unequal allocation validation indicator */}
+          {splitMethod === 'UNEQUAL' && totalAmountPaise > 0 && (
+            <View
+              style={[
+                styles.allocationBanner,
+                unallocatedPaise === 0 ? styles.allocationBannerSuccess : styles.allocationBannerAlert,
+              ]}
+            >
+              <Ionicons
+                name={unallocatedPaise === 0 ? 'checkmark-circle' : 'alert-circle'}
+                size={18}
+                color={unallocatedPaise === 0 ? THEME.colors.credit : THEME.colors.debt}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                style={[
+                  styles.allocationBannerText,
+                  { color: unallocatedPaise === 0 ? THEME.colors.credit : THEME.colors.debt },
+                ]}
+              >
+                {unallocatedPaise === 0
+                  ? 'Total matches exact expense amount'
+                  : unallocatedPaise > 0
+                  ? `Remaining to allocate: ₹${(unallocatedPaise / 100).toFixed(2)}`
+                  : `Over-allocated by: ₹${(Math.abs(unallocatedPaise) / 100).toFixed(2)}`}
+              </Text>
+            </View>
+          )}
 
           {/* Beneficiaries List */}
-          <Text style={styles.sectionHeader}>BENEFICIARIES</Text>
           <View style={styles.beneficiariesCard}>
             {members.map((m, index) => {
               const isIncluded = selectedBeneficiaryIds.includes(m.id);
+              const isYou = m.userId === user?.id;
+              const equalShare =
+                totalAmountPaise > 0 && selectedBeneficiaryIds.length > 0
+                  ? (totalAmountPaise / selectedBeneficiaryIds.length / 100).toFixed(2)
+                  : '0.00';
+
               return (
                 <View
                   key={m.id}
@@ -301,34 +530,75 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
                       avatarUrl={m.user?.avatarUrl}
                       size={36}
                     />
-                    <Text style={[styles.beneficiaryName, !isIncluded && styles.textDisabled]}>
-                      {m.displayName || m.user?.name || 'Member'}
-                    </Text>
+                    <View style={styles.beneficiaryInfo}>
+                      <Text style={[styles.beneficiaryName, !isIncluded && styles.textDisabled]}>
+                        {m.displayName || m.user?.name || 'Member'} {isYou ? '(You)' : ''}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
 
-                  {splitMethod === 'UNEQUAL' ? (
+                  {splitMethod === 'EQUAL' ? (
+                    <Text style={[styles.shareValueText, !isIncluded && styles.textDisabled]}>
+                      {isIncluded ? `₹${equalShare}` : '₹0.00'}
+                    </Text>
+                  ) : (
                     <View style={styles.unequalInputWrapper}>
                       <Text style={styles.rupeeInputPrefix}>₹</Text>
                       <TextInput
                         style={styles.unequalInputField}
+                        placeholder="0.00"
+                        placeholderTextColor={THEME.colors.textLight}
+                        keyboardType="decimal-pad"
                         value={unequalShares[m.id] || ''}
                         onChangeText={(val) => setUnequalShares({ ...unequalShares, [m.id]: val })}
-                        keyboardType="decimal-pad"
-                        placeholder="0.00"
-                        placeholderTextColor={THEME.colors.textMuted}
                         editable={isIncluded}
                       />
                     </View>
-                  ) : (
-                    <Text style={[styles.shareValueText, !isIncluded && styles.textDisabled]}>
-                      {isIncluded && selectedBeneficiaryIds.length > 0
-                        ? `₹${(totalAmountPaise / selectedBeneficiaryIds.length / 100).toFixed(2)}`
-                        : '₹0.00'}
-                    </Text>
                   )}
                 </View>
               );
             })}
+          </View>
+
+          {/* Reason for Edit (Audit Trail) */}
+          <Text style={styles.sectionHeader}>REASON FOR EDIT (AUDIT TRAIL)</Text>
+          <View style={styles.inputCard}>
+            <Ionicons name="create-outline" size={20} color={THEME.colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.inputField}
+              placeholder="e.g. Changed payer, corrected dinner split"
+              placeholderTextColor={THEME.colors.textLight}
+              value={changeReason}
+              onChangeText={setChangeReason}
+              maxLength={255}
+            />
+          </View>
+
+          {/* Extra Details */}
+          <Text style={styles.sectionHeader}>EXTRA DETAILS (OPTIONAL)</Text>
+          <View style={styles.optionalCard}>
+            <View style={styles.optionalRow}>
+              <Ionicons name="location-outline" size={18} color={THEME.colors.textMuted} style={styles.optIcon} />
+              <TextInput
+                style={styles.optInput}
+                placeholder="Location (e.g. Candolim Beach)"
+                placeholderTextColor={THEME.colors.textLight}
+                value={location}
+                onChangeText={setLocation}
+              />
+            </View>
+            <View style={styles.cardDivider} />
+            <View style={styles.optionalRow}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={THEME.colors.textMuted} style={styles.optIcon} />
+              <TextInput
+                style={[styles.optInput, { minHeight: 48 }]}
+                placeholder="Notes or details..."
+                placeholderTextColor={THEME.colors.textLight}
+                value={note}
+                onChangeText={setNote}
+                multiline
+              />
+            </View>
           </View>
 
           {/* Receipt Section */}
@@ -379,10 +649,10 @@ export const EditExpenseScreen: React.FC<EditExpenseScreenProps> = ({
             activeOpacity={0.85}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#0B0F19" />
             ) : (
               <>
-                <Ionicons name="save-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Ionicons name="save-outline" size={20} color="#0B0F19" style={{ marginRight: 6 }} />
                 <Text style={styles.saveBtnText}>Save Revision</Text>
               </>
             )}
@@ -441,6 +711,13 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.border,
     ...THEME.shadows.sm,
   },
+  amountLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: THEME.colors.textMuted,
+    marginBottom: 4,
+  },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '700',
@@ -471,6 +748,54 @@ const styles = StyleSheet.create({
     padding: 0,
     fontVariant: ['tabular-nums'],
   },
+  quickChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: THEME.spacing.sm,
+  },
+  quickChip: {
+    backgroundColor: THEME.colors.surfaceSubtle,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.full,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  quickChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+  },
+  categoryRow: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    gap: 8,
+    marginBottom: THEME.spacing.sm,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.full,
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    marginRight: 6,
+  },
+  categoryIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  categoryPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+  },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -492,13 +817,119 @@ const styles = StyleSheet.create({
     color: THEME.colors.textPrimary,
     minHeight: 44,
   },
+  membersRow: {
+    paddingVertical: 4,
+    gap: 12,
+    marginBottom: THEME.spacing.md,
+  },
+  payerCard: {
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: THEME.borderRadius.md,
+    backgroundColor: THEME.colors.surface,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.border,
+    minWidth: 72,
+    marginRight: 8,
+  },
+  selectedPayerCard: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: 'rgba(0, 245, 160, 0.08)',
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 6,
+  },
+  selectedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: THEME.colors.primary,
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: THEME.colors.surface,
+  },
+  payerName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+    maxWidth: 64,
+    textAlign: 'center',
+  },
+  selectedPayerName: {
+    color: THEME.colors.textPrimary,
+    fontWeight: '700',
+  },
+  splitHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: THEME.spacing.xs,
+  },
+  selectAllLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.primary,
+  },
+  methodToggleCard: {
+    flexDirection: 'row',
+    backgroundColor: THEME.colors.surfaceSubtle,
+    borderRadius: THEME.borderRadius.md,
+    padding: 4,
+    marginVertical: THEME.spacing.sm,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  toggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: THEME.borderRadius.sm,
+  },
+  activeToggleBtn: {
+    backgroundColor: THEME.colors.surface,
+    ...THEME.shadows.sm,
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+  },
+  activeToggleText: {
+    color: THEME.colors.primary,
+    fontWeight: '700',
+  },
+  allocationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: THEME.borderRadius.md,
+    marginBottom: THEME.spacing.sm,
+  },
+  allocationBannerSuccess: {
+    backgroundColor: THEME.colors.creditBg,
+  },
+  allocationBannerAlert: {
+    backgroundColor: THEME.colors.debtBg,
+  },
+  allocationBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
   beneficiariesCard: {
     backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     paddingHorizontal: THEME.spacing.md,
-    marginBottom: THEME.spacing.lg,
+    marginBottom: THEME.spacing.md,
     ...THEME.shadows.sm,
   },
   beneficiaryRow: {
@@ -530,11 +961,14 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.primary,
     borderColor: THEME.colors.primary,
   },
+  beneficiaryInfo: {
+    marginLeft: 10,
+    flex: 1,
+  },
   beneficiaryName: {
     fontSize: 14,
     fontWeight: '600',
     color: THEME.colors.textPrimary,
-    marginLeft: 10,
   },
   textDisabled: {
     color: THEME.colors.textLight,
@@ -565,16 +999,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: THEME.colors.textPrimary,
-    minWidth: 64,
+    minWidth: 70,
     textAlign: 'right',
     padding: 0,
     fontVariant: ['tabular-nums'],
+  },
+  optionalCard: {
+    backgroundColor: THEME.colors.surfaceSubtle,
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    paddingHorizontal: THEME.spacing.md,
+    marginBottom: THEME.spacing.md,
+  },
+  optionalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: THEME.colors.border,
+  },
+  optIcon: {
+    marginRight: 10,
+  },
+  optInput: {
+    flex: 1,
+    fontSize: 14,
+    color: THEME.colors.textPrimary,
+    paddingVertical: 0,
   },
   receiptCard: {
     backgroundColor: THEME.colors.surface,
     borderRadius: THEME.borderRadius.md,
     padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
+    marginBottom: THEME.spacing.lg,
     borderWidth: 1,
     borderColor: THEME.colors.border,
   },

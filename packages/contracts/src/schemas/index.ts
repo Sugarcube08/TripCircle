@@ -64,6 +64,29 @@ export const ChangePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 
+export const RefreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
+});
+export type RefreshTokenInput = z.infer<typeof RefreshTokenSchema>;
+
+export const AuthResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  user: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+      phone: z.string().nullable().optional(),
+      avatarUrl: z.string().nullable().optional(),
+      paymentQrUrl: z.string().nullable().optional(),
+      isEmailVerified: z.boolean(),
+      completedTripCount: z.number().optional(),
+    })
+    .optional(),
+});
+export type AuthResponse = z.infer<typeof AuthResponseSchema>;
+
 // --- Trip Member Schemas ---
 
 export const AddDummyMemberSchema = z.object({

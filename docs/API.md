@@ -120,11 +120,8 @@ Add a new expense. Affects balances immediately without approval.
 Get expense details and chronological revision history snapshots.
 
 ### `PUT /trips/:id/expenses/:expenseId`
-Edit an expense (submitter or trip creator). Every edit writes a revision and balanced reversal/replacement ledger postings.
-
-### `DELETE /trips/:id/expenses/:expenseId`
-Soft delete an expense (submitter or trip creator). Reverses active balances in a zero-sum ledger event, removes the expense from active totals, and preserves revision history for auditing.
-- **Body:** `{ payerMemberId, amountPaise, categoryId, description, splitMethod, allocations, expectedVersion, changeReason? }`
+Edit an expense (submitter or trip creator). Allows modifying payer member (`payerMemberId`), split method (`splitMethod`), beneficiary shares (`allocations`), amount, category, description, and metadata. Every edit atomically writes an `ExpenseRevision` audit record and posts balanced reversal/replacement ledger rows (`EXPENSE_EDITED`).
+- **Body:** `{ payerMemberId, amountPaise, categoryId, description?, splitMethod, allocations, expectedVersion, changeReason?, location?, note?, receiptUrl? }`
 - **Response:** `200 OK` on success, or `409 Conflict` if version mismatch.
 
 ### `DELETE /trips/:id/expenses/:expenseId`

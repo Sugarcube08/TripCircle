@@ -15,9 +15,30 @@ import { RegisterInput,
   LoginInput,
   VerifyOtpInput,
   ResetPasswordInput,
+  RefreshTokenInput,
 } from '@tripcircle/contracts';
 import { verifyRegistrationQrToken } from '../../lib/registration-token';
 import { getEnv } from '../../lib/env';
+
+interface CachedTokenRotation {
+  accessToken: string;
+  refreshToken: string;
+  user: any;
+  expiresAt: number;
+  sessionId: string;
+}
+
+// In-memory 30-second grace window to absorb concurrent refresh requests and race conditions
+const recentTokenRotations = new Map<string, CachedTokenRotation>();
+
+function cleanupExpiredRotations() {
+  const now = Date.now();
+  for (const [hash, entry] of recentTokenRotations.entries()) {
+    if (entry.expiresAt <= now) {
+      recentTokenRotations.delete(hash);
+    }
+  }
+}
 
 export class AuthService {
   static async register(input: RegisterInput) {
@@ -249,47 +270,121 @@ export class AuthService {
     };
   }
 
-  static async refresh(refreshToken: string) {
+  static async refresh(refreshToken: string, userAgent?: string, ipAddress?: string) {
+    cleanupExpiredRotations();
+
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    // 1. Check in-memory rotation grace window (prevents race-condition failures when
+    // multiple concurrent requests hit 401 and trigger near-simultaneous refresh calls)
+    const cachedRotation = recentTokenRotations.get(tokenHash);
+    if (cachedRotation && cachedRotation.expiresAt > Date.now()) {
+      const activeSession = await prisma.session.findUnique({
+        where: { id: cachedRotation.sessionId },
+      });
+      if (activeSession && !activeSession.revokedAt) {
+        return {
+          accessToken: cachedRotation.accessToken,
+          refreshToken: cachedRotation.refreshToken,
+          user: cachedRotation.user,
+        };
+      }
+    }
+
+    // 2. Cryptographic JWT verification
     const payload = verifyRefreshToken(refreshToken);
     if (!payload) {
       throw new Error('Unauthorized: Invalid or expired refresh token');
     }
 
-    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    // 3. Database session lookup including verified user
     const session = await prisma.session.findFirst({
       where: {
         userId: payload.userId,
         refreshTokenHash: tokenHash,
-        revokedAt: null,
+      },
+      include: {
+        user: true,
       },
     });
+
+    // 4. Reuse / Revocation detection (OAuth 2.0 RFC 6819 defense)
+    if (session && session.revokedAt) {
+      // Token reuse detected! Invalidate all sessions for this user to contain breach
+      await prisma.session.updateMany({
+        where: { userId: payload.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new Error('Unauthorized: Token reuse detected. All active sessions invalidated for security.');
+    }
 
     if (!session || session.expiresAt < new Date()) {
       throw new Error('Unauthorized: Session expired or revoked');
     }
 
-    // Rotate refresh token
-    const newAccessToken = generateAccessToken({ userId: payload.userId, email: payload.email });
-    const newRefreshToken = generateRefreshToken({ userId: payload.userId, email: payload.email });
+    if (!session.user) {
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date() },
+      });
+      throw new Error('Unauthorized: User account not found or deactivated');
+    }
+
+    // 5. Build consistent user profile identical to login response
+    const completedTripCount = await prisma.tripMember.count({
+      where: {
+        userId: session.user.id,
+        status: 'ACTIVE',
+        trip: { status: 'CLOSED' },
+      },
+    });
+
+    const userProfile = {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      phone: session.user.phone,
+      avatarUrl: session.user.avatarUrl,
+      paymentQrUrl: session.user.paymentQrUrl,
+      isEmailVerified: session.user.isEmailVerified,
+      completedTripCount,
+    };
+
+    // 6. Rotate refresh token & issue fresh access token
+    const newAccessToken = generateAccessToken({ userId: session.user.id, email: session.user.email });
+    const newRefreshToken = generateRefreshToken({ userId: session.user.id, email: session.user.email });
     const newHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
 
     await prisma.session.update({
       where: { id: session.id },
       data: {
         refreshTokenHash: newHash,
+        userAgent: userAgent || session.userAgent,
+        ipAddress: ipAddress || session.ipAddress,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
+    });
+
+    // 7. Store in grace cache for 30s to absorb network jitter & parallel requests
+    recentTokenRotations.set(tokenHash, {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: userProfile,
+      expiresAt: Date.now() + 30_000,
+      sessionId: session.id,
     });
 
     return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
+      user: userProfile,
     };
   }
 
   static async logout(refreshToken: string) {
     if (!refreshToken) return;
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    recentTokenRotations.delete(tokenHash);
     await prisma.session.updateMany({
       where: { refreshTokenHash: tokenHash },
       data: { revokedAt: new Date() },

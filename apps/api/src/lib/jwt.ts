@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'dev-access-secret-32-chars-long-tripcircle';
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-32-chars-long-tripcircle';
@@ -11,12 +12,14 @@ export interface TokenPayload {
 export function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(payload, ACCESS_SECRET, {
     expiresIn: '15m',
+    jwtid: crypto.randomUUID(),
   });
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
   return jwt.sign(payload, REFRESH_SECRET, {
     expiresIn: '7d',
+    jwtid: crypto.randomUUID(),
   });
 }
 

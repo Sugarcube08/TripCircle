@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.2.5] - 2026-11-10
+
+### Added
+- **Payee & Beneficiary Split Editing**: Users can now edit the paying member (`payerMemberId`), split method (`splitMethod`), and individual member share allocations (`allocations`) on existing expenses.
+- **Enhanced Mobile Edit Expense UI**:
+  - Added horizontal "Paid By" member selector with avatars, "You" indicators, and active selection state.
+  - Added category selector strip with category icons and visual configuration.
+  - Added quick amount increment chips (`+100`, `+250`, `+500`, `+1000`) and real-time unallocated remainder calculation banner for unequal splits.
+  - Added location, notes, and photo receipt management (view, replace, remove).
+- **OAuth 2.0 RFC 6819 Token Rotation Grace Cache**:
+  - 30-second token rotation grace period in API auth service (`AuthService.refreshToken`) to tolerate parallel mobile requests without triggering reuse revocation.
+  - Added cryptographic `jwtid` UUID nonces to access and refresh tokens.
+  - Added active user status verification on refresh.
+- **Proactive & Network-Fault-Tolerant Mobile Token Refresh**:
+  - Proactive refresh in mobile API service when token is close to expiry.
+  - Network-offline tolerance ensuring offline errors do not wipe local auth sessions.
+  - Explicit server-side `/auth/logout` revocation on sign out.
+- **Comprehensive Integration Tests**: Added test coverage in `tests/expenses/edit-expense-payee-split.test.ts` verifying ledger balance reversal and zero-sum invariant preservation across payee and split updates.
+
+### Changed
+- **PDF Export Design & Structure Overhaul**:
+  - Completely re-architected `generatePdfReport` in `apps/api/src/modules/reports/service.ts`.
+  - Resolved coordinate pollution, text overlapping in metadata/notes, and phantom trailing blank pages.
+  - Two-pass rendering for accurate page counts (`Page X of Y`), dynamic section flow, and polished table borders/typography.
+  - Embedded expense allocations and settlement instructions cleanly within the PDF structure.
+- Monorepo package versions bumped to `1.2.5` (Android `versionCode: 3`, iOS `buildNumber: "3"`).
+
+### Fixed
+- Fixed hardcoded `payerMemberId` and `categoryId` in mobile `EditExpenseScreen.tsx`.
+- Fixed missing `user` prop propagation in `RootNavigator.tsx` for `EditExpenseScreen`.
+- Fixed PDF bottom margin resets causing unintended new pages during footer rendering.
+
+---
+
 ## [1.2.0-alpha.1] - 2026-11-03
 
 ### Added

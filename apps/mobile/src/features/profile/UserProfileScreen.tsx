@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest } from '../../services/api';
-import { clearTokens } from '../../storage/secureStore';
+import { clearTokens, getRefreshToken } from '../../storage/secureStore';
 import { LocalDatabase } from '../../storage/db';
 import { checkForAppUpdate } from '../../services/updateService';
 import { MemberAvatar } from '../../components/MemberAvatar';
@@ -126,6 +126,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       destructive: true,
     });
     if (confirmed) {
+      try {
+        const refreshToken = await getRefreshToken();
+        if (refreshToken) {
+          await apiRequest('/auth/logout', {
+            method: 'POST',
+            body: JSON.stringify({ refreshToken }),
+            requiresAuth: false,
+            timeoutMs: 4000,
+          }).catch(() => {});
+        }
+      } catch {}
       await clearTokens();
       await LocalDatabase.clear();
       onLogout();

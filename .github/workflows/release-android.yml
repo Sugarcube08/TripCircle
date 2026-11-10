@@ -7,17 +7,17 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Semantic Version (e.g. 1.0.1)'
+        description: 'Semantic Version (e.g. 1.2.5)'
         required: false
-        default: '1.2.0-alpha.1'
+        default: '1.2.5'
       version_code:
-        description: 'Android Version Code (e.g. 2)'
+        description: 'Android Version Code (e.g. 3)'
         required: false
-        default: '2'
+        default: '3'
       release_notes:
         description: 'Release summary notes'
         required: false
-        default: 'TripCircle 1.2.0-alpha: lifecycle-aware actions, safe expense details, editable pending payments, and auditable deletion.'
+        default: 'TripCircle 1.2.5: Payee & split edits, PDF report design overhaul, and resilient auth refresh.'
 
 jobs:
   build-and-release:
@@ -173,7 +173,7 @@ jobs:
           if [[ "$REF_TAG" =~ ^v ]]; then
             VER="${REF_TAG#v}"
           else
-            VER="${{ github.event.inputs.version_name || '1.2.0-alpha.1' }}"
+            VER="${{ github.event.inputs.version_name || '1.2.5' }}"
           fi
           echo "version=$VER" >> $GITHUB_OUTPUT
 

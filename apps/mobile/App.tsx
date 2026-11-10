@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { getAccessToken, clearTokens } from './src/storage/secureStore';
+import { getAccessToken, getRefreshToken, clearTokens, onSessionExpired } from './src/storage/secureStore';
 import { apiRequest } from './src/services/api';
 import { LocalDatabase } from './src/storage/db';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -16,12 +16,13 @@ export default function App() {
   useEffect(() => {
     async function checkExistingAuth() {
       try {
-        const [token] = await Promise.all([
+        const [accessToken, refreshToken] = await Promise.all([
           getAccessToken(),
+          getRefreshToken(),
           LocalDatabase.init(),
         ]);
 
-        if (token) {
+        if (accessToken || refreshToken) {
           const profile = await apiRequest('/users/me');
           setUser(profile);
           await LocalDatabase.init(profile.id);
@@ -34,7 +35,17 @@ export default function App() {
         setInitializing(false);
       }
     }
+
+    // Reactively return to login screen whenever refresh tokens are revoked or sessions expire
+    const unsubscribe = onSessionExpired(() => {
+      setUser(null);
+    });
+
     checkExistingAuth();
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   if (initializing) {

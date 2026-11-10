@@ -2,7 +2,7 @@
   "expo": {
     "name": "TripCircle",
     "slug": "tripcircle",
-    "version": "1.2.0-alpha.1",
+    "version": "1.2.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -13,7 +13,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.tripcircle.mobile"
+      "bundleIdentifier": "app.tripcircle.mobile",
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +22,7 @@
         "backgroundColor": "#0B0F19"
       },
       "package": "app.tripcircle.mobile",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "INTERNET",
         "READ_EXTERNAL_STORAGE",

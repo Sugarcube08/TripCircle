@@ -1,21 +1,17 @@
 {
-  "version": "1.2.0-alpha.1",
-  "versionCode": 2,
+  "version": "1.2.5",
+  "versionCode": 3,
   "minimumSupportedVersion": "1.0.0",
   "minimumSupportedVersionCode": 1,
   "releaseNotes": [
-    "Crash-safe expense and payment detail rendering, including offline and dummy members.",
-    "Role- and status-aware expense/payment actions with edit and soft-deletion controls.",
-    "Expenses and payments can be removed from active totals with ledger reversals and retained audit history.",
-    "Permanent trip deletion for trip creators, with dependent financial records removed transactionally.",
-    "Pending payment editing; confirmed, disputed, and cancelled payments remain immutable.",
-    "Conditional trip actions now follow trip lifecycle and active membership state.",
-    "Trip dashboard total spent now uses the backend totalSpentPaise contract.",
-    "Improved transaction limits and database write batching for remote MySQL reliability."
+    "Enhanced Edit Expense with full payer (payee) reassignment, flexible split adjustments (equal and custom unequal allocations), and real-time balance validation.",
+    "Redesigned professional PDF export with clean typography, resilient coordinate calculations, multi-page table formatting, and zero layout overlap.",
+    "Optimized API auth token refresh with OAuth 2.0 RFC 6819 rotation grace cache, offline network fault tolerance, UUID nonces, and proactive client renewal.",
+    "Preserved zero-sum ledger invariants across all expense payer and beneficiary allocation revisions."
   ],
-  "apkUrl": "https://github.com/Sugarcube08/TripCircle/releases/download/v1.2.0-alpha.1/TripCircle-v1.2.0-alpha.1-release.apk",
-  "releaseUrl": "https://github.com/Sugarcube08/TripCircle/releases/tag/v1.2.0-alpha.1",
-  "sha256": "608505b8ce3006745e341fbc01911445bed9bfe5d9416615f40455c4302ad5b3",
+  "apkUrl": "https://github.com/Sugarcube08/TripCircle/releases/download/v1.2.5/TripCircle-release.apk",
+  "releaseUrl": "https://github.com/Sugarcube08/TripCircle/releases/tag/v1.2.5",
+  "sha256": "",
   "mandatory": false,
-  "publishedAt": "2026-11-03T12:00:00.000Z"
+  "publishedAt": "2026-11-10T08:57:56.083Z"
 }
