@@ -26,14 +26,23 @@ let activeCheckPromise: Promise<UpdateCheckResult> | null = null;
 /**
  * Returns the currently installed application version and version code.
  * Inspects native container build metadata, Expo config, and bundled app.json.
+ * Guarantees that stale asset caches can never downgrade the version below
+ * the authoritative bundled app.json release.
  */
 export function getInstalledVersionInfo(): { version: string; versionCode: number } {
-  // 1. Native container build metadata (standalone APK / native build)
+  // 1. Authoritative bundled source of truth from compiled app.json
+  const bundledVersion = appConfig?.expo?.version || '1.2.5';
+  const bundledCode =
+    Platform.OS === 'android'
+      ? (appConfig?.expo?.android?.versionCode ?? 3)
+      : (appConfig?.expo?.ios?.buildNumber ? parseInt(appConfig.expo.ios.buildNumber, 10) : 3);
+
+  // 2. Native container build metadata (when available from native bridge)
   const nativeVersion = Constants.nativeAppVersion;
   const rawNativeCode = Constants.nativeBuildVersion;
   const parsedNativeCode = rawNativeCode ? parseInt(rawNativeCode, 10) : NaN;
 
-  // 2. Expo config (EAS update / Expo Go)
+  // 3. Expo config (EAS update / Expo Go)
   const expoVersion = Constants.expoConfig?.version;
   const expoCode =
     Platform.OS === 'android'
@@ -42,19 +51,21 @@ export function getInstalledVersionInfo(): { version: string; versionCode: numbe
         ? parseInt(Constants.expoConfig.ios.buildNumber, 10)
         : undefined;
 
-  // 3. Bundled configuration from app.json
-  const bundledVersion = appConfig?.expo?.version;
-  const bundledCode =
-    Platform.OS === 'android'
-      ? appConfig?.expo?.android?.versionCode
-      : 3;
+  // A release build must NEVER downgrade to a stale 1.0.0 or code 1
+  // if the compiled bundle is already at a higher version.
+  let version = bundledVersion;
+  if (nativeVersion && compareSemver(nativeVersion, bundledVersion) > 0) {
+    version = nativeVersion;
+  } else if (expoVersion && compareSemver(expoVersion, bundledVersion) > 0) {
+    version = expoVersion;
+  }
 
-  const version = nativeVersion || expoVersion || bundledVersion || '1.2.5';
-  const versionCode =
-    (!isNaN(parsedNativeCode) && parsedNativeCode > 0 ? parsedNativeCode : undefined) ??
-    expoCode ??
-    bundledCode ??
-    3;
+  let versionCode = bundledCode;
+  if (!isNaN(parsedNativeCode) && parsedNativeCode > bundledCode) {
+    versionCode = parsedNativeCode;
+  } else if (typeof expoCode === 'number' && expoCode > bundledCode) {
+    versionCode = expoCode;
+  }
 
   return { version, versionCode };
 }

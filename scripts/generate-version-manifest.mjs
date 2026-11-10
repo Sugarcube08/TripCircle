@@ -151,19 +151,28 @@ function getJdk17Home() {
 }
 
 /**
- * Synchronizes versionCode and versionName from app.json to apps/mobile/android/app/build.gradle.
+ * Synchronizes versionCode and versionName from app.json to apps/mobile/android/app/build.gradle,
+ * and pre-populates the embedded app.config asset for expo-constants.
  */
-function syncGradleVersions(version, versionCode) {
+function syncGradleVersions(version, versionCode, appJson) {
   const gradlePath = path.join(rootDir, 'apps/mobile/android/app/build.gradle');
-  if (!fs.existsSync(gradlePath)) {
-    console.warn(`⚠️ Warning: build.gradle not found at ${gradlePath}`);
-    return;
+  if (fs.existsSync(gradlePath)) {
+    let content = fs.readFileSync(gradlePath, 'utf8');
+    content = content.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+    content = content.replace(/versionName\s+["'][^"']+["']/, `versionName "${version}"`);
+    fs.writeFileSync(gradlePath, content, 'utf8');
+    console.log(`📦 Gradle Config Synced: versionName "${version}", versionCode ${versionCode}`);
   }
-  let content = fs.readFileSync(gradlePath, 'utf8');
-  content = content.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
-  content = content.replace(/versionName\s+["'][^"']+["']/, `versionName "${version}"`);
-  fs.writeFileSync(gradlePath, content, 'utf8');
-  console.log(`📦 Gradle Config Synced: versionName "${version}", versionCode ${versionCode}`);
+
+  // Pre-populate embedded app.config asset directly so expo-constants never reads stale cache
+  const assetsDir = path.join(rootDir, 'apps/mobile/android/app/src/main/assets');
+  if (!fs.existsSync(assetsDir)) {
+    fs.mkdirSync(assetsDir, { recursive: true });
+  }
+  const embeddedAppConfigPath = path.join(assetsDir, 'app.config');
+  const serializedConfig = JSON.stringify(appJson.expo || appJson);
+  fs.writeFileSync(embeddedAppConfigPath, serializedConfig, 'utf8');
+  console.log(`📄 Embedded app.config asset synchronized (version: "${version}", versionCode: ${versionCode})`);
 }
 
 /**
@@ -175,7 +184,7 @@ function runGradleBuild(options) {
     throw new Error(`Android project directory not found at ${androidDir}`);
   }
 
-  const tasks = [];
+  const tasks = ['clean'];
   if (options.apkOnly) {
     tasks.push('assembleRelease');
   } else if (options.bundleOnly) {
@@ -329,8 +338,8 @@ function main() {
   console.log(`  TripCircle Release Orchestrator v${version} (b${versionCode})`);
   console.log(`======================================================\n`);
 
-  // 2. Synchronize build.gradle with app.json
-  syncGradleVersions(version, versionCode);
+  // 2. Synchronize build.gradle and embedded app.config with app.json
+  syncGradleVersions(version, versionCode, appJson);
 
   // 3. Read existing manifest for downgrade safety check and defaults
   const rootManifestPath = path.join(rootDir, 'version.json');
