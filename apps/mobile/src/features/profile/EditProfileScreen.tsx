@@ -40,11 +40,13 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
   const [qrUri, setQrUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string>('');
+  const [qrLoadError, setQrLoadError] = useState(false);
 
   useEffect(() => {
     if (user) {
       setName(user.name || '');
       setPhone(user.phone || '');
+      setQrLoadError(false);
     }
   }, [user]);
 
@@ -280,10 +282,25 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
                   <Image source={{ uri: qrUri }} style={styles.qrPreviewImage} resizeMode="contain" />
                   <Text style={styles.newBadgeText}>New QR Selected (Unsaved)</Text>
                 </View>
-              ) : resolveMediaUrl(user?.paymentQrUrl) ? (
+              ) : resolveMediaUrl(user?.paymentQrUrl) && !qrLoadError ? (
                 <View style={styles.qrPreviewWrapper}>
-                  <Image source={{ uri: resolveMediaUrl(user.paymentQrUrl)! }} style={styles.qrPreviewImage} resizeMode="contain" />
+                  <Image
+                    source={{ uri: resolveMediaUrl(user?.paymentQrUrl)! }}
+                    style={styles.qrPreviewImage}
+                    resizeMode="contain"
+                    onError={() => setQrLoadError(true)}
+                  />
                   <Text style={styles.activeBadgeText}>Current Active QR</Text>
+                </View>
+              ) : qrLoadError ? (
+                <View style={styles.noQrBox}>
+                  <Ionicons name="alert-circle-outline" size={36} color={THEME.colors.warning} />
+                  <Text style={[styles.noQrText, { color: THEME.colors.warning }]}>
+                    Failed to preview active QR
+                  </Text>
+                  <Text style={{ fontSize: 11, color: THEME.colors.textMuted, marginTop: 4, textAlign: 'center' }}>
+                    Tap Replace QR below to re-upload.
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.noQrBox}>

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   AppState,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -137,6 +138,18 @@ export const UpdatePromptModal: React.FC = () => {
               <Ionicons name="alert-circle-outline" size={16} color={THEME.colors.debt} style={{ marginRight: 6 }} />
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
+          )}
+
+          {/* Browser Download Fallback */}
+          {errorMsg && update.releaseUrl && (
+            <TouchableOpacity
+              style={styles.browserFallbackBtn}
+              onPress={() => Linking.openURL(update.releaseUrl!)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="open-outline" size={15} color={THEME.colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.browserFallbackText}>Open Release Page in Browser</Text>
+            </TouchableOpacity>
           )}
 
           {/* Actions */}
@@ -305,6 +318,23 @@ const styles = StyleSheet.create({
     color: THEME.colors.debt,
     flex: 1,
     lineHeight: 16,
+  },
+  browserFallbackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: THEME.colors.primaryLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 160, 0.25)',
+  },
+  browserFallbackText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.primary,
   },
   actionsRow: {
     flexDirection: 'row',

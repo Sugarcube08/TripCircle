@@ -172,8 +172,8 @@ export async function checkForAppUpdate(): Promise<UpdateCheckResult> {
 }
 
 /**
- * Downloads the released APK with SHA-256 integrity verification
- * or opens the release URL in the system browser.
+ * Downloads the released APK with HTTP validation, size/magic-byte checks,
+ * SHA-256 integrity verification, and fallback to system browser.
  */
 export async function downloadAndInstallUpdate(
   update: VersionManifest,
@@ -218,20 +218,60 @@ export async function downloadAndInstallUpdate(
 
   const downloadResult = await downloadResumable.downloadAsync();
   if (!downloadResult || !downloadResult.uri) {
+    if (update.releaseUrl) {
+      await Linking.openURL(update.releaseUrl).catch(() => {});
+    }
     throw new Error('Failed to download update APK file.');
   }
 
-  // 2. Validate file existence and non-empty size
-  const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
-  if (!fileInfo.exists || fileInfo.size === 0) {
-    throw new Error('Downloaded APK is empty or corrupted.');
+  // 2. Validate HTTP status code
+  if (downloadResult.status && (downloadResult.status < 200 || downloadResult.status >= 300)) {
+    await FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
+    if (update.releaseUrl) {
+      await Linking.openURL(update.releaseUrl).catch(() => {});
+    }
+    throw new Error(
+      `Update package is not yet available for direct download (HTTP ${downloadResult.status}). Opening release page...`
+    );
   }
 
-  // 3. Cryptographic SHA-256 verification (if configured in manifest)
+  // 3. Validate file existence and minimum realistic APK size (> 1MB)
+  const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+  if (!fileInfo.exists || fileInfo.size < 1024 * 1024) {
+    await FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
+    if (update.releaseUrl) {
+      await Linking.openURL(update.releaseUrl).catch(() => {});
+    }
+    throw new Error(
+      `Downloaded update package is incomplete or corrupted (${fileInfo.exists ? (fileInfo.size / 1024).toFixed(1) : 0} KB). Opening release page...`
+    );
+  }
+
+  // 4. Validate ZIP archive magic bytes ('PK\x03\x04' -> base64 'UEsDBA')
+  try {
+    const headerBase64 = await FileSystem.readAsStringAsync(downloadResult.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+      length: 8,
+      position: 0,
+    });
+    if (!headerBase64 || !headerBase64.startsWith('UEs')) {
+      await FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
+      if (update.releaseUrl) {
+        await Linking.openURL(update.releaseUrl).catch(() => {});
+      }
+      throw new Error('Downloaded file is not a valid Android APK package. Opening release page...');
+    }
+  } catch (err: any) {
+    if (err.message?.includes('not a valid Android APK')) throw err;
+    // Non-fatal if header read unsupported; continue to sha256 check
+  }
+
+  // 5. Cryptographic SHA-256 verification (if configured in manifest)
   if (
     update.sha256 &&
     !update.sha256.startsWith('REPLACE') &&
-    !update.sha256.startsWith('ACTUAL')
+    !update.sha256.startsWith('ACTUAL') &&
+    update.sha256.length === 64
   ) {
     const base64Content = await FileSystem.readAsStringAsync(downloadResult.uri, {
       encoding: FileSystem.EncodingType.Base64,
@@ -245,6 +285,9 @@ export async function downloadAndInstallUpdate(
 
     if (computedHash.toLowerCase() !== update.sha256.toLowerCase()) {
       await FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
+      if (update.releaseUrl) {
+        await Linking.openURL(update.releaseUrl).catch(() => {});
+      }
       throw new Error(
         `Integrity check failed: APK checksum mismatch.\nExpected: ${update.sha256.substring(
           0,
@@ -254,20 +297,20 @@ export async function downloadAndInstallUpdate(
     }
   }
 
-  // 4. Resolve content URI via FileSystemFileProvider and hand off to installer
+  // 6. Resolve content URI via FileSystemFileProvider and launch installer
   try {
     const contentUri = await FileSystem.getContentUriAsync(downloadResult.uri);
     await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
       data: contentUri,
       type: 'application/vnd.android.package-archive',
-      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      flags: 1 | 268435456, // FLAG_GRANT_READ_URI_PERMISSION | FLAG_ACTIVITY_NEW_TASK
     });
   } catch {
-    // If IntentLauncher is not permitted or unavailable, fallback to opening release URL in browser
+    // If IntentLauncher fails or package installer is restricted, fallback to browser
     if (update.releaseUrl) {
       await Linking.openURL(update.releaseUrl);
     } else {
-      throw new Error('Please open your file manager to install the downloaded APK.');
+      throw new Error('Please open your Downloads folder to install the updated APK.');
     }
   }
 }

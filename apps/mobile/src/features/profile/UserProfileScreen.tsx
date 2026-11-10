@@ -40,6 +40,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [profile, setProfile] = useState<any>(user);
   const [loading, setLoading] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [qrImageError, setQrImageError] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   // Compute verified live account metrics from local cache & authoritative backend service
@@ -232,6 +233,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             style={styles.optionRow}
             onPress={async () => {
               if (profile?.paymentQrUrl) {
+                setQrImageError(false);
                 setQrModalVisible(true);
               } else {
                 const setup = await dialog.confirm(
@@ -330,12 +332,23 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               Trip members scan this code to pay you back directly.
             </Text>
 
-            {resolveMediaUrl(profile?.paymentQrUrl) ? (
+            {qrImageError ? (
+              <View style={[styles.qrImageContainer, { padding: 24, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="alert-circle-outline" size={44} color={THEME.colors.debt} />
+                <Text style={{ color: THEME.colors.debt, marginTop: 10, textAlign: 'center', fontSize: 13, fontWeight: '700' }}>
+                  Unable to load QR image
+                </Text>
+                <Text style={{ color: THEME.colors.textMuted, marginTop: 4, textAlign: 'center', fontSize: 12 }}>
+                  Please re-upload your payment QR code via Edit Profile.
+                </Text>
+              </View>
+            ) : resolveMediaUrl(profile?.paymentQrUrl) ? (
               <View style={styles.qrImageContainer}>
                 <Image
                   source={{ uri: resolveMediaUrl(profile.paymentQrUrl)! }}
                   style={styles.qrImage}
                   resizeMode="contain"
+                  onError={() => setQrImageError(true)}
                 />
               </View>
             ) : null}

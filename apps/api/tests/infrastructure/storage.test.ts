@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { NextRequest } from 'next/server';
 import { generateStorageKey, getSafeExtension } from '../../src/infrastructure/storage/key-generator';
 import { StorageService, extractStorageKey } from '../../src/infrastructure/storage';
 import { prisma } from '../../src/lib/prisma';
 import { getEnv } from '../../src/lib/env';
+import { GET as fileRouteGet } from '../../src/app/api/v1/files/[...fileId]/route';
 
 describe('Cloudflare R2 & Storage Infrastructure Tests', () => {
   describe('Logical Object-Key Generation', () => {
@@ -282,6 +284,103 @@ describe('Cloudflare R2 & Storage Infrastructure Tests', () => {
 
       // Clean up after test
       await StorageService.deleteMediaByUrl(secondCover.storageKey);
+    });
+  });
+
+  describe('File Serving Route Handler: GET /api/v1/files/[...fileId]', () => {
+    let testUser: any;
+    let testTrip: any;
+
+    beforeAll(async () => {
+      testUser = await prisma.user.create({
+        data: {
+          email: `files-route-${Date.now()}@tripcircle.test`,
+          name: 'Files Route User',
+          passwordHash: 'dummyhash123',
+          isEmailVerified: true,
+        },
+      });
+
+      testTrip = await prisma.trip.create({
+        data: {
+          name: 'Files Route Trip',
+          creatorId: testUser.id,
+          startDate: new Date(),
+        },
+      });
+    });
+
+    afterAll(async () => {
+      if (testTrip?.id) {
+        await prisma.fileMetadata.deleteMany({ where: { tripId: testTrip.id } }).catch(() => {});
+        await prisma.trip.delete({ where: { id: testTrip.id } }).catch(() => {});
+      }
+      if (testUser?.id) {
+        await prisma.fileMetadata.deleteMany({ where: { userId: testUser.id } }).catch(() => {});
+        await prisma.user.delete({ where: { id: testUser.id } }).catch(() => {});
+      }
+    });
+
+    it('serves multi-segment avatar file without auth and streams binary buffer', async () => {
+      const avatarUpload = await StorageService.uploadDirect({
+        userId: testUser.id,
+        buffer: Buffer.from('test-avatar-binary-image-data'),
+        originalName: 'profile.jpg',
+        mimeType: 'image/jpeg',
+        category: 'AVATAR',
+      });
+
+      const segments = avatarUpload.storageKey.split('/');
+      const req = new NextRequest(`http://localhost:3000/api/v1/files/${avatarUpload.storageKey}`);
+
+      const res = await fileRouteGet(req, { params: { fileId: segments } });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toBe('image/jpeg');
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+
+      const arrayBuffer = await res.arrayBuffer();
+      const text = Buffer.from(arrayBuffer).toString();
+      expect(text).toBe('test-avatar-binary-image-data');
+
+      await StorageService.deleteMediaByUrl(avatarUpload.storageKey);
+    });
+
+    it('serves payment QR code without auth token', async () => {
+      const qrUpload = await StorageService.uploadDirect({
+        userId: testUser.id,
+        buffer: Buffer.from('test-qr-binary-data'),
+        originalName: 'my-upi-qr.png',
+        mimeType: 'image/png',
+        category: 'PAYMENT_QR',
+      });
+
+      const segments = qrUpload.storageKey.split('/');
+      const req = new NextRequest(`http://localhost:3000/api/v1/files/${qrUpload.storageKey}`);
+
+      const res = await fileRouteGet(req, { params: { fileId: segments } });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toBe('image/png');
+
+      await StorageService.deleteMediaByUrl(qrUpload.storageKey);
+    });
+
+    it('rejects unauthenticated requests for private receipts with 401', async () => {
+      const receiptUpload = await StorageService.uploadDirect({
+        userId: testUser.id,
+        tripId: testTrip.id,
+        buffer: Buffer.from('secret-receipt-data'),
+        originalName: 'receipt.pdf',
+        mimeType: 'application/pdf',
+        category: 'EXPENSE_RECEIPT',
+      });
+
+      const segments = receiptUpload.storageKey.split('/');
+      const req = new NextRequest(`http://localhost:3000/api/v1/files/${receiptUpload.storageKey}`);
+
+      const res = await fileRouteGet(req, { params: { fileId: segments } });
+      expect(res.status).toBe(401);
+
+      await StorageService.deleteMediaByUrl(receiptUpload.storageKey);
     });
   });
 });

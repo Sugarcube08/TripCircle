@@ -1,8 +1,8 @@
 import { getApiBaseUrl } from '../services/api';
 
 /**
- * Resolves any relative media URL (such as /api/v1/files/...) to an absolute URL
- * using the configured API base URL from .env (EXPO_PUBLIC_API_URL).
+ * Resolves any media URL or storage key to an absolute, network-accessible URL
+ * using the configured API base URL (EXPO_PUBLIC_API_URL).
  * Returns undefined if no URL is provided.
  */
 export function resolveMediaUrl(url?: string | null): string | undefined {
@@ -10,7 +10,7 @@ export function resolveMediaUrl(url?: string | null): string | undefined {
   const trimmed = url.trim();
   if (!trimmed) return undefined;
 
-  // Local device URIs (from camera/gallery or local cache)
+  // 1. Local device URIs (from camera/gallery or local cache)
   if (
     trimmed.startsWith('file://') ||
     trimmed.startsWith('content://') ||
@@ -30,31 +30,45 @@ export function resolveMediaUrl(url?: string | null): string | undefined {
     origin = '';
   }
 
-  // Handle loopback URLs created in local dev environments (localhost / 127.0.0.1 / 10.0.2.2)
+  // 2. Raw storage key stored directly in DB (e.g. "users/.../avatars/...", "temp/registration-qr/...")
   if (
-    origin &&
-    (trimmed.includes('localhost:') ||
-      trimmed.includes('127.0.0.1:') ||
-      trimmed.includes('10.0.2.2:'))
+    trimmed.startsWith('users/') ||
+    trimmed.startsWith('trips/') ||
+    trimmed.startsWith('temp/') ||
+    trimmed.startsWith('uploads/')
   ) {
+    return origin
+      ? `${origin}/api/v1/files/${trimmed}`
+      : `/api/v1/files/${trimmed}`;
+  }
+
+  // 3. Re-anchor ANY TripCircle file URL to the currently configured mobile API origin.
+  // This guarantees that URLs saved during local development (localhost:3000, 10.0.2.2, 127.0.0.1, LAN IPs)
+  // or older deployment URLs are transparently routed through the active backend server.
+  if (origin && (trimmed.includes('/api/v1/files/') || trimmed.includes('/files/'))) {
     try {
       const parsedUrl = new URL(trimmed);
       return `${origin}${parsedUrl.pathname}${parsedUrl.search}`;
     } catch {
-      const pathOnly = trimmed.replace(/^https?:\/\/[^/]+/, '');
-      return `${origin}${pathOnly}`;
+      const filesIdx = trimmed.indexOf('/api/v1/files/');
+      if (filesIdx !== -1) {
+        return `${origin}${trimmed.substring(filesIdx)}`;
+      }
+      const shortFilesIdx = trimmed.indexOf('/files/');
+      if (shortFilesIdx !== -1) {
+        return `${origin}/api/v1${trimmed.substring(shortFilesIdx)}`;
+      }
     }
   }
 
-  // Absolute external URLs (e.g. S3 / R2 direct public URLs or DiceBear)
+  // 4. Absolute external URLs (e.g. S3 / R2 direct public URLs or external CDNs)
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
 
-  // Relative URLs
+  // 5. Relative URLs
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 
-  // If path already starts with /api/, append to origin to avoid /api/v1/api/v1 duplication
   if (cleanPath.startsWith('/api/') && origin) {
     return `${origin}${cleanPath}`;
   }

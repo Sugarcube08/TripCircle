@@ -37,6 +37,7 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
   const [plan, setPlan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [qrImageError, setQrImageError] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState(false);
 
   useEffect(() => {
@@ -213,7 +214,10 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
         {member?.user?.paymentQrUrl ? (
           <TouchableOpacity
             style={styles.qrBtn}
-            onPress={() => setQrModalVisible(true)}
+            onPress={() => {
+              setQrImageError(false);
+              setQrModalVisible(true);
+            }}
             activeOpacity={0.85}
           >
             <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
@@ -249,11 +253,20 @@ export const MemberProfileScreen: React.FC<MemberProfileScreenProps> = ({
             </View>
 
             <View style={styles.qrContainer}>
-              {resolveMediaUrl(member?.user?.paymentQrUrl) ? (
+              {qrImageError ? (
+                <View style={styles.qrErrorBox}>
+                  <Ionicons name="alert-circle-outline" size={44} color={THEME.colors.warning} />
+                  <Text style={styles.qrErrorTitle}>Failed to load QR code</Text>
+                  <Text style={styles.qrErrorSubtitle}>
+                    The QR image could not be loaded from storage.
+                  </Text>
+                </View>
+              ) : resolveMediaUrl(member?.user?.paymentQrUrl) ? (
                 <Image
                   source={{ uri: resolveMediaUrl(member?.user?.paymentQrUrl)! }}
                   style={styles.qrImage}
                   resizeMode="contain"
+                  onError={() => setQrImageError(true)}
                 />
               ) : null}
             </View>
@@ -539,6 +552,23 @@ const styles = StyleSheet.create({
   qrImage: {
     width: '100%',
     height: '100%',
+  },
+  qrErrorBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  qrErrorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+    marginTop: 8,
+  },
+  qrErrorSubtitle: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 4,
   },
   verifyCallout: {
     flexDirection: 'row',
